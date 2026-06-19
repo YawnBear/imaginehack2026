@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   GreenGuard Cloud — "Red Broadcast" design tokens (Tailwind v4 @theme).
+   Clean, grid-driven, red-accented, low-elevation. Red used sparingly.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* Brand / accent */
+  --color-brand: #ff0000; /* Broadcast Red — critical / live / primary accent */
+  --color-brand-hover: #cc0000;
+  --color-link: #065fd4; /* Link Blue */
+
+  /* Neutrals */
+  --color-ink: #0f0f0f; /* text primary / near-black */
+  --color-muted: #606060; /* secondary text, metadata, icons */
+  --color-border: #e5e5e5; /* dividers, card outlines */
+  --color-surface: #f2f2f2; /* chip bar, hover, inputs */
+  --color-canvas: #ffffff;
+
+  /* Semantic */
+  --color-success: #2ba640;
+  --color-warning: #fb8c00;
+  --color-danger: #ff0000;
+
+  /* Severity */
+  --color-sev-critical: #ff0000;
+  --color-sev-high: #fb8c00;
+  --color-sev-medium: #065fd4;
+  --color-sev-low: #606060;
+
+  /* Fonts (wired from next/font in layout.tsx) */
+  --font-sans: var(--font-roboto), system-ui, sans-serif;
+  --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
+
+  /* Elevation */
+  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-e2: 0 4px 32px rgba(0, 0, 0, 0.1);
+  --shadow-e3: 0 8px 40px rgba(0, 0, 0, 0.2);
+}
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f0f0f;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Utility: 2-line clamp for list titles */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tracking-label {
+  letter-spacing: 0.02em;
+}
+
+/* Live pulse for the carbon counter / scan indicator */
+@keyframes gg-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.gg-pulse {
+  animation: gg-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes gg-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.gg-fade-up {
+  animation: gg-fade-up 0.28s ease-out both;
+}
+
+/* Skeleton shimmer */
+@keyframes gg-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+.gg-skeleton {
+  background: linear-gradient(90deg, #f2f2f2 25%, #e9e9e9 37%, #f2f2f2 63%);
+  background-size: 800px 100%;
+  animation: gg-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Modal scrim */
+.gg-scrim {
+  background: rgba(15, 15, 15, 0.5);
 }
