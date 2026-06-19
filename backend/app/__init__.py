@@ -1,0 +1,1 @@
+"""GreenGuard Cloud backend package."""

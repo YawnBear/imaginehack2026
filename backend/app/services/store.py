@@ -1,0 +1,23 @@
+from datetime import datetime
+
+from app.schemas import ApprovalDecision, AuditLog, CloudEvent, Finding, Recommendation
+
+
+class InMemoryStore:
+    def __init__(self) -> None:
+        self.events: dict[str, CloudEvent] = {}
+        self.findings: dict[str, Finding] = {}
+        self.recommendations: dict[str, Recommendation] = {}
+        self.approvals: dict[str, ApprovalDecision] = {}
+        self.audit_logs: list[AuditLog] = []
+        self.latest_scan_at: datetime | None = None
+
+    def find_active_duplicate(self, resource_id: str, issue_type: str) -> Finding | None:
+        for finding in self.findings.values():
+            if (
+                finding.resource_id == resource_id
+                and finding.issue_type == issue_type
+                and finding.status not in {"rejected", "action_completed"}
+            ):
+                return finding
+        return None
