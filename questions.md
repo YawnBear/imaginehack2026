@@ -1,0 +1,1 @@
+1. setup connection client server to frontend
