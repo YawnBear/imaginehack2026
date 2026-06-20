@@ -47,7 +47,7 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
         <p className="text-[13px] text-muted">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
         <button onClick={openNew} className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90">+ New Agent</button>
       </div>
-      <AIAgentAssistant agents={agents} />
+      <AIAgentAssistant agents={agents} onToggle={toggle} onDelete={remove} />
       <div className="space-y-3">
         {agents.map((a) => (
           <Card key={a.agent_id}>
