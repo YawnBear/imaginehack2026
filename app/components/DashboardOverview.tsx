@@ -18,17 +18,17 @@ const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 
 function DashboardCard({ title, icon, children, onClick, hint }: DashboardCardProps) {
   const content = (
-    <>
+    <div className="w-full ">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{title}</p>
         <span className="text-muted">{icon}</span>
       </div>
       <div className="mt-2.5">{children}</div>
       {hint && <p className="mt-1.5 text-[10px] text-muted">{hint}</p>}
-    </>
+    </div>
   );
-  const classes = "h-full w-full overflow-hidden rounded-xl border border-border bg-surface-subtle p-3.5 text-left transition hover:border-[var(--color-link-border)] hover:bg-surface";
-  return onClick ? <button type="button" onClick={onClick} className={classes}>{content}</button> : <article className={classes}>{content}</article>;
+  const classes = "flex justify-between h-full w-full overflow-hidden rounded-xl border border-border bg-surface-subtle p-3.5 text-left transition hover:border-[var(--color-link-border)] hover:bg-surface";
+  return onClick ? <button type="button" onClick={onClick} className={classes}>{content}</button> : <div className={classes}>{content}</div>;
 }
 
 function categoryName(finding: Finding): string {
@@ -137,7 +137,6 @@ export default function DashboardOverview({ summary, findings, carbonHistory, us
         <div className="mt-2 min-h-0 flex-1 overflow-auto">{filtered.length === 0 ? <EmptyState /> : <table className="w-full min-w-[980px] border-collapse text-left"><thead className="sticky top-0 z-10 bg-surface-subtle"><tr className="border-b border-border text-[10px] uppercase tracking-[0.1em] text-muted"><th className="px-3 py-2 font-medium">Severity / finding</th><th className="px-3 py-2 font-medium">Affected resource</th><th className="px-3 py-2 font-medium">Category</th><th className="px-3 py-2 font-medium">Carbon impact</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium">Detected</th><th className="px-3 py-2 font-medium">Action</th></tr></thead><tbody>{filtered.map((finding) => <tr key={finding.finding_id} className="border-b border-border/70 text-[11px] last:border-0 hover:bg-surface"><td className="px-3 py-2"><div className="flex items-center gap-2"><SeverityBadge severity={finding.severity} /><p className="max-w-[220px] truncate font-medium text-ink">{finding.title ?? issueLabel(finding.issue_type)}</p></div></td><td className="px-3 py-2"><p className="max-w-[210px] truncate font-mono text-[10px] text-ink">{finding.resource_name ?? finding.resource_id}</p><p className="text-[9px] text-muted">{providerOf(finding)}</p></td><td className="px-3 py-2 text-muted">{categoryName(finding)}</td><td className="px-3 py-2 text-muted">{finding.category === "energy" || finding.issue_type === "idle_vm" || finding.issue_type === "unused_storage" ? "Applicable" : "—"}</td><td className="px-3 py-2"><StatusBadge status={finding.status} /></td><td className="px-3 py-2 text-muted">{relativeTime(finding.created_at, renderedAt)}</td><td className="px-3 py-2"><button onClick={() => setOpenFinding(finding.finding_id)} className="rounded-full bg-action px-2.5 py-1 text-[10px] font-medium text-on-action">Review</button></td></tr>)}</tbody></table>}</div>
       </section>
       {openFinding && <FindingModal findingId={openFinding} onClose={() => setOpenFinding(null)} />}
-      {agentOpen && <AIAgentInsight state={agentState} recommendations={findings.length} onClose={() => setAgentOpen(false)} />}
     </div>
   );
 }
