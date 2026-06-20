@@ -107,6 +107,64 @@ button, a, input, textarea, select { outline-offset: 2px; }
   background: var(--color-overlay);
 }
 
+@keyframes gg-pie-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.35) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes gg-line-draw {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes gg-chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gg-pie-slice {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: gg-pie-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.gg-pie-slice:hover {
+  filter: brightness(1.12);
+  transform: scale(1.035);
+}
+
+.gg-chart-line {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  animation: gg-line-draw 1.1s ease-out forwards;
+}
+
+.gg-chart-area,
+.gg-chart-point {
+  opacity: 0;
+  animation: gg-chart-fade 0.45s ease-out forwards;
+}
+
+.gg-chart-area {
+  animation-delay: 0.45s;
+}
+
 @keyframes gg-agent-float {
   0%,
   100% {
@@ -253,6 +311,10 @@ button, a, input, textarea, select { outline-offset: 2px; }
   .gg-agent-bounce,
   .gg-agent-ping-soft,
   .gg-agent-eye-scan,
+  .gg-pie-slice,
+  .gg-chart-line,
+  .gg-chart-area,
+  .gg-chart-point,
   .gg-fade-up,
   .gg-pulse,
   .gg-skeleton {

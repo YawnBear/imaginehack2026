@@ -9,7 +9,9 @@ type AgentSpeechBubbleProps = {
 const LABEL_BY_STATE: Record<AIAgentState, string> = {
   idle: "Monitoring",
   scanning: "Scanning",
+  analysing: "Analysing",
   alert: "Attention",
+  waiting_for_review: "Waiting for review",
   success: "Resolved",
 };
 

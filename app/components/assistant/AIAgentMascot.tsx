@@ -1,6 +1,12 @@
 import type { CSSProperties } from "react";
 
-export type AIAgentState = "idle" | "scanning" | "alert" | "success";
+export type AIAgentState =
+  | "idle"
+  | "scanning"
+  | "analysing"
+  | "alert"
+  | "waiting_for_review"
+  | "success";
 export type AIAgentColor = "yellow" | "orange" | "pink" | "blue" | "green";
 
 type AIAgentMascotProps = {
@@ -26,6 +32,10 @@ const EYE_BY_STATE: Record<AIAgentState, { left: string; right: string }> = {
     left: "M89 111c0-12 9-20 20-20s20 8 20 20-9 20-20 20-20-8-20-20Z",
     right: "M151 111c0-12 9-20 20-20s20 8 20 20-9 20-20 20-20-8-20-20Z",
   },
+  analysing: {
+    left: "M89 111c0-12 9-20 20-20s20 8 20 20-9 20-20 20-20-8-20-20Z",
+    right: "M151 111c0-12 9-20 20-20s20 8 20 20-9 20-20 20-20-8-20-20Z",
+  },
   alert: {
     left: "M94 98l24 24M118 98l-24 24",
     right: "M156 98l24 24M180 98l-24 24",
@@ -34,13 +44,19 @@ const EYE_BY_STATE: Record<AIAgentState, { left: string; right: string }> = {
     left: "M95 118c7 10 15 14 24 14",
     right: "M157 132c9 0 17-4 24-14",
   },
+  waiting_for_review: {
+    left: "M92 112c0-10 7-17 17-17s17 7 17 17-7 17-17 17-17-7-17-17Z",
+    right: "M154 112c0-10 7-17 17-17s17 7 17 17-7 17-17 17-17-7-17-17Z",
+  },
 };
 
 const MOUTH_BY_STATE: Record<AIAgentState, string> = {
   idle: "M116 161c9 6 17 8 24 8s15-2 24-8",
   scanning: "M119 161h42",
+  analysing: "M119 161h42",
   alert: "M117 165c8-7 15-10 23-10s15 3 23 10",
   success: "M112 153c9 14 18 20 28 20s19-6 28-20",
+  waiting_for_review: "M116 161c9 6 17 8 24 8s15-2 24-8",
 };
 
 export default function AIAgentMascot({
@@ -51,7 +67,7 @@ export default function AIAgentMascot({
   const eye = EYE_BY_STATE[state];
   const theme = FACE_THEME[color];
   const wrapperStyle = {
-    "--agent-ring-opacity": state === "scanning" ? 1 : 0.22,
+    "--agent-ring-opacity": state === "scanning" || state === "analysing" ? 1 : 0.22,
     "--agent-alert-opacity": state === "alert" ? 1 : 0,
     "--agent-success-opacity": state === "success" ? 1 : 0,
   } as CSSProperties;
@@ -72,8 +88,8 @@ export default function AIAgentMascot({
           cy="140"
           r="108"
           fill="var(--color-agent-cyan)"
-          opacity={state === "scanning" ? 0.18 : 0.08}
-          className={state === "scanning" ? "gg-agent-glow" : ""}
+          opacity={state === "scanning" || state === "analysing" ? 0.18 : 0.08}
+          className={state === "scanning" || state === "analysing" ? "gg-agent-glow" : ""}
         />
         <circle
           cx="140"
@@ -83,7 +99,7 @@ export default function AIAgentMascot({
           strokeWidth="7"
           strokeDasharray="16 16"
           opacity="var(--agent-ring-opacity)"
-          className={state === "scanning" ? "gg-agent-radar" : ""}
+          className={state === "scanning" || state === "analysing" ? "gg-agent-radar" : ""}
         />
         <circle cx="140" cy="140" r="84" fill={theme.body} />
         <circle cx="104" cy="144" r="16" fill={theme.blush} opacity="0.78" />
@@ -108,8 +124,8 @@ export default function AIAgentMascot({
 
         {state !== "alert" && (
           <>
-            <circle cx="106" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
-            <circle cx="174" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
+            <circle cx="106" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" || state === "analysing" ? "gg-agent-eye-scan" : ""} />
+            <circle cx="174" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" || state === "analysing" ? "gg-agent-eye-scan" : ""} />
           </>
         )}
 
