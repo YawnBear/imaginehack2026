@@ -31,7 +31,7 @@ The core problems are:
 3. Unused storage volumes and backups create waste.
 4. Unencrypted databases create security and compliance risk.
 5. DevOps, security, developers, finance, ESG, and project owners each have only part of the context.
-6. Existing monitoring tools often detect issues but do not provide workflow-aware recommendations, reviewer routing, approval status, or audit trails.
+6. Existing monitoring tools often detect issues but do not provide workflow-aware recommendations, reviewer routing, review status, or audit trails.
 
 GreenGuard Cloud solves this by turning cloud scan events into explainable findings, assigning reviewer ownership, estimating impact, and requiring approval before any action is taken.
 
@@ -44,9 +44,9 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 3. Generate findings with evidence, severity, and confidence.
 4. Use specialized AI agents to explain impact and recommend safe next steps.
 5. Estimate cost savings and carbon reduction where relevant.
-6. Route findings to required reviewers based on issue type, resource metadata, and risk.
+6. Route findings to the required reviewer role based on issue type, resource metadata, and risk.
 7. Support approve, reject, defer, and request-more-information decisions.
-8. Maintain a searchable audit trail for scan events, findings, recommendations, approvals, and actions.
+8. Maintain a searchable audit trail for scan events, findings, recommendations, review decisions, and actions.
 9. Provide a Next.js dashboard with security, cost, energy, and audit views.
 10. Deploy the backend on Render with a production-shaped API and database setup.
 
@@ -86,10 +86,10 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 4. Master agent routing to specialized agents.
 5. Specialized AI outputs for security, cost, energy, workflow impact, and audit readiness.
 6. Recommendation engine that combines rule evidence and AI analysis.
-7. Required reviewer assignment.
+7. Single required reviewer role assignment for the simplified demo workflow.
 8. Human approval workflow.
 9. Dashboard with overview, security, cost, energy, and audit panels.
-10. Search and filters for severity, category, approval status, owner, and resource type.
+10. Search and filters for severity, category, review status, owner, and resource type.
 11. Seed data for hackathon demo.
 
 ### Out of Scope
@@ -98,7 +98,7 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 2. Real cloud remediation execution.
 3. Direct write access to customer cloud resources.
 4. Long-running worker orchestration beyond the MVP cron ingestion job.
-5. Full RBAC implementation beyond role fields and approval checks required for the demo.
+5. Production authentication or full RBAC. The MVP uses fake role-based demo controls only.
 
 ## 6. Core User Journeys
 
@@ -108,7 +108,7 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 2. The rule engine creates a critical or high-severity finding.
 3. The security agent explains exposure risk and sensitive-data impact.
 4. The recommendation engine suggests restricting public access after owner validation.
-5. The dashboard shows required reviewers: Security and DevOps.
+5. The dashboard shows the required reviewer role: Security.
 6. The Security Officer approves, rejects, defers, or requests more information.
 7. The audit log records the decision.
 
@@ -118,8 +118,8 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 2. The rule engine creates an idle VM finding.
 3. The cost and energy agents estimate monthly savings and carbon reduction.
 4. The workflow impact agent checks application tags and project ownership.
-5. The DevOps Engineer reviews the finding and routes it to an application owner if needed.
-6. No shutdown action is marked complete until the required approval is recorded.
+5. The DevOps Engineer reviews the finding when DevOps is the assigned demo role.
+6. No shutdown action is marked complete until the required demo approval is recorded.
 
 ### Journey C: Application Owner Validates Impact
 
@@ -148,15 +148,15 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 | FR-007 | The system shall store findings with source evidence. | Must |
 | FR-008 | The system shall route findings to specialized AI agents. | Must |
 | FR-009 | AI agents shall generate explanations, impact summaries, confidence, and recommendations. | Must |
-| FR-010 | The recommendation engine shall assign severity, priority, required reviewers, and next action. | Must |
+| FR-010 | The recommendation engine shall assign severity, priority, one required reviewer role, and next action. | Must |
 | FR-011 | The system shall require human approval before remediation is recorded as completed. | Must |
-| FR-012 | Reviewers shall be able to approve, reject, defer, or request more information. | Must |
+| FR-012 | The active demo reviewer role shall be able to approve, reject, defer, or request more information. | Must |
 | FR-013 | The dashboard shall show overview metrics. | Must |
 | FR-014 | The dashboard shall show security findings. | Must |
 | FR-015 | The dashboard shall show cost findings. | Must |
 | FR-016 | The dashboard shall show energy and carbon estimates. | Must |
 | FR-017 | The dashboard shall show audit history. | Must |
-| FR-018 | The system shall support filters by severity, category, approval status, owner, and resource type. | Should |
+| FR-018 | The system shall support filters by severity, category, review status, owner, and resource type. | Should |
 | FR-019 | The system shall expose audit logs through an API endpoint. | Must |
 | FR-020 | The system shall provide seed data for a reliable demo. | Must |
 
@@ -167,8 +167,9 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 1. Cloud credentials are not required for the MVP and must not be stored in the frontend.
 2. Backend secrets must be stored as Render environment variables.
 3. The frontend may only expose public configuration such as `NEXT_PUBLIC_API_BASE_URL`.
-4. Approval mutations must be validated on the backend.
+4. Review mutations must be validated on the backend against the finding's required reviewer role.
 5. Audit records must not be editable through normal review actions.
+6. Fake RBAC is for the hackathon demo only and must not be presented as production authentication.
 
 ### Reliability
 
@@ -187,7 +188,7 @@ GreenGuard Cloud solves this by turning cloud scan events into explainable findi
 ### Safety
 
 1. AI agents must not execute cloud actions.
-2. Destructive recommendations must require stronger approval.
+2. Destructive recommendations must require explicit demo reviewer approval.
 3. Production resources must require additional owner validation.
 4. The UI must warn when an action may affect application or project workflows.
 
@@ -209,7 +210,7 @@ FastAPI Backend on Render
         +--> Master Agent Router
         +--> Specialized AI Agents
         +--> Recommendation Engine
-        +--> Approval Workflow
+        +--> Review Workflow
         +--> Audit Logger
         |
         v
@@ -219,7 +220,7 @@ Render Postgres
 Next.js App Router Frontend
         |
         v
-Security, Cost, Energy, Approval, and Audit Dashboard
+Security, Cost, Energy, Review, and Audit Dashboard
 ```
 
 ### Frontend
@@ -233,7 +234,7 @@ The frontend uses the existing Next.js app stack:
 | Language | TypeScript |
 | Styling | Tailwind CSS v4 |
 | Data access | Fetch from FastAPI backend using `NEXT_PUBLIC_API_BASE_URL` |
-| Rendering model | Server Components for initial data loading where practical; Client Components for tabs, filters, approval forms, and charts |
+| Rendering model | Server Components for initial data loading where practical; Client Components for tabs, filters, review forms, demo role controls, and charts |
 | Error states | Dashboard panels must include loading, empty, and API-error states |
 | Security | No backend secrets or cloud-provider credentials in client code |
 
@@ -242,7 +243,8 @@ Next.js implementation guidance:
 1. Keep route-level pages under `app/`.
 2. Use Server Components by default for page shells and initial dashboard data.
 3. Use Client Components only for interactive controls such as filters, tabs, modals, and review actions.
-4. If Next.js Route Handlers are added later, use them only as a backend-for-frontend proxy, not as the primary backend. The primary backend for this PRD is FastAPI on Render.
+4. Add an `/admin` route for hackathon demo controls such as selecting the active fake reviewer role and triggering seed/mock scan flows.
+5. If Next.js Route Handlers are added later, use them only as a backend-for-frontend proxy, not as the primary backend. The primary backend for this PRD is FastAPI on Render.
 
 ### Backend
 
@@ -265,14 +267,96 @@ The backend is a FastAPI service deployed as a Render Web Service.
 
 Render Postgres stores:
 
-1. Raw cloud events
-2. Normalized events
-3. Findings
-4. Agent outputs
-5. Recommendations
-6. Approval decisions
-7. Audit logs
-8. Users and role metadata for demo approval routing
+1. Cloud events
+2. Findings
+3. Recommendations with one review decision
+4. Audit logs
+
+The simplified MVP does not require `users` or `approval_decisions` tables. Fake RBAC is handled by the frontend `/admin` route and validated by role fields in the backend.
+
+Minimum tables:
+
+| Table | Purpose |
+| --- | --- |
+| `cloud_events` | Stores mock cloud scan input and normalized event data. |
+| `findings` | Stores deterministic rule output and the required reviewer role. |
+| `recommendations` | Stores the AI/rule recommendation plus one human review decision. |
+| `audit_logs` | Stores scan, ingest, finding, recommendation, review, and action history. |
+
+Minimum table fields:
+
+`cloud_events`:
+
+```text
+event_id
+provider
+account_id
+region
+resource_id
+resource_name
+resource_type
+environment
+project_id
+owner_team
+timestamp
+config JSONB
+metrics JSONB
+cost JSONB
+created_at
+```
+
+`findings`:
+
+```text
+finding_id
+source_event_id
+resource_id
+resource_type
+issue_type
+category
+severity
+status
+rule_id
+rule_confidence
+evidence JSONB
+required_reviewer_role
+created_at
+updated_at
+```
+
+`recommendations`:
+
+```text
+recommendation_id
+finding_id
+recommended_action
+rationale
+risk_level
+estimated_monthly_savings
+estimated_carbon_reduction_kg
+confidence
+agent_outputs JSONB
+safe_to_execute
+review_decision
+reviewer_role
+review_reason
+reviewed_at
+created_at
+```
+
+`audit_logs`:
+
+```text
+audit_id
+entity_type
+entity_id
+action
+actor_role
+before_state JSONB
+after_state JSONB
+metadata JSONB
+created_at
+```
 
 ### AI and Rules
 
@@ -282,7 +366,7 @@ The MVP uses a hybrid model:
 2. Master agent selects relevant specialized agents.
 3. Specialized agents generate explanations and impact estimates.
 4. Recommendation engine combines rule output and agent output.
-5. Approval workflow prevents action completion until required reviewers approve.
+5. Review workflow prevents action completion until the required demo reviewer role approves.
 
 Specialized agents:
 
@@ -292,7 +376,7 @@ Specialized agents:
 | Cost Agent | Estimates monthly waste and cost savings |
 | Energy Agent | Estimates energy and carbon impact |
 | Workflow Impact Agent | Identifies app, project, environment, owner, and downtime risk |
-| Audit Agent | Checks approval requirements, traceability, and audit readiness |
+| Audit Agent | Checks review requirements, traceability, and audit readiness |
 
 ## 10. Public API Interfaces
 
@@ -361,7 +445,7 @@ Query parameters:
 | --- | --- | --- |
 | `severity` | string | `critical`, `high`, `medium`, `low` |
 | `category` | string | `security`, `cost`, `energy`, `workflow`, `audit` |
-| `status` | string | Approval or action status |
+| `status` | string | Review or action status |
 | `resource_type` | string | `bucket`, `vm`, `storage`, `database` |
 | `owner_team` | string | Owner/team filter |
 | `page` | number | 1-based page number |
@@ -385,9 +469,8 @@ Request:
 ```json
 {
   "decision": "approved",
-  "reviewer_id": "user-security-001",
   "reviewer_role": "security",
-  "reason": "Evidence confirms public access risk. DevOps approval still required before action."
+  "reason": "Evidence confirms public access risk."
 }
 ```
 
@@ -400,13 +483,15 @@ Valid decisions:
 | `deferred` | Reviewer postpones the action |
 | `needs_more_information` | Reviewer requests additional context |
 
+The backend must reject the review if `reviewer_role` does not match the finding's `required_reviewer_role`. Accepted reviews update the linked recommendation's review fields and write an `audit_logs` record with `entity_type = review`.
+
 Response:
 
 ```json
 {
   "finding_id": "find-001",
-  "status": "pending_review",
-  "required_reviewers_remaining": ["devops"],
+  "status": "approved",
+  "review_decision": "approved",
   "audit_id": "audit-101"
 }
 ```
@@ -443,12 +528,12 @@ Response:
 | `issue_type` | string | Public bucket, idle VM, unused storage, or unencrypted DB |
 | `category` | string | Security, cost, energy, workflow, or audit |
 | `severity` | string | Critical, high, medium, or low |
-| `status` | string | Current approval/action status |
+| `status` | string | Current review/action status |
 | `rule_id` | string | Triggered deterministic rule |
 | `evidence` | object | Supporting facts |
 | `rule_confidence` | number | Confidence in deterministic detection |
 | `ai_confidence` | number | Confidence in AI recommendation |
-| `required_reviewers` | string[] | Required reviewer roles |
+| `required_reviewer_role` | string | One required demo reviewer role |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
 
@@ -465,29 +550,21 @@ Response:
 | `estimated_carbon_reduction_kg` | number | Estimated CO2e reduction |
 | `confidence` | number | Recommendation confidence |
 | `agent_outputs` | object | Summaries from specialized agents |
-| `safe_to_execute` | boolean | Must remain false until approvals are complete |
-
-### `ApprovalDecision`
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `approval_id` | string | Unique approval decision ID |
-| `finding_id` | string | Linked finding |
-| `decision` | string | Approved, rejected, deferred, or needs more information |
-| `reviewer_id` | string | User making the decision |
-| `reviewer_role` | string | Reviewer role |
-| `reason` | string | Decision rationale |
-| `created_at` | datetime | Decision timestamp |
+| `safe_to_execute` | boolean | Must remain false until the required demo review is approved |
+| `review_decision` | string | `approved`, `rejected`, `deferred`, `needs_more_information`, or null |
+| `reviewer_role` | string | Demo role that submitted the review decision |
+| `review_reason` | string | Review rationale |
+| `reviewed_at` | datetime | Review decision timestamp |
 
 ### `AuditLog`
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `audit_id` | string | Unique audit log ID |
-| `entity_type` | string | Event, finding, recommendation, approval, or action |
+| `entity_type` | string | Scan, event, finding, recommendation, review, or action |
 | `entity_id` | string | Linked entity ID |
 | `action` | string | Action performed |
-| `actor_id` | string | User or system actor |
+| `actor_role` | string | Demo role or system actor |
 | `before_state` | object | State before change |
 | `after_state` | object | State after change |
 | `metadata` | object | Additional context |
@@ -499,7 +576,7 @@ Response:
 | --- | --- | --- |
 | `active_findings` | number | Total active findings |
 | `critical_findings` | number | Count of critical findings |
-| `pending_approvals` | number | Count awaiting review |
+| `pending_reviews` | number | Count awaiting review |
 | `approved_actions` | number | Count approved |
 | `estimated_monthly_savings` | number | Total projected savings |
 | `estimated_carbon_reduction_kg` | number | Total projected CO2e reduction |
@@ -507,14 +584,16 @@ Response:
 | `findings_by_category` | object | Category counts |
 | `findings_by_severity` | object | Severity counts |
 
+`latest_scan_at` is derived from the latest `audit_logs` row where `entity_type = scan` and `action = scan_completed`.
+
 ## 12. Rule Engine Requirements
 
-| Rule | Trigger | Severity Default | Required Reviewers |
+| Rule | Trigger | Severity Default | Required Reviewer Role |
 | --- | --- | --- | --- |
-| Public bucket | `resource_type = bucket` and `config.public_access = true` | Critical for production, high otherwise | Security, DevOps |
-| Idle VM | `resource_type = vm` and low CPU/network usage over threshold window | Medium by default, high if production | DevOps, Application Owner if app-linked |
-| Unused storage | `resource_type = storage` and unattached or no read/write activity | Medium | DevOps, Project Owner, Compliance if sensitive |
-| Unencrypted DB | `resource_type = database` and `config.encrypted = false` | High, critical if production | Security, DevOps, Application Owner, DBA |
+| Public bucket | `resource_type = bucket` and `config.public_access = true` | Critical for production, high otherwise | Security |
+| Idle VM | `resource_type = vm` and low CPU/network usage over threshold window | Medium by default, high if production | DevOps |
+| Unused storage | `resource_type = storage` and unattached or no read/write activity | Medium | Project Owner |
+| Unencrypted DB | `resource_type = database` and `config.encrypted = false` | High, critical if production | DBA |
 
 Deduplication rule: if an active finding already exists for the same `resource_id`, `issue_type`, and source scan window, the backend updates evidence and timestamps instead of creating a duplicate active finding.
 
@@ -526,7 +605,7 @@ Must show:
 
 1. Total active findings
 2. Critical findings
-3. Pending approvals
+3. Pending reviews
 4. Approved actions
 5. Estimated monthly cost savings
 6. Estimated carbon reduction
@@ -543,8 +622,8 @@ Must show public bucket and unencrypted database findings with:
 3. Severity
 4. Evidence
 5. Explanation
-6. Required reviewers
-7. Approval status
+6. Required reviewer role
+7. Review status
 8. Recommended action
 
 ### Cost Panel
@@ -555,8 +634,8 @@ Must show idle VM and unused storage findings with:
 2. Estimated savings
 3. Optimization strategy
 4. Risk level
-5. Required reviewers
-6. Approval status
+5. Required reviewer role
+6. Review status
 
 ### Energy Panel
 
@@ -575,17 +654,26 @@ Must show:
 1. Scan event history
 2. Finding history
 3. Recommendation history
-4. Approval history
+4. Review history
 5. Action history
 6. Before and after states where available
+
+### Admin Route
+
+The frontend shall include an `/admin` route for hackathon-only demo controls:
+
+1. Select the active fake reviewer role.
+2. Trigger or seed mock scan events.
+3. Show the latest scan status from audit logs.
+4. Clearly label these controls as demo-only and not production authentication.
 
 ## 14. Five-Member Task Division
 
 | Member | Role | Main Responsibilities | Deliverables | Depends On |
 | --- | --- | --- | --- | --- |
-| Member 1 | Product / UX Lead | Own PRD polish, personas, user flows, dashboard wireframes, demo story, success metrics, reviewer-role definitions | Final PRD, wireframe checklist, demo script, acceptance checklist | All members for feasibility feedback |
-| Member 2 | Frontend Engineer | Build Next.js dashboard with overview, security, cost, energy, audit, filters, finding details, approval UI, loading and error states | Working Next.js UI connected to API, reusable dashboard components, frontend env config | Member 3 API contract, Member 1 wireframes |
-| Member 3 | Backend / API Engineer | Build FastAPI service, database models, migrations, REST endpoints, approval workflow, audit logger, CORS, health check | Render-ready FastAPI backend, API schemas, database migration, seed endpoint or seed script | Member 4 rule outputs, Member 5 Render env |
+| Member 1 | Product / UX Lead | Own PRD polish, personas, user flows, dashboard wireframes, demo story, success metrics, and demo reviewer-role definitions | Final PRD, wireframe checklist, demo script, acceptance checklist | All members for feasibility feedback |
+| Member 2 | Frontend Engineer | Build Next.js dashboard with overview, security, cost, energy, audit, filters, finding details, review UI, loading and error states | Working Next.js UI connected to API, reusable dashboard components, frontend env config | Member 3 API contract, Member 1 wireframes |
+| Member 3 | Backend / API Engineer | Build FastAPI service, database models, migrations, REST endpoints, review workflow, audit logger, CORS, health check | Render-ready FastAPI backend, API schemas, database migration, seed endpoint or seed script | Member 4 rule outputs, Member 5 Render env |
 | Member 4 | AI / Rules Engineer | Build mock event ingestion data, normalization, four deterministic rules, master-agent routing, specialized agent outputs, scoring, recommendation generation | Rule engine, sample events, agent output format, scoring logic, recommendation generator | Member 3 DTOs, Member 1 risk rules |
 | Member 5 | QA / DevOps / Integration | Configure Render service, Render Postgres, Render Cron Job, environment variables, seed data, integration tests, demo reliability checks | Render deployment checklist, seeded demo environment, test report, runbook | Members 2 and 3 deployable services |
 
@@ -599,7 +687,7 @@ Must show:
    - Overview dashboard
    - Finding list
    - Finding detail
-   - Approval modal or panel
+   - Review modal or panel
    - Audit log
 4. Write demo script with at least four findings, one per rule.
 5. Define acceptance checklist for final presentation.
@@ -619,13 +707,13 @@ Must show:
 
 1. Create FastAPI application structure.
 2. Define Pydantic DTOs for public API payloads.
-3. Define SQLAlchemy or SQLModel models for events, findings, recommendations, approvals, audit logs, and demo users.
+3. Define SQLAlchemy or SQLModel models for events, findings, recommendations, and audit logs.
 4. Add Alembic migrations.
 5. Implement endpoints listed in this PRD.
 6. Add CORS configuration for local and deployed frontend origins.
 7. Add `/healthz` endpoint.
-8. Ensure approval decisions write audit log records.
-9. Ensure remediation status cannot become action-completed without required approval.
+8. Ensure review decisions update recommendations and write audit log records.
+9. Ensure remediation status cannot become action-completed without the required demo approval.
 
 #### Member 4: AI / Rules Engineer
 
@@ -654,7 +742,7 @@ Must show:
 | Phase | Outcome | Owners |
 | --- | --- | --- |
 | Phase 1: Contract and seed data | DTOs, API contract, mock events, wireframes | Members 1, 3, 4 |
-| Phase 2: Core vertical slice | One public bucket finding flows from ingestion to dashboard to approval to audit | Members 2, 3, 4 |
+| Phase 2: Core vertical slice | One public bucket finding flows from ingestion to dashboard to review to audit | Members 2, 3, 4 |
 | Phase 3: Complete MVP breadth | All four rules, all dashboard panels, Render deploy, reliable demo | All members |
 
 ## 16. Acceptance Criteria
@@ -664,11 +752,11 @@ Must show:
 3. The PRD explicitly specifies Next.js as frontend and Render-hosted FastAPI as backend.
 4. The PRD includes Render Postgres and Render Cron Job in the architecture.
 5. The PRD documents the required public endpoints.
-6. The PRD documents `CloudEvent`, `Finding`, `Recommendation`, `ApprovalDecision`, `AuditLog`, and `DashboardSummary`.
+6. The PRD documents `CloudEvent`, `Finding`, `Recommendation`, `AuditLog`, and `DashboardSummary`.
 7. The PRD assigns clear work to exactly five team members.
 8. The MVP scope includes four rules: public bucket, idle VM, unused storage, and unencrypted database.
 9. The PRD states that AI agents cannot directly execute remediation.
-10. The PRD includes dashboard, approval workflow, audit log, risks, and success metrics.
+10. The PRD includes dashboard, review workflow, audit log, risks, and success metrics.
 
 ## 17. Risks and Mitigations
 
@@ -689,9 +777,9 @@ Must show:
 | --- | --- |
 | Findings generated from seed data | At least 4, one per rule |
 | Dashboard panels populated | Overview, security, cost, energy, audit |
-| Approval actions supported | Approve, reject, defer, needs more information |
-| Audit completeness | Every ingest, finding, recommendation, and approval writes an audit record |
-| Recommendation explainability | Every finding includes evidence, rationale, confidence, and required reviewers |
+| Review actions supported | Approve, reject, defer, needs more information |
+| Audit completeness | Every ingest, finding, recommendation, and review writes an audit record |
+| Recommendation explainability | Every finding includes evidence, rationale, confidence, and a required reviewer role |
 | Demo reliability | Full vertical flow works from seeded event to audit log |
 | Deployment readiness | Backend can run on Render with documented env vars and start command |
 
