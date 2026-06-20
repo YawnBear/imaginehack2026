@@ -66,6 +66,25 @@ def test_scan_run_endpoint_returns_ingest_response():
     assert set(body["source_records"]) == {"cloud_events", "scanned_assets"}
 
 
+def test_scan_background_endpoint_exposes_status():
+    client = _client()
+    initial = client.get("/api/scan/status")
+    assert initial.status_code == 200
+    assert initial.json()["state"] == "idle"
+
+    started = client.post("/api/scan/run-background")
+    assert started.status_code == 202
+    body = started.json()
+    assert body["scan_id"]
+    assert body["state"] == "running"
+
+    status_res = client.get("/api/scan/status")
+    assert status_res.status_code == 200
+    status_body = status_res.json()
+    assert status_body["scan_id"] == body["scan_id"]
+    assert status_body["state"] in {"running", "succeeded", "failed"}
+
+
 def test_energy_summary_endpoint_returns_database_driven_shape():
     client = _client()
     res = client.get("/api/energy/summary")

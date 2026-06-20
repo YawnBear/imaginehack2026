@@ -12,6 +12,7 @@ from app.schemas import (
     HealthResponse,
     ReviewRequest,
     ReviewResponse,
+    ScanRunStatusResponse,
 )
 from app.services.dependencies import get_governance_service
 from app.services.governance import GovernanceService
@@ -113,6 +114,25 @@ def run_scan(
     service: GovernanceService = Depends(get_governance_service),
 ) -> EventIngestResponse:
     return service.run_scan_from_database_sources()
+
+
+@router.post(
+    "/api/scan/run-background",
+    response_model=ScanRunStatusResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["events"],
+)
+def run_scan_background(
+    service: GovernanceService = Depends(get_governance_service),
+) -> ScanRunStatusResponse:
+    return service.start_background_scan()
+
+
+@router.get("/api/scan/status", response_model=ScanRunStatusResponse, tags=["events"])
+def scan_status(
+    service: GovernanceService = Depends(get_governance_service),
+) -> ScanRunStatusResponse:
+    return service.background_scan_status()
 
 
 @router.get("/api/reviewer-roles", response_model=list[dict[str, str]], tags=["reviewers"])
