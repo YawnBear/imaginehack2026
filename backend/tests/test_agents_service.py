@@ -7,8 +7,8 @@ def _service() -> AgentService:
     return AgentService(InMemoryStore())
 
 
-def test_list_includes_seeds():
-    assert _service().list_agents().total == 5
+def test_list_starts_empty():
+    assert _service().list_agents().total == 0
 
 
 def test_create_get_update_delete():
@@ -22,7 +22,7 @@ def test_create_get_update_delete():
     assert created.output_key == "data_exposure_specialist"
     assert created.system_prompt == "You are a data exposure specialist."
     assert svc.get_agent(created.agent_id).agent_id == created.agent_id
-    assert svc.list_agents().total == 6
+    assert svc.list_agents().total == 1
     updated = svc.update_agent(created.agent_id, AgentUpdate(enabled=False), actor_id="t")
     assert updated.enabled is False
     assert updated.output_key == "data_exposure_specialist"  # immutable

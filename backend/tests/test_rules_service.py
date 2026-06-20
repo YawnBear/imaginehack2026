@@ -1,14 +1,23 @@
 from app.schemas import RuleCondition, RuleCreate, RuleUpdate
 from app.services.rules_service import RuleService
+from app.services.seed import seed_builtin_configuration
 from app.services.store import InMemoryStore
 
 
-def _service() -> RuleService:
-    return RuleService(InMemoryStore())
+def _service(*, seed_builtins: bool = False) -> RuleService:
+    store = InMemoryStore()
+    if seed_builtins:
+        seed_builtin_configuration(store, agents=False, workflows=False)
+    return RuleService(store)
 
 
-def test_list_includes_builtins():
+def test_list_starts_empty():
     res = _service().list_rules()
+    assert res.total == 0
+
+
+def test_list_includes_explicit_builtins():
+    res = _service(seed_builtins=True).list_rules()
     assert res.total == 10
 
 
@@ -32,18 +41,18 @@ def test_create_then_get():
     )
     assert created.rule_id.startswith("rule-")
     assert svc.get_rule(created.rule_id) is not None
-    assert svc.list_rules().total == 11
+    assert svc.list_rules().total == 1
 
 
 def test_update_rule():
-    svc = _service()
+    svc = _service(seed_builtins=True)
     updated = svc.update_rule("RULE_PUBLIC_BUCKET", RuleUpdate(enabled=False), actor_id="tester")
     assert updated is not None
     assert updated.enabled is False
 
 
 def test_delete_rule():
-    svc = _service()
+    svc = _service(seed_builtins=True)
     assert svc.delete_rule("RULE_IDLE_VM", actor_id="tester") is True
     assert svc.get_rule("RULE_IDLE_VM") is None
     assert svc.delete_rule("does-not-exist", actor_id="tester") is False

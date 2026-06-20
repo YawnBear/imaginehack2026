@@ -1,16 +1,20 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.services import dependencies
+from app.services.seed import seed_builtin_configuration
 
 
-def _client() -> TestClient:
+def _client(*, seed_builtins: bool = False) -> TestClient:
+    if seed_builtins:
+        seed_builtin_configuration(dependencies._store, agents=False, workflows=False)
     c = TestClient(create_app())
-    c.__enter__()  # fire startup seeding
+    c.__enter__()  # fire startup
     return c
 
 
 def test_generate_report_for_finding():
-    client = _client()
+    client = _client(seed_builtins=True)
     fid = client.get("/api/findings").json()["items"][0]["finding_id"]
     res = client.post(f"/api/findings/{fid}/threat-report")
     assert res.status_code == 200

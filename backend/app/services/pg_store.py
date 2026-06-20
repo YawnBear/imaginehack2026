@@ -41,8 +41,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.pool import NullPool
 
-from app.agents.seed_agents import builtin_agents
-from app.rules.seed_rules import builtin_rules
 from app.schemas import (
     Activity,
     Agent,
@@ -57,7 +55,6 @@ from app.schemas import (
 )
 from app.services.cloud_event_sources import build_cloud_events_from_rows
 from app.services.scan_sources import build_scan_events_from_asset_rows
-from app.services.seed_workflows import builtin_workflows
 
 _md = MetaData()
 
@@ -331,22 +328,6 @@ class PostgresStore:
         self.audit_logs = TableList(self._engine, sc_audit_logs, AuditLog)
         self.activities = TableList(self._engine, sc_activities, Activity, gen_id=True)
         self.workflows = TableDict(self._engine, sc_workflows, "workflow_id", Workflow)
-
-        existing_rules = set(self.rules.keys())
-        for rule in builtin_rules():
-            if rule.rule_id not in existing_rules:
-                self.rules[rule.rule_id] = rule
-                existing_rules.add(rule.rule_id)
-        existing_agents = set(self.agents.keys())
-        for agent in builtin_agents():
-            if agent.output_key not in existing_agents:
-                self.agents[agent.output_key] = agent
-                existing_agents.add(agent.output_key)
-        existing_workflows = set(self.workflows.keys())
-        for workflow in builtin_workflows():
-            if workflow.workflow_id not in existing_workflows:
-                self.workflows[workflow.workflow_id] = workflow
-                existing_workflows.add(workflow.workflow_id)
 
     def _ensure_app_table_columns(self) -> None:
         with self._engine.begin() as conn:

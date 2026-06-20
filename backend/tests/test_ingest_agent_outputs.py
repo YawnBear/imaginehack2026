@@ -1,10 +1,11 @@
 from app.services.governance import GovernanceService
-from app.services.seed import demo_events
+from app.services.seed import demo_events, seed_builtin_configuration
 from app.services.store import InMemoryStore
 
 
 def _ingest():
     store = InMemoryStore()
+    seed_builtin_configuration(store, agents=False, workflows=False)
     service = GovernanceService(store)
     service.ingest_events(demo_events(), actor_id="test")
     return store

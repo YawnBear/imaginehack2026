@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from app.schemas import Recommendation, Workflow
 from app.services.governance import GovernanceService
+from app.services.seed import seed_builtin_configuration
 from app.services.store import InMemoryStore
 
 
@@ -60,6 +61,7 @@ def _cloud_row(**overrides):
 
 def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypatch):
     store = InMemoryStore()
+    seed_builtin_configuration(store, workflows=False)
     service = GovernanceService(store)
     asset_rows = [
         _asset_row(),
@@ -117,6 +119,7 @@ def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypa
 
 def test_run_scan_reprocesses_seen_sources_and_updates_existing_findings(monkeypatch):
     store = InMemoryStore()
+    seed_builtin_configuration(store, workflows=False)
     service = GovernanceService(store)
     asset_rows = [_asset_row()]
     cloud_rows = [_cloud_row()]
@@ -149,6 +152,7 @@ def test_run_scan_reprocesses_seen_sources_and_updates_existing_findings(monkeyp
 
 def test_run_scan_without_matching_workflows_does_not_run_agents(monkeypatch):
     store = InMemoryStore()
+    seed_builtin_configuration(store, agents=False, workflows=False)
     service = GovernanceService(store)
     store.scan_source_rows = lambda: [_asset_row()]
     store.cloud_event_source_rows = lambda: [_cloud_row()]

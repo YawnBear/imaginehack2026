@@ -18,8 +18,8 @@ def test_auth_required():
 
 def test_config_returns_rules_agents():
     body = _client().get("/api/agent/config", headers=H).json()
-    assert len(body["rules"]) >= 4
-    assert len(body["agents"]) >= 5
+    assert body["rules"] == []
+    assert body["agents"] == []
     assert "policy" not in body
 
 
@@ -40,5 +40,5 @@ def test_events_ingest_and_activities():
                         "timestamp": "2026-06-20T09:00:00Z"}],
     })
     assert res.status_code == 200
-    assert res.json()["created_findings"] >= 1
+    assert res.json()["created_findings"] == 0
     assert res.json()["activities_recorded"] == 1

@@ -75,3 +75,38 @@ def demo_events() -> list[CloudEvent]:
             },
         ),
     ]
+
+
+def seed_builtin_configuration(
+    store,
+    *,
+    rules: bool = True,
+    agents: bool = True,
+    workflows: bool = True,
+) -> None:
+    if rules:
+        from app.rules.seed_rules import builtin_rules
+
+        existing_rules = set(store.rules.keys())
+        for rule in builtin_rules():
+            if rule.rule_id not in existing_rules:
+                store.rules[rule.rule_id] = rule
+                existing_rules.add(rule.rule_id)
+
+    if agents:
+        from app.agents.seed_agents import builtin_agents
+
+        existing_agents = set(store.agents.keys())
+        for agent in builtin_agents():
+            if agent.output_key not in existing_agents:
+                store.agents[agent.output_key] = agent
+                existing_agents.add(agent.output_key)
+
+    if workflows:
+        from app.services.seed_workflows import builtin_workflows
+
+        existing_workflows = set(store.workflows.keys())
+        for workflow in builtin_workflows():
+            if workflow.workflow_id not in existing_workflows:
+                store.workflows[workflow.workflow_id] = workflow
+                existing_workflows.add(workflow.workflow_id)

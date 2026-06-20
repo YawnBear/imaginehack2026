@@ -5,18 +5,16 @@ from app.main import create_app
 
 def _client() -> TestClient:
     c = TestClient(create_app())
-    c.__enter__()  # fire startup so the singleton store is seeded
+    c.__enter__()  # fire startup
     return c
 
 
 def test_list_agents():
-    # >= 5 (not == 5): the API tests share the singleton store; assert the 5
-    # seeds are present rather than an exact count that other tests can perturb.
     res = _client().get("/api/agents")
     assert res.status_code == 200
     body = res.json()
-    assert body["total"] >= 5
-    assert {a["output_key"] for a in body["items"]} >= {"security", "cost", "energy", "workflow", "audit"}
+    assert body["total"] == 0
+    assert body["items"] == []
 
 
 def test_create_update_delete():

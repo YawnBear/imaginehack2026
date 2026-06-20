@@ -30,7 +30,7 @@ def _reset_singleton_store() -> None:
 
 @pytest.fixture
 def store() -> InMemoryStore:
-    """A fresh in-memory store (built-in rules pre-seeded by __init__)."""
+    """A fresh in-memory store with no built-in configuration."""
     return InMemoryStore()
 
 

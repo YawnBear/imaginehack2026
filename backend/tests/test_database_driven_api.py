@@ -4,9 +4,13 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from app.services import dependencies
+from app.services.seed import seed_builtin_configuration
 
 
-def _client() -> TestClient:
+def _client(*, seed_builtins: bool = False) -> TestClient:
+    if seed_builtins:
+        seed_builtin_configuration(dependencies._store, agents=False, workflows=False)
     client = TestClient(create_app())
     client.__enter__()
     return client
@@ -22,7 +26,7 @@ def test_settings_loads_repo_and_backend_env_files():
 
 
 def test_findings_support_backend_q_filter():
-    client = _client()
+    client = _client(seed_builtins=True)
     res = client.get("/api/findings?q=claims")
 
     assert res.status_code == 200
