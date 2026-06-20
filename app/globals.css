@@ -122,3 +122,157 @@ body {
 .gg-scrim {
   background: rgba(15, 15, 15, 0.5);
 }
+
+@keyframes gg-agent-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes gg-agent-blink {
+  0%,
+  44%,
+  100% {
+    transform: scaleY(1);
+  }
+  47%,
+  50% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes gg-agent-radar {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gg-agent-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes gg-agent-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  40% {
+    transform: translateX(3px) rotate(1deg);
+  }
+  60% {
+    transform: translateX(-2px) rotate(-0.8deg);
+  }
+  80% {
+    transform: translateX(2px) rotate(0.8deg);
+  }
+}
+
+@keyframes gg-agent-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-10px) scale(1.02);
+  }
+  60% {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@keyframes gg-agent-ping-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes gg-agent-eye-scan {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-6px);
+  }
+}
+
+.gg-agent-shell {
+  filter: drop-shadow(0 18px 35px rgba(8, 42, 67, 0.18));
+}
+
+.gg-agent-float {
+  animation: gg-agent-float 4.5s ease-in-out infinite;
+}
+
+.gg-agent-blink {
+  transform-origin: center;
+  animation: gg-agent-blink 5.5s ease-in-out infinite;
+}
+
+.gg-agent-radar {
+  transform-origin: 140px 140px;
+  animation: gg-agent-radar 6s linear infinite;
+}
+
+.gg-agent-glow {
+  animation: gg-agent-glow 1.8s ease-in-out infinite;
+}
+
+.gg-agent-shake {
+  animation: gg-agent-shake 0.48s ease-in-out infinite;
+}
+
+.gg-agent-bounce {
+  animation: gg-agent-bounce 1.8s ease-in-out infinite;
+}
+
+.gg-agent-ping-soft {
+  transform-origin: center;
+  animation: gg-agent-ping-soft 2.8s ease-in-out infinite;
+}
+
+.gg-agent-eye-scan {
+  animation: gg-agent-eye-scan 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-agent-float,
+  .gg-agent-blink,
+  .gg-agent-radar,
+  .gg-agent-glow,
+  .gg-agent-shake,
+  .gg-agent-bounce,
+  .gg-agent-ping-soft,
+  .gg-agent-eye-scan,
+  .gg-fade-up,
+  .gg-pulse,
+  .gg-skeleton {
+    animation: none !important;
+    transition: none !important;
+  }
+}

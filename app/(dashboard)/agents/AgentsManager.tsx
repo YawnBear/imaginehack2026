@@ -6,6 +6,7 @@ import type { Agent } from "@/app/lib/types";
 import { createAgent, deleteAgent, updateAgent } from "@/app/lib/api";
 import { Card } from "@/app/components/ui";
 import { useToast } from "@/app/lib/toast";
+import AIAgentAssistant from "@/app/components/assistant/AIAgentAssistant";
 
 export default function AgentsManager({ initialAgents }: { initialAgents: Agent[] }) {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
         <p className="text-[13px] text-[#606060]">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
         <button onClick={() => setOpen(true)} className="h-9 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black">+ New Agent</button>
       </div>
+      <AIAgentAssistant agents={agents} />
       <div className="space-y-3">
         {agents.map((a) => (
           <Card key={a.agent_id}>
