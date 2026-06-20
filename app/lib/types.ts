@@ -164,8 +164,6 @@ export type ConditionOperator =
   | "exists"
   | "contains";
 
-export type RuleMode = "monitor" | "manual" | "auto";
-
 export interface RuleCondition {
   field: string;
   operator: ConditionOperator;
@@ -188,8 +186,7 @@ export interface Rule {
   evidence_fields: string[];
   remediation_action_key: string;
   remediation_destructive: boolean;
-  mode: RuleMode;
-  auto_threshold: number | null;
+  agent_keys: string[];
   created_at: string;
 }
 
@@ -238,8 +235,7 @@ export interface RuleCreateBody {
   evidence_fields?: string[];
   remediation_action_key?: string;
   remediation_destructive?: boolean;
-  mode?: RuleMode;
-  auto_threshold?: number | null;
+  agent_keys?: string[];
 }
 
 export interface RulePreviewResponse {
@@ -306,9 +302,7 @@ export interface AgentPreviewResponse {
   text: string;
 }
 
-// ---- Threats + Policy (SafeCloud Phase 3) ----
-export type ResponseMode = "monitor" | "manual" | "auto";
-
+// ---- Threats (SafeCloud Phase 3) ----
 export interface TimelineEntry {
   actor: string;
   action: string;
@@ -334,24 +328,6 @@ export interface ThreatReport {
 export interface ThreatListResponse {
   items: ThreatReport[];
   total: number;
-}
-
-export interface ResponsePolicy {
-  default_mode: ResponseMode;
-  auto_threshold: number;
-  notify: string[];
-}
-
-export interface RemediationCommand {
-  command_id: string;
-  finding_id: string;
-  action_key: string;
-  destructive: boolean;
-  status: string;
-  approved_by: string[];
-  result: string;
-  created_at: string;
-  executed_at: string | null;
 }
 
 // ---- Agent online status (SafeCloud Phase 4) ----

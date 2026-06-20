@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getFinding, reviewFinding } from "@/app/lib/api";
+import { getFinding, reviewFinding, getThreatReport } from "@/app/lib/api";
 import type { FindingDetail, FindingStatus, ReviewDecision } from "@/app/lib/types";
+import type { ThreatReport } from "@/app/lib/types";
 import { usd, kg, CATEGORY_COLOR, issueLabel } from "@/app/lib/format";
 import { useSession, ROLE_LABEL, type ReviewerRole } from "@/app/lib/session";
 import { useToast } from "@/app/lib/toast";
@@ -46,6 +47,7 @@ export default function FindingModal({
   const { role, reviewerId } = useSession();
   const { toast } = useToast();
   const [detail, setDetail] = useState<FindingDetail | null>(null);
+  const [report, setReport] = useState<ThreatReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -70,6 +72,12 @@ export default function FindingModal({
     return () => {
       active = false;
     };
+  }, [findingId]);
+
+  useEffect(() => {
+    let active = true;
+    getThreatReport(findingId).then((r) => active && setReport(r.data));
+    return () => { active = false; };
   }, [findingId]);
 
   useEffect(() => {
@@ -183,6 +191,45 @@ export default function FindingModal({
           ) : (
             <>
               <SafetyBanner />
+
+              {report && (
+                <section className="rounded-lg border border-[#E5E5E5] p-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-bold text-white"
+                      style={{ background: report.criticality_score >= 80 ? "#FF0000" : report.criticality_score >= 60 ? "#FB8C00" : "#065FD4" }}
+                    >
+                      {report.criticality_score}
+                    </span>
+                    <h3 className="text-[12px] font-medium tracking-label text-[#606060]">
+                      WHY THIS TRIGGERED · criticality {report.criticality_score}/100
+                    </h3>
+                  </div>
+                  <p className="mt-2 text-[13px] leading-relaxed text-[#0F0F0F]">{report.summary}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {Object.entries(report.criticality_factors).map(([k, v]) => (
+                      <span key={k} className="rounded-full bg-[#F2F2F2] px-2 py-0.5 text-[11px] text-[#0F0F0F]">
+                        {k.replace(/_/g, " ")} +{v}
+                      </span>
+                    ))}
+                  </div>
+                  {report.timeline.length > 0 && (
+                    <>
+                      <h4 className="mt-4 text-[12px] font-medium tracking-label text-[#606060]">TIMELINE</h4>
+                      <ol className="mt-2 space-y-2 border-l border-[#E5E5E5] pl-4">
+                        {report.timeline.map((e, i) => (
+                          <li key={i} className="relative text-[13px]">
+                            <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[#065FD4]" />
+                            <span className="font-medium text-[#0F0F0F]">{e.action.replace(/_/g, " ")}</span>
+                            <span className="text-[#606060]"> · {e.actor}</span>
+                            {e.note && <span className="block text-[12px] text-[#606060]">{e.note}</span>}
+                          </li>
+                        ))}
+                      </ol>
+                    </>
+                  )}
+                </section>
+              )}
 
               {finding.explanation && (
                 <p className="text-[14px] leading-relaxed text-[#0F0F0F]">

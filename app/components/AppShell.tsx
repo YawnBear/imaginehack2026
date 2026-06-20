@@ -5,13 +5,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   IconOverview,
-  IconSecurity,
   IconCost,
   IconEnergy,
   IconAudit,
   IconRules,
   IconAgents,
   IconThreats,
+  IconWorkflows,
   IconMenu,
   IconInfo,
 } from "./icons";
@@ -25,13 +25,13 @@ import AgentStatusChip from "./AgentStatusChip";
 
 const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
-  { href: "/security", label: "Security", icon: IconSecurity },
+  { href: "/threats", label: "Threats", icon: IconThreats },
   { href: "/cost", label: "Cost", icon: IconCost },
   { href: "/energy", label: "Energy", icon: IconEnergy },
   { href: "/audit", label: "Audit", icon: IconAudit },
   { href: "/rules", label: "Rules", icon: IconRules },
   { href: "/agents", label: "Agents", icon: IconAgents },
-  { href: "/threats", label: "Threats", icon: IconThreats },
+  { href: "/workflows", label: "Workflows", icon: IconWorkflows },
 ];
 
 function BrandMark() {

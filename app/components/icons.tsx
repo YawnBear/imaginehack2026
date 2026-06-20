@@ -164,6 +164,14 @@ export const IconThreats = (p: P) => (
   </svg>
 );
 
+export const IconWorkflows = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="3" y="3" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+    <path d="M9 6h6a3 3 0 0 1 3 3v6" />
+  </svg>
+);
+
 import type { ResourceType } from "@/app/lib/types";
 export function ResourceIcon({
   type,

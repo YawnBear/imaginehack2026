@@ -9,7 +9,6 @@ import type {
   Finding,
   FindingDetail,
   Recommendation,
-  ResponsePolicy,
   Rule,
   RuleTemplate,
   ThreatReport,
@@ -500,8 +499,7 @@ export const MOCK_RULES: Rule[] = [
     evidence_fields: ["environment", "project_id", "owner_team"],
     remediation_action_key: "restrict_public_access",
     remediation_destructive: false,
-    mode: "manual",
-    auto_threshold: null,
+    agent_keys: [],
     created_at: "2026-06-20T00:00:00Z",
   },
   {
@@ -520,8 +518,7 @@ export const MOCK_RULES: Rule[] = [
     evidence_fields: ["cost.monthly_usd"],
     remediation_action_key: "stop_vm",
     remediation_destructive: true,
-    mode: "manual",
-    auto_threshold: null,
+    agent_keys: [],
     created_at: "2026-06-20T00:00:00Z",
   },
   {
@@ -540,8 +537,7 @@ export const MOCK_RULES: Rule[] = [
     evidence_fields: ["cost.monthly_usd"],
     remediation_action_key: "delete_storage",
     remediation_destructive: true,
-    mode: "manual",
-    auto_threshold: null,
+    agent_keys: [],
     created_at: "2026-06-20T00:00:00Z",
   },
   {
@@ -560,8 +556,7 @@ export const MOCK_RULES: Rule[] = [
     evidence_fields: ["environment"],
     remediation_action_key: "plan_encryption",
     remediation_destructive: false,
-    mode: "manual",
-    auto_threshold: null,
+    agent_keys: [],
     created_at: "2026-06-20T00:00:00Z",
   },
 ];
@@ -648,5 +643,3 @@ export const MOCK_THREATS: ThreatReport[] = [
     approval_status: "pending_review", ai_generated: false, generated_at: "2026-06-20T08:05:00Z",
   },
 ];
-
-export const MOCK_POLICY: ResponsePolicy = { default_mode: "auto", auto_threshold: 75, notify: [] };
