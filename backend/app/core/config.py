@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _BACKEND_ROOT.parent
 
 
 class Settings(BaseSettings):
@@ -15,8 +19,14 @@ class Settings(BaseSettings):
     agent_token: str = "safecloud-demo-agent-token"
 
     model_config = SettingsConfigDict(
-        # Read both; .env.local (last) overrides .env when present.
-        env_file=(".env", ".env.local"),
+        # Read repo-root and backend-local env files. Later files override
+        # earlier ones, while real process env still has highest priority.
+        env_file=(
+            _REPO_ROOT / ".env",
+            _BACKEND_ROOT / ".env",
+            _REPO_ROOT / ".env.local",
+            _BACKEND_ROOT / ".env.local",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )

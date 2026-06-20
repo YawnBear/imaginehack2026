@@ -1,8 +1,7 @@
 // Typed REST client for the GreenGuard Cloud backend.
 //
-// Every method gracefully falls back to bundled mock data when
-// NEXT_PUBLIC_API_BASE_URL is unset OR the network request fails, so the
-// demo renders fully with zero backend.
+// Live mode surfaces backend/API failures. Bundled mock data is available only
+// when NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true.
 
 import {
   MOCK_AGENTS,
@@ -14,7 +13,6 @@ import {
   MOCK_THREATS,
   mockFindingDetail,
 } from "./mockData";
-import { buildScanEvents } from "./scanEvents";
 import type {
   Agent,
   AgentCreateBody,
@@ -24,6 +22,7 @@ import type {
   AuditLogsResponse,
   ClashWarning,
   DashboardSummary,
+  EnergySummary,
   Finding,
   FindingDetail,
   FindingsQuery,
@@ -35,6 +34,7 @@ import type {
   RuleTemplate,
   ReviewBody,
   ReviewResponse,
+  ReviewerRoleOption,
   ThreatReport,
   Workflow,
   WorkflowCreateBody,
@@ -43,6 +43,7 @@ import type {
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const MOCK_FALLBACK_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MOCK_FALLBACK === "true";
 
 export interface ApiResult<T> {
   data: T;
@@ -53,11 +54,11 @@ export interface ApiResult<T> {
 }
 
 async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!BASE_URL) throw new Error("NEXT_PUBLIC_API_BASE_URL not set");
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
+  const url = BASE_URL ? `${BASE_URL}${path}` : path;
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(url, {
       ...init,
       signal: controller.signal,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -81,6 +82,9 @@ function ok<T>(data: T): ApiResult<T> {
   return { data, mock: false };
 }
 function fallback<T>(data: T, err: unknown): ApiResult<T> {
+  if (!MOCK_FALLBACK_ENABLED) {
+    throw err instanceof Error ? err : new Error(String(err));
+  }
   return { data, mock: true, error: err instanceof Error ? err.message : String(err) };
 }
 
@@ -95,6 +99,7 @@ function filterFindings(query: FindingsQuery): FindingsResponse {
     if (query.status && f.status !== query.status) return false;
     if (query.resource_type && f.resource_type !== query.resource_type) return false;
     if (query.owner_team && f.owner_team !== query.owner_team) return false;
+    if (query.q && !mockFindingMatches(f, query.q)) return false;
     return true;
   });
   const start = (page - 1) * pageSize;
@@ -104,6 +109,29 @@ function filterFindings(query: FindingsQuery): FindingsResponse {
     page_size: pageSize,
     total: items.length,
   };
+}
+
+function mockFindingMatches(f: Finding, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const projectId = (f.evidence?.["project_id"] ?? "") as unknown;
+  return [
+    f.resource_name,
+    f.resource_id,
+    typeof projectId === "string" ? projectId : "",
+    f.owner_team,
+    f.issue_type,
+    f.finding_id,
+    f.category,
+    f.severity,
+    f.status,
+    f.title,
+    f.explanation,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
 }
 
 export async function getHealth(): Promise<ApiResult<{ status: string }>> {
@@ -119,6 +147,23 @@ export async function getSummary(): Promise<ApiResult<DashboardSummary>> {
     return ok(await tryFetch<DashboardSummary>("/api/dashboard/summary"));
   } catch (e) {
     return fallback(MOCK_SUMMARY, e);
+  }
+}
+
+export async function getEnergySummary(): Promise<ApiResult<EnergySummary>> {
+  try {
+    return ok(await tryFetch<EnergySummary>("/api/energy/summary"));
+  } catch (e) {
+    return fallback(
+      {
+        current_footprint_kg: 0,
+        projected_footprint_kg: 0,
+        estimated_reduction_kg: MOCK_SUMMARY.estimated_carbon_reduction_kg,
+        by_resource_type: {},
+        history: [],
+      },
+      e,
+    );
   }
 }
 
@@ -174,36 +219,23 @@ export async function reviewFinding(
   }
 }
 
-// Response shape of POST /api/demo/seed and /api/events/ingest (ARCHITECTURE.md §5).
+// Response shape of POST /api/scan/run.
 export interface SeedResponse {
   accepted: number;
   created_findings: number;
   duplicate_events: number;
 }
 
-// "Run scan" — ingest a pool of fresh, construction-flavored cloud events into
-// the live rule engine via POST /api/events/ingest (same {accepted,
-// created_findings, duplicate_events} response shape as the seed endpoint).
-// The events have STABLE event_id + resource_id, so the backend dedups by
-// (resource_id, issue_type): the FIRST scan surfaces the whole pool and the
-// dashboard visibly grows; repeat scans correctly report 0 new findings.
-// Timestamps are stamped at call time (not module top) to avoid SSR/CSR
-// hydration mismatch. In mock mode we report the pool size so the toast reads
-// like a real first scan.
+// "Run scan" asks the backend to read database scan sources and ingest them
+// through the rule engine. In live mode, failures surface to the UI.
 export async function runScan(): Promise<ApiResult<SeedResponse>> {
-  const events = buildScanEvents(new Date().toISOString());
   try {
-    return ok(
-      await tryFetch<SeedResponse>("/api/events/ingest", {
-        method: "POST",
-        body: JSON.stringify({ events }),
-      }),
-    );
+    return ok(await tryFetch<SeedResponse>("/api/scan/run", { method: "POST" }));
   } catch (e) {
     return fallback(
       {
-        accepted: events.length,
-        created_findings: events.length,
+        accepted: 0,
+        created_findings: 0,
         duplicate_events: 0,
       },
       e,
@@ -437,5 +469,23 @@ export async function getAgentStatus(): Promise<ApiResult<AgentStatus>> {
   }
 }
 
-export const apiBaseConfigured = Boolean(BASE_URL);
+export async function getReviewerRoles(): Promise<ApiResult<ReviewerRoleOption[]>> {
+  try {
+    return ok(await tryFetch<ReviewerRoleOption[]>("/api/reviewer-roles"));
+  } catch (e) {
+    return fallback(
+      [
+        { role: "security", label: "Security" },
+        { role: "devops", label: "DevOps" },
+        { role: "application_owner", label: "Application Owner" },
+        { role: "project_owner", label: "Project Owner" },
+        { role: "compliance", label: "Compliance" },
+        { role: "dba", label: "Database Admin" },
+      ],
+      e,
+    );
+  }
+}
+
+export const apiBaseConfigured = true;
 export type { Finding, FindingDetail };

@@ -24,9 +24,9 @@ export const REVIEWER_ROLES = [
   "dba",
 ] as const;
 
-export type ReviewerRole = (typeof REVIEWER_ROLES)[number];
+export type ReviewerRole = (typeof REVIEWER_ROLES)[number] | (string & {});
 
-export const ROLE_LABEL: Record<ReviewerRole, string> = {
+export const ROLE_LABEL: Record<string, string> = {
   security: "Security",
   devops: "DevOps",
   application_owner: "Application Owner",
@@ -36,7 +36,7 @@ export const ROLE_LABEL: Record<ReviewerRole, string> = {
 };
 
 // A one-line description of what each role owns / is accountable for.
-export const ROLE_OWNS: Record<ReviewerRole, string> = {
+export const ROLE_OWNS: Record<string, string> = {
   security: "IAM, public access, encryption posture",
   devops: "compute, networking, infrastructure changes",
   application_owner: "app behaviour & dependent services",
@@ -44,6 +44,14 @@ export const ROLE_OWNS: Record<ReviewerRole, string> = {
   compliance: "data protection, retention, audit",
   dba: "database engines & encryption at rest",
 };
+
+export function roleLabel(role: string): string {
+  return ROLE_LABEL[role] ?? role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function roleOwns(role: string): string {
+  return ROLE_OWNS[role] ?? "review responsibility from backend rules";
+}
 
 const DEFAULT_ROLE: ReviewerRole = "security";
 const STORAGE_KEY = "greenguard.reviewer_role";
@@ -65,14 +73,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   // Hydrate from localStorage after mount (avoids SSR/client mismatch).
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved && (REVIEWER_ROLES as readonly string[]).includes(saved)) {
-        setRoleState(saved as ReviewerRole);
+    const id = window.setTimeout(() => {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved && /^[a-z][a-z0-9_]*$/.test(saved)) {
+          setRoleState(saved as ReviewerRole);
+        }
+      } catch {
+        /* localStorage unavailable - fall back to default */
       }
-    } catch {
-      /* localStorage unavailable — fall back to default */
-    }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   const setRole = useCallback((next: ReviewerRole) => {
@@ -95,7 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const value: SessionValue = {
     role,
-    roleLabel: ROLE_LABEL[role],
+    roleLabel: roleLabel(role),
     // reviewer_id is derived from the active role, e.g. "demo-security".
     reviewerId: `demo-${role}`,
     user: DEMO_USER,
@@ -118,7 +129,7 @@ export function useSession(): SessionValue {
 
 // Two-letter avatar initials from the active role.
 export function roleInitials(role: ReviewerRole): string {
-  const label = ROLE_LABEL[role];
+  const label = roleLabel(role);
   const parts = label.split(/[\s_]+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return label.slice(0, 2).toUpperCase();

@@ -8,8 +8,8 @@ const STEPS: { title: string; body: React.ReactNode }[] = [
     title: "A scan turns cloud events into findings",
     body: (
       <>
-        Hit <strong>Run scan</strong> in the header to ingest the latest mock
-        cloud events. The deterministic rule engine detects issues (public
+        Hit <strong>Run scan</strong> in the header to ingest the latest
+        database scan sources. The deterministic rule engine detects issues (public
         buckets, idle VMs, unused storage, unencrypted databases) and creates a
         finding for each.
       </>
@@ -32,7 +32,7 @@ const STEPS: { title: string; body: React.ReactNode }[] = [
     body: (
       <>
         Use the <strong>profile menu</strong> (top-right) to choose your
-        reviewer role. You only approve what your role owns — Security signs off
+        reviewer role. You only approve what your role owns - Security signs off
         on access, DBA on encryption, and so on.
       </>
     ),
@@ -43,7 +43,7 @@ const STEPS: { title: string; body: React.ReactNode }[] = [
       <>
         Record a decision with a reason. A finding clears to{" "}
         <strong>Approved</strong> only when <strong>all</strong> required
-        reviewers approve — switch roles and approve as each to walk the
+        reviewers approve - switch roles and approve as each to walk the
         multi-reviewer workflow.
       </>
     ),
@@ -55,7 +55,7 @@ const STEPS: { title: string; body: React.ReactNode }[] = [
         Every scan, finding, recommendation and decision lands in the{" "}
         <strong>Audit</strong> log with before/after state.{" "}
         <strong>
-          GreenGuard never executes cloud changes — humans do, after approval.
+          GreenGuard never executes cloud changes - humans do, after approval.
         </strong>
       </>
     ),
@@ -90,7 +90,7 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
               How to use GreenGuard
             </h2>
             <p className="mt-0.5 text-[13px] text-[#606060]">
-              AI-assisted cloud governance — explain, recommend, and approve.
+              AI-assisted cloud governance - explain, recommend, and approve.
               Humans stay in control.
             </p>
           </div>
@@ -127,7 +127,7 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
             <span>
               <strong>Safety:</strong> GreenGuard never executes any cloud change.
               It analyses and recommends; a human approves; remediation is carried
-              out by your team — every step is auditable.
+              out by your team - every step is auditable.
             </span>
           </div>
         </div>

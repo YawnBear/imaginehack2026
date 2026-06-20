@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   IconOverview,
-  IconCost,
   IconEnergy,
   IconAudit,
   IconRules,
@@ -26,7 +25,6 @@ import AgentStatusChip from "./AgentStatusChip";
 const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
   { href: "/threats", label: "Threats", icon: IconThreats },
-  { href: "/cost", label: "Cost", icon: IconCost },
   { href: "/energy", label: "Energy", icon: IconEnergy },
   { href: "/audit", label: "Audit", icon: IconAudit },
   { href: "/rules", label: "Rules", icon: IconRules },
@@ -88,12 +86,15 @@ export default function AppShell({
       const n = res.data.created_findings;
       toast(
         n > 0
-          ? `Scan complete — ${n} new finding${n === 1 ? "" : "s"} detected`
-          : "Scan complete — no new issues (estate clean)",
+          ? `Scan complete - ${n} new finding${n === 1 ? "" : "s"} detected`
+          : "Scan complete - no new issues (estate clean)",
         res.error ? "info" : "success",
       );
       // Refresh server components so counts/statuses/lists update live.
       router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast(`Scan failed: ${message}`, "error");
     } finally {
       setScanning(false);
     }
@@ -129,12 +130,12 @@ export default function AppShell({
             <span
               className={`h-2 w-2 rounded-full bg-[#2BA640] ${scanning ? "gg-pulse" : ""}`}
             />
-            <span className="hidden sm:inline">{scanning ? "Scanning…" : "Run scan"}</span>
-            <span className="sm:hidden">{scanning ? "…" : "Scan"}</span>
+            <span className="hidden sm:inline">{scanning ? "Scanning..." : "Run scan"}</span>
+            <span className="sm:hidden">{scanning ? "..." : "Scan"}</span>
           </button>
 
           <span className="hidden items-center gap-1.5 text-[12px] text-[#606060] lg:flex">
-            Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "—"}
+            Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "-"}
           </span>
 
           {/* Agent online status */}

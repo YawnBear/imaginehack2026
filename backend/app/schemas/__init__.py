@@ -14,6 +14,7 @@ from app.schemas.agents import (
 )
 from app.schemas.audit import AuditLog, AuditLogListResponse
 from app.schemas.dashboard import DashboardSummary
+from app.schemas.energy import EnergyHistoryPoint, EnergySummary
 from app.schemas.events import CloudEvent, EventIngestRequest, EventIngestResponse
 from app.schemas.findings import (
     ApprovalDecision,
@@ -67,6 +68,8 @@ __all__ = [
     "CloudEvent",
     "ConditionOperator",
     "DashboardSummary",
+    "EnergyHistoryPoint",
+    "EnergySummary",
     "EventIngestRequest",
     "EventIngestResponse",
     "Finding",

@@ -95,6 +95,20 @@ export interface DashboardSummary {
   findings_by_severity: Record<string, number>;
 }
 
+export interface EnergyHistoryPoint {
+  label: string;
+  value_kg: number;
+  timestamp?: string | null;
+}
+
+export interface EnergySummary {
+  current_footprint_kg: number;
+  projected_footprint_kg: number;
+  estimated_reduction_kg: number;
+  by_resource_type: Record<string, number>;
+  history: EnergyHistoryPoint[];
+}
+
 // Matches backend FindingDetail exactly: a nested envelope, NOT a flat finding.
 // GET /api/findings/{id} -> { finding, recommendation, approvals, audit_logs }
 export interface ApprovalDecision {
@@ -143,6 +157,7 @@ export interface FindingsQuery {
   status?: FindingStatus;
   resource_type?: ResourceType;
   owner_team?: string;
+  q?: string;
   page?: number;
   page_size?: number;
 }
@@ -300,6 +315,11 @@ export interface AgentStatus {
   online: boolean;
   last_seen: string | null;
   agent_id: string | null;
+}
+
+export interface ReviewerRoleOption {
+  role: string;
+  label: string;
 }
 
 // ---- Workflows (SafeCloud Phase 7b) ----
