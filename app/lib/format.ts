@@ -126,6 +126,17 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   audit: "var(--color-muted)",
 };
 
+// Short, plain-language role of each specialized agent, keyed by output_key.
+// Used by the Workflows pipeline cards (and reusable elsewhere). Unknown keys
+// fall back to "" so the chip still renders with just the agent name.
+export const AGENT_ROLE_BLURB: Record<string, string> = {
+  security: "exposure & data risk",
+  cost: "wasted spend & savings",
+  energy: "carbon impact",
+  workflow: "downtime & project risk",
+  audit: "audit-trail & approvals",
+};
+
 // One canonical matcher used by BOTH the top-bar suggestions dropdown and the
 // /search results page, so they always agree. Matches across resource_name,
 // resource_id, project_id, owner_team, issue_type, finding_id, category,
