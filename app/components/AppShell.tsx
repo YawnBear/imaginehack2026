@@ -26,10 +26,10 @@ const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
   { href: "/threats", label: "Threats", icon: IconThreats },
   { href: "/energy", label: "Energy", icon: IconEnergy },
-  { href: "/audit", label: "Audit", icon: IconAudit },
+  { href: "/workflows", label: "Workflows", icon: IconWorkflows },
   { href: "/rules", label: "Rules", icon: IconRules },
   { href: "/agents", label: "Agents", icon: IconAgents },
-  { href: "/workflows", label: "Workflows", icon: IconWorkflows },
+  { href: "/audit", label: "Audit", icon: IconAudit },
 ];
 
 function BrandMark() {
@@ -149,7 +149,7 @@ export default function AppShell({
           <ThemeToggle />
 
           {/* Profile / reviewer role */}
-          <ProfileMenu onHelp={() => setHelpOpen(true)} />
+          <ProfileMenu />
         </div>
       </header>
 
