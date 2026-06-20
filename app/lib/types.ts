@@ -175,7 +175,7 @@ export interface Rule {
   name: string;
   enabled: boolean;
   template_key: string;
-  resource_type: ResourceType;
+  resource_type: ResourceType | null;
   conditions: RuleCondition[];
   severity_base: Severity;
   escalate_in_prod: boolean;
@@ -222,7 +222,7 @@ export interface ClashWarning {
 
 export interface RuleCreateBody {
   name: string;
-  resource_type: ResourceType;
+  resource_type?: ResourceType;
   issue_type: string;
   category: Category;
   conditions: RuleCondition[];
@@ -244,28 +244,12 @@ export interface RulePreviewResponse {
 }
 
 // ---- Custom Agents (SafeCloud Phase 2) ----
-export type AgentLens =
-  | "exposure"
-  | "encryption"
-  | "cost"
-  | "carbon"
-  | "compliance"
-  | "workflow"
-  | "forensics";
-
-export type AgentTone = "concise" | "detailed" | "executive" | "construction-aware";
-
 export interface Agent {
   agent_id: string;
   name: string;
-  enabled: boolean;
-  lens: AgentLens;
+  system_prompt: string;
   output_key: string;
-  coverage_categories: string[];
-  coverage_issue_types: string[];
-  tone: AgentTone;
-  extra_focus: string;
-  template_key: string;
+  enabled: boolean;
   created_at: string;
 }
 
@@ -274,32 +258,10 @@ export interface AgentListResponse {
   total: number;
 }
 
-export interface AgentTemplate {
-  template_key: string;
-  name: string;
-  description: string;
-  lens: AgentLens;
-  output_key: string;
-  coverage_categories: string[];
-  coverage_issue_types: string[];
-  tone: AgentTone;
-  extra_focus: string;
-}
-
 export interface AgentCreateBody {
   name: string;
-  lens: AgentLens;
-  output_key: string;
+  system_prompt: string;
   enabled?: boolean;
-  coverage_categories?: string[];
-  coverage_issue_types?: string[];
-  tone?: AgentTone;
-  extra_focus?: string;
-  template_key?: string;
-}
-
-export interface AgentPreviewResponse {
-  text: string;
 }
 
 // ---- Threats (SafeCloud Phase 3) ----

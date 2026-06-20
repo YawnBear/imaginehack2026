@@ -19,30 +19,17 @@ def test_list_agents():
     assert {a["output_key"] for a in body["items"]} >= {"security", "cost", "energy", "workflow", "audit"}
 
 
-def test_templates():
-    res = _client().get("/api/agents/templates")
-    assert res.status_code == 200
-    assert any(t["template_key"] == "forensics_analyst" for t in res.json())
-
-
-def test_preview():
-    res = _client().post(
-        "/api/agents/preview",
-        json={"lens": "cost", "issue_type": "idle_vm", "tone": "concise", "extra_focus": ""},
-    )
-    assert res.status_code == 200
-    assert "$" in res.json()["text"]
-
-
 def test_create_update_delete():
     client = _client()
     created = client.post(
         "/api/agents",
-        json={"name": "Data Exposure Specialist", "lens": "exposure", "output_key": "data_exposure",
-              "coverage_issue_types": ["public_bucket"]},
+        json={"name": "Data Exposure Specialist",
+              "system_prompt": "You are a data exposure specialist."},
     )
     assert created.status_code == 201
-    agent_id = created.json()["agent_id"]
+    body = created.json()
+    agent_id = body["agent_id"]
+    assert body["system_prompt"] == "You are a data exposure specialist."
     patched = client.patch(f"/api/agents/{agent_id}", json={"enabled": False})
     assert patched.status_code == 200
     assert patched.json()["enabled"] is False

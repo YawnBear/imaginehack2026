@@ -10,13 +10,12 @@ def _ingest():
     return store
 
 
-def test_agent_outputs_keys_match_coverage():
+def test_agent_outputs_empty_at_ingest():
+    # No deterministic base text; AI is off in tests. The LLM fills agent_outputs
+    # lazily (and only when an AI key is configured), so at ingest it stays {}.
     store = _ingest()
-    by_issue = {f.issue_type: store.recommendations[f.finding_id] for f in store.findings.values()}
-    assert set(by_issue["public_bucket"].agent_outputs.keys()) == {"security", "workflow", "audit"}
-    assert set(by_issue["idle_vm"].agent_outputs.keys()) == {"cost", "energy", "workflow"}
-    assert set(by_issue["unused_storage"].agent_outputs.keys()) == {"cost", "energy", "audit"}
-    assert set(by_issue["unencrypted_database"].agent_outputs.keys()) == {"security", "workflow", "audit"}
+    for finding in store.findings.values():
+        assert store.recommendations[finding.finding_id].agent_outputs == {}
 
 
 def test_savings_still_preserved():
@@ -24,17 +23,3 @@ def test_savings_still_preserved():
     by_issue = {f.issue_type: store.recommendations[f.finding_id] for f in store.findings.values()}
     assert by_issue["idle_vm"].estimated_monthly_savings == 76.8
     assert by_issue["unused_storage"].estimated_monthly_savings == 28.7
-
-
-def test_disabling_an_agent_drops_its_section():
-    store = InMemoryStore()
-    store.agents["workflow"].enabled = False
-    service = GovernanceService(store)
-    service.ingest_events(demo_events(), actor_id="test")
-    bucket = next(
-        store.recommendations[f.finding_id]
-        for f in store.findings.values()
-        if f.issue_type == "public_bucket"
-    )
-    assert "workflow" not in bucket.agent_outputs
-    assert "security" in bucket.agent_outputs

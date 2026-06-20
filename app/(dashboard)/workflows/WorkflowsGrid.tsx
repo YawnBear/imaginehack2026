@@ -37,8 +37,8 @@ export default function WorkflowsGrid({ rules, agents }: { rules: Rule[]; agents
           <tr className="border-b border-[#E5E5E5]">
             <th className="px-2 py-2 text-left font-medium text-[#606060]">Rule</th>
             {agents.map((a) => (
-              <th key={a.agent_id} className="px-2 py-2 text-center font-medium text-[#606060]" title={a.name}>
-                {a.output_key}
+              <th key={a.agent_id} className="px-2 py-2 text-center font-medium text-[#606060]" title={a.output_key}>
+                {a.name}
               </th>
             ))}
           </tr>

@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   ClashWarning,
   ConditionOperator,
   Rule,
   RuleCondition,
-  RuleTemplate,
 } from "@/app/lib/types";
 import { createRule, deleteRule, previewRule, updateRule } from "@/app/lib/api";
 import { Card, SeverityBadge, Pill } from "@/app/components/ui";
@@ -19,11 +18,9 @@ const OPERATORS: ConditionOperator[] = [
 
 export default function RulesManager({
   initialRules,
-  templates,
   clashes,
 }: {
   initialRules: Rule[];
-  templates: RuleTemplate[];
   clashes: ClashWarning[];
 }) {
   const router = useRouter();
@@ -78,7 +75,7 @@ export default function RulesManager({
                 <div className="flex items-center gap-2">
                   <span className="truncate text-[14px] font-medium text-[#0F0F0F]">{rule.name}</span>
                   <SeverityBadge severity={rule.severity_base} />
-                  <Pill>{rule.resource_type}</Pill>
+                  <Pill>{rule.resource_type ?? "any"}</Pill>
                   {rule.remediation_destructive && <Pill>destructive</Pill>}
                 </div>
                 <p className="mt-0.5 truncate text-[12px] text-[#606060]">
@@ -104,7 +101,6 @@ export default function RulesManager({
 
       {wizardOpen && (
         <RuleWizard
-          templates={templates}
           onClose={() => setWizardOpen(false)}
           onCreated={(rule) => {
             setRules((rs) => [...rs, rule]);
@@ -123,66 +119,44 @@ function formatVal(v: unknown): string {
   return String(v);
 }
 
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "custom_rule";
+}
+
 function RuleWizard({
-  templates,
   onClose,
   onCreated,
 }: {
-  templates: RuleTemplate[];
   onClose: () => void;
   onCreated: (rule: Rule) => void;
 }) {
-  const [templateKey, setTemplateKey] = useState(templates[0]?.template_key ?? "custom");
-  const template = useMemo(
-    () => templates.find((t) => t.template_key === templateKey) ?? templates[0],
-    [templates, templateKey],
-  );
-
   const [name, setName] = useState("");
-  const [conditions, setConditions] = useState<RuleCondition[]>(template?.conditions ?? []);
+  const [conditions, setConditions] = useState<RuleCondition[]>([
+    { field: "", operator: "==", value: "" },
+  ]);
   const [preview, setPreview] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-
-  function applyTemplate(key: string) {
-    setTemplateKey(key);
-    const t = templates.find((x) => x.template_key === key);
-    if (t) {
-      setConditions(t.conditions.length ? t.conditions : [{ field: "", operator: "==", value: "" }]);
-      if (!name) setName(t.name);
-    }
-  }
 
   function setCond(i: number, patch: Partial<RuleCondition>) {
     setConditions((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
   }
 
   async function runPreview() {
-    if (!template) return;
     const res = await previewRule({
-      resource_type: template.resource_type,
       conditions: conditions.map((c) => ({ ...c, value: coerce(c.value) })),
     });
     setPreview(res.data.match_count);
   }
 
   async function save() {
-    if (!template || !name.trim()) return;
+    if (!name.trim()) return;
     setSaving(true);
     try {
       const res = await createRule({
         name: name.trim(),
-        template_key: template.template_key,
-        resource_type: template.resource_type,
-        issue_type: template.issue_type,
-        category: template.category,
+        issue_type: slug(name),
+        category: "security",
         conditions: conditions.map((c) => ({ ...c, value: coerce(c.value) })),
-        severity_base: template.severity_base,
-        escalate_in_prod: template.escalate_in_prod,
-        rule_confidence: template.rule_confidence,
-        required_reviewers: template.required_reviewers,
-        evidence_fields: template.evidence_fields,
-        remediation_action_key: template.remediation_action_key,
-        remediation_destructive: template.remediation_destructive,
       });
       onCreated(res.data);
     } finally {
@@ -199,18 +173,6 @@ function RuleWizard({
           <button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">✕</button>
         </div>
 
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Template</label>
-        <select
-          value={templateKey}
-          onChange={(e) => applyTemplate(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]"
-        >
-          {templates.map((t) => (
-            <option key={t.template_key} value={t.template_key}>{t.name}</option>
-          ))}
-        </select>
-        <p className="mt-1 text-[12px] text-[#606060]">{template?.description}</p>
-
         <label className="mt-4 block text-[12px] font-medium text-[#606060]">Rule name</label>
         <input
           value={name}
@@ -220,9 +182,7 @@ function RuleWizard({
         />
 
         <div className="mt-4 flex items-center justify-between">
-          <label className="text-[12px] font-medium text-[#606060]">
-            Conditions ({template?.resource_type})
-          </label>
+          <label className="text-[12px] font-medium text-[#606060]">Conditions</label>
           <button
             onClick={() => setConditions((cs) => [...cs, { field: "", operator: "==", value: "" }])}
             className="text-[12px] text-[#065FD4]"

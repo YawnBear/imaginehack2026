@@ -108,10 +108,9 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list
     return parse_response(raw, allowed)
 
 
-def build_prompt(finding: Any, base_recommendation: Any, agents: list) -> str:
+def build_prompt(finding, base_recommendation, agents) -> str:
     issue_type = getattr(finding, "issue_type", "unknown")
     severity = getattr(finding, "severity", "unknown")
-    rule_id = getattr(finding, "rule_id", "unknown")
     evidence = getattr(finding, "evidence", {}) or {}
     recommended_action = getattr(base_recommendation, "recommended_action", "")
     try:
@@ -119,37 +118,24 @@ def build_prompt(finding: Any, base_recommendation: Any, agents: list) -> str:
     except (TypeError, ValueError):
         evidence_text = str(evidence)
 
-    persona_lines = []
-    keys = []
+    blocks, keys = [], []
     for agent in agents:
         key = getattr(agent, "output_key", "")
         keys.append(key)
-        lens = getattr(agent, "lens", "")
-        name = getattr(agent, "name", key)
-        tone = getattr(agent, "tone", "concise")
-        extra = getattr(agent, "extra_focus", "") or ""
-        line = f'- "{key}": persona "{name}", lens={lens}, tone={tone}.'
-        if extra:
-            line += f" Extra focus: {extra}."
-        persona_lines.append(line)
-    personas = "\n".join(persona_lines)
+        blocks.append(f'- "{key}": {getattr(agent, "system_prompt", "")}')
+    instructions = "\n".join(blocks)
 
     return (
         "A deterministic rule engine detected a cloud governance issue.\n"
-        f"issue_type: {issue_type}\n"
-        f"severity: {severity}\n"
-        f"rule_id: {rule_id}\n"
+        f"issue_type: {issue_type}\nseverity: {severity}\n"
         f"evidence: {evidence_text}\n"
         f"deterministic_recommended_action: {recommended_action}\n\n"
-        "Write a concise, construction-aware analysis for the human reviewers, "
-        "one entry per agent below, each writing from its own lens:\n"
-        f"{personas}\n\n"
-        "Return ONLY a JSON object whose keys are exactly these agent keys: "
-        f"{keys}. Each value is one or two plain-English sentences from that "
-        "agent's perspective. Do NOT include dollar amounts, carbon figures, or "
-        "approval counts (those are provided separately). Do NOT instruct anyone "
-        "to execute the change automatically — a human approves it. "
-        'Example shape: {"security": "...", "audit": "..."}'
+        "Produce a JSON object. For each agent key below, write one or two plain-English "
+        "sentences following that agent's instruction:\n"
+        f"{instructions}\n\n"
+        f"Return ONLY a JSON object whose keys are exactly: {keys}. "
+        "Do NOT invent dollar amounts or carbon figures (those are provided separately). "
+        'Example: {"security": "..."}'
     )
 
 

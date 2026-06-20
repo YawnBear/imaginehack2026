@@ -71,7 +71,7 @@ class RuleService:
     ) -> RulePreviewResponse:
         matched: list[str] = []
         for event in self.store.events.values():
-            if event.resource_type != resource_type:
+            if resource_type is not None and event.resource_type != resource_type:
                 continue
             if all(evaluate_condition(event, condition) for condition in conditions):
                 matched.append(event.resource_id)

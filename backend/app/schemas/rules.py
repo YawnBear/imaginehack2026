@@ -22,7 +22,7 @@ class Rule(BaseModel):
     name: str
     enabled: bool = True
     template_key: str = "custom"
-    resource_type: RuleResourceType
+    resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] = Field(default_factory=list)
     severity_base: RuleSeverity = "medium"
     escalate_in_prod: bool = False
@@ -41,7 +41,7 @@ class RuleCreate(BaseModel):
     name: str
     enabled: bool = True
     template_key: str = "custom"
-    resource_type: RuleResourceType
+    resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] = Field(default_factory=list)
     severity_base: RuleSeverity = "medium"
     escalate_in_prod: bool = False
@@ -103,7 +103,7 @@ class ClashWarning(BaseModel):
 
 
 class RulePreviewRequest(BaseModel):
-    resource_type: RuleResourceType
+    resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] = Field(default_factory=list)
 
 

@@ -5,7 +5,6 @@
 // demo renders fully with zero backend.
 
 import {
-  MOCK_AGENT_TEMPLATES,
   MOCK_AGENTS,
   MOCK_AUDIT_LOGS,
   MOCK_FINDINGS,
@@ -20,9 +19,7 @@ import type {
   Agent,
   AgentCreateBody,
   AgentListResponse,
-  AgentPreviewResponse,
   AgentStatus,
-  AgentTemplate,
   AuditLog,
   AuditLogsResponse,
   ClashWarning,
@@ -291,7 +288,7 @@ export async function deleteRule(id: string): Promise<ApiResult<boolean>> {
 }
 
 export async function previewRule(body: {
-  resource_type: string;
+  resource_type?: string;
   conditions: { field: string; operator: string; value?: unknown }[];
 }): Promise<ApiResult<RulePreviewResponse>> {
   try {
@@ -312,6 +309,10 @@ function hashString(s: string): number {
   return h;
 }
 
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "agent";
+}
+
 // ---- Agents (SafeCloud Phase 2) ----
 
 export async function getAgents(): Promise<ApiResult<AgentListResponse>> {
@@ -322,28 +323,17 @@ export async function getAgents(): Promise<ApiResult<AgentListResponse>> {
   }
 }
 
-export async function getAgentTemplates(): Promise<ApiResult<AgentTemplate[]>> {
-  try {
-    return ok(await tryFetch<AgentTemplate[]>("/api/agents/templates"));
-  } catch (e) {
-    return fallback(MOCK_AGENT_TEMPLATES, e);
-  }
-}
-
 export async function createAgent(body: AgentCreateBody): Promise<ApiResult<Agent>> {
   try {
     return ok(await tryFetch<Agent>("/api/agents", { method: "POST", body: JSON.stringify(body) }));
   } catch (e) {
     return fallback(
       {
-        ...body,
         agent_id: `agent-mock-${Math.abs(hashString(body.name))}`,
+        name: body.name,
+        system_prompt: body.system_prompt,
+        output_key: slug(body.name),
         enabled: body.enabled ?? true,
-        coverage_categories: body.coverage_categories ?? [],
-        coverage_issue_types: body.coverage_issue_types ?? [],
-        tone: body.tone ?? "concise",
-        extra_focus: body.extra_focus ?? "",
-        template_key: body.template_key ?? "custom",
         created_at: new Date().toISOString(),
       } as Agent,
       e,
@@ -368,19 +358,6 @@ export async function deleteAgent(id: string): Promise<ApiResult<boolean>> {
     return ok(true);
   } catch (e) {
     return fallback(false, e);
-  }
-}
-
-export async function previewAgent(body: {
-  lens: string;
-  issue_type: string;
-  tone: string;
-  extra_focus: string;
-}): Promise<ApiResult<AgentPreviewResponse>> {
-  try {
-    return ok(await tryFetch<AgentPreviewResponse>("/api/agents/preview", { method: "POST", body: JSON.stringify(body) }));
-  } catch (e) {
-    return fallback({ text: "Preview unavailable offline." }, e);
   }
 }
 

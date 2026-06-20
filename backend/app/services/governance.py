@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.agents.ai_client import generate_agent_analysis
 from app.agents.recommendations import build_recommendation
-from app.agents.router import build_agent_outputs
+from app.agents.router import select_agents_for_finding
 from app.core.config import get_settings
 from app.rules.engine import evaluate_event
 from app.schemas import (
@@ -89,10 +89,6 @@ class GovernanceService:
                     updated_at=_now(),
                 )
                 recommendation = build_recommendation(finding)
-                recommendation.agent_outputs = build_agent_outputs(
-                    finding, recommendation, list(self.store.agents.values()),
-                    self.store.rules.get(finding.rule_id),
-                )
                 finding.ai_confidence = recommendation.confidence
 
                 self.store.findings[finding.finding_id] = finding
@@ -300,7 +296,6 @@ class GovernanceService:
         if not get_settings().ai_enabled:
             return
 
-        from app.agents.router import select_agents_for_finding
         selected = select_agents_for_finding(
             finding, list(self.store.agents.values()), self.store.rules.get(finding.rule_id)
         )

@@ -21,6 +21,7 @@ def builtin_rules() -> list[Rule]:
             evidence_fields=["environment", "project_id", "owner_team"],
             remediation_action_key="restrict_public_access",
             remediation_destructive=False,
+            agent_keys=["security", "workflow", "audit"],
             created_at=now,
         ),
         Rule(
@@ -42,6 +43,7 @@ def builtin_rules() -> list[Rule]:
             evidence_fields=["cost.monthly_usd", "config.application_id"],
             remediation_action_key="stop_vm",
             remediation_destructive=True,
+            agent_keys=["cost", "energy", "workflow"],
             created_at=now,
         ),
         Rule(
@@ -63,6 +65,7 @@ def builtin_rules() -> list[Rule]:
             evidence_fields=["cost.monthly_usd", "config.contains_sensitive_data"],
             remediation_action_key="delete_storage",
             remediation_destructive=True,
+            agent_keys=["cost", "energy", "audit"],
             created_at=now,
         ),
         Rule(
@@ -80,6 +83,7 @@ def builtin_rules() -> list[Rule]:
             evidence_fields=["environment", "config.engine", "config.application_id"],
             remediation_action_key="plan_encryption",
             remediation_destructive=False,
+            agent_keys=["security", "workflow", "audit"],
             created_at=now,
         ),
     ]

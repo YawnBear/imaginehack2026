@@ -9,11 +9,7 @@ from app.schemas.agent_io import (
 from app.schemas.agents import (
     Agent,
     AgentCreate,
-    AgentLens,
     AgentListResponse,
-    AgentPreviewRequest,
-    AgentPreviewResponse,
-    AgentTemplate,
     AgentUpdate,
 )
 from app.schemas.audit import AuditLog, AuditLogListResponse
@@ -55,11 +51,7 @@ __all__ = [
     "AgentStatusResponse",
     "Agent",
     "AgentCreate",
-    "AgentLens",
     "AgentListResponse",
-    "AgentPreviewRequest",
-    "AgentPreviewResponse",
-    "AgentTemplate",
     "AgentUpdate",
     "ApprovalDecision",
     "AuditLog",

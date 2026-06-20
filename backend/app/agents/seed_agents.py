@@ -2,63 +2,26 @@ from datetime import UTC, datetime
 
 from app.schemas import Agent
 
+_PROMPTS = {
+    "security": "You are a cloud security analyst for a construction-tech company. Explain the exposure and data-protection risk of this finding in one or two plain sentences. Reference the evidence; never invent numbers.",
+    "cost": "You are a cloud cost analyst. Explain the wasted monthly spend and the saving opportunity in one or two sentences. Do not invent figures; reference the provided estimate only.",
+    "energy": "You are a sustainability analyst. Explain the estimated carbon impact of this wasted resource in one or two sentences.",
+    "workflow": "You are a construction-tech workflow analyst. Explain the application or project impact and downtime risk of changing this resource in one or two sentences.",
+    "audit": "You are a compliance auditor. Explain the audit-trail and approval requirements for this finding in one or two sentences.",
+}
+_NAMES = {
+    "security": "Security Analyst",
+    "cost": "Cost Optimizer",
+    "energy": "Carbon Analyst",
+    "workflow": "Workflow Impact",
+    "audit": "Compliance Auditor",
+}
+
 
 def builtin_agents() -> list[Agent]:
     now = datetime.now(UTC)
     return [
-        Agent(
-            agent_id="agent-security",
-            name="Security Analyst",
-            lens="exposure",
-            output_key="security",
-            coverage_categories=["security"],
-            coverage_issue_types=[],
-            tone="construction-aware",
-            template_key="security_analyst",
-            created_at=now,
-        ),
-        Agent(
-            agent_id="agent-cost",
-            name="Cost Optimizer",
-            lens="cost",
-            output_key="cost",
-            coverage_categories=["cost"],
-            coverage_issue_types=[],
-            tone="executive",
-            template_key="cost_optimizer",
-            created_at=now,
-        ),
-        Agent(
-            agent_id="agent-energy",
-            name="Carbon Analyst",
-            lens="carbon",
-            output_key="energy",
-            coverage_categories=[],
-            coverage_issue_types=["idle_vm", "unused_storage"],
-            tone="concise",
-            template_key="carbon_analyst",
-            created_at=now,
-        ),
-        Agent(
-            agent_id="agent-workflow",
-            name="Workflow Impact",
-            lens="workflow",
-            output_key="workflow",
-            coverage_categories=[],
-            coverage_issue_types=["public_bucket", "idle_vm", "unencrypted_database"],
-            tone="construction-aware",
-            template_key="workflow_impact",
-            created_at=now,
-        ),
-        Agent(
-            agent_id="agent-audit",
-            name="Compliance Auditor",
-            lens="compliance",
-            output_key="audit",
-            coverage_categories=[],
-            coverage_issue_types=["public_bucket", "unused_storage", "unencrypted_database"],
-            tone="detailed",
-            template_key="compliance_auditor",
-            created_at=now,
-        ),
+        Agent(agent_id=f"agent-{key}", name=_NAMES[key], system_prompt=_PROMPTS[key],
+              output_key=key, enabled=True, created_at=now)
+        for key in ("security", "cost", "energy", "workflow", "audit")
     ]
