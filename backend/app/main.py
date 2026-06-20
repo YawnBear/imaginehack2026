@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
+from app.api.rules_routes import router as rules_router
 from app.core.config import get_settings
 from app.services.dependencies import get_governance_service
 from app.services.seed import demo_events
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
                 service.ingest_events(demo_events(), actor_id="system-seed")
 
     app.include_router(api_router)
+    app.include_router(rules_router)
     return app
 
 
