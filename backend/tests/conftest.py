@@ -1,7 +1,13 @@
-import pytest
-from fastapi.testclient import TestClient
+import os
 
-from app.main import create_app
+# The test suite must NEVER touch the real database. Force the in-memory store
+# by clearing DATABASE_URL BEFORE app modules (and pydantic settings) load.
+os.environ["DATABASE_URL"] = ""
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.main import create_app  # noqa: E402
 from app.services import dependencies
 from app.services.store import InMemoryStore
 from app.services.governance import GovernanceService

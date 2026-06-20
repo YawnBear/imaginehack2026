@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     agent_token: str = "safecloud-demo-agent-token"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Read both; .env.local (last) overrides .env when present.
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

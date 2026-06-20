@@ -20,9 +20,11 @@ router = APIRouter()
 
 @router.get("/healthz", response_model=HealthResponse, tags=["health"])
 def healthz(service: GovernanceService = Depends(get_governance_service)) -> HealthResponse:
+    from app.core.config import get_settings
+
     return HealthResponse(
         status="ok",
-        database="in_memory",
+        database="postgres" if get_settings().database_url else "in_memory",
         seeded=service.has_events,
     )
 
