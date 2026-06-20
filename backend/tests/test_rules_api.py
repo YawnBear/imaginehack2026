@@ -13,8 +13,8 @@ def test_list_rules():
     res = _client().get("/api/rules")
     assert res.status_code == 200
     body = res.json()
-    assert body["total"] == 4
-    assert {r["rule_id"] for r in body["items"]} >= {"RULE_PUBLIC_BUCKET"}
+    assert body["total"] == 10
+    assert {r["rule_id"] for r in body["items"]} >= {"RULE_PUBLIC_BUCKET", "RULE_FAILED_LOGIN"}
 
 
 def test_get_templates():

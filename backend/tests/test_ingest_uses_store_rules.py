@@ -5,8 +5,9 @@ from app.services.store import InMemoryStore
 
 def test_store_seeds_builtin_rules():
     store = InMemoryStore()
-    assert len(store.rules) == 4
+    assert len(store.rules) == 10
     assert "RULE_PUBLIC_BUCKET" in store.rules
+    assert "RULE_FAILED_LOGIN" in store.rules
 
 
 def test_ingest_creates_findings_via_store_rules():

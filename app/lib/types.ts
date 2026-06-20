@@ -1,8 +1,14 @@
 // Shared domain types for GreenGuard Cloud frontend.
 
-export type ResourceType = "bucket" | "vm" | "storage" | "database";
+export type ResourceType =
+  | "bucket"
+  | "vm"
+  | "storage"
+  | "database"
+  | (string & {});
 export type Category = "security" | "cost" | "energy" | "workflow" | "audit";
 export type Severity = "critical" | "high" | "medium" | "low";
+export type SourceType = "asset_scan" | "cloud_event";
 // Exact backend status enum (app/schemas + governance service).
 export type FindingStatus =
   | "pending_review"
@@ -192,6 +198,7 @@ export interface Rule {
   rule_id: string;
   name: string;
   enabled: boolean;
+  source_type: SourceType;
   template_key: string;
   resource_type: ResourceType | null;
   conditions: RuleCondition[];
@@ -217,6 +224,7 @@ export interface RuleTemplate {
   template_key: string;
   name: string;
   description: string;
+  source_type?: SourceType;
   resource_type: ResourceType;
   conditions: RuleCondition[];
   severity_base: Severity;
@@ -240,6 +248,7 @@ export interface ClashWarning {
 
 export interface RuleCreateBody {
   name: string;
+  source_type?: SourceType;
   resource_type?: ResourceType;
   issue_type: string;
   category: Category;

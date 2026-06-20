@@ -1,6 +1,13 @@
 import { getSummary, getFindings } from "@/app/lib/api";
 import { PageHeader, MetricCard } from "@/app/components/layout-bits";
-import { Card, SectionTitle, MockBanner, EstimateNote, SafetyBanner } from "@/app/components/ui";
+import {
+  Card,
+  SectionTitle,
+  MockBanner,
+  EstimateNote,
+  SafetyBanner,
+  ErrorState,
+} from "@/app/components/ui";
 import { DonutChart, BarChart, type Slice } from "@/app/components/charts";
 import CarbonCounter from "@/app/components/CarbonCounter";
 import { CompactFindingList } from "@/app/components/FindingsExplorer";
@@ -18,10 +25,27 @@ import type { Category, Severity } from "@/app/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
-  const [summaryRes, findingsRes] = await Promise.all([
-    getSummary(),
-    getFindings({ page_size: 50 }),
-  ]);
+  let summaryRes: Awaited<ReturnType<typeof getSummary>>;
+  let findingsRes: Awaited<ReturnType<typeof getFindings>>;
+
+  try {
+    [summaryRes, findingsRes] = await Promise.all([
+      getSummary(),
+      getFindings({ page_size: 50 }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Overview"
+          subtitle="AI-assisted cloud governance for your construction cloud estate - explainable findings, estimated savings, human-approved remediation."
+        />
+        <ErrorState message={message} />
+      </div>
+    );
+  }
+
   const s = summaryRes.data;
   const usingMock = summaryRes.mock || findingsRes.mock;
 

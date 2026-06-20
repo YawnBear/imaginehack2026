@@ -38,6 +38,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.pool import NullPool
 
 from app.agents.seed_agents import builtin_agents
 from app.rules.seed_rules import builtin_rules
@@ -53,7 +54,9 @@ from app.schemas import (
     ThreatReport,
     Workflow,
 )
+from app.services.cloud_event_sources import build_cloud_events_from_rows
 from app.services.scan_sources import build_scan_events_from_asset_rows
+from app.services.seed_workflows import builtin_workflows
 
 _md = MetaData()
 
@@ -66,6 +69,7 @@ def _seq() -> Column:
 sc_events = Table(
     "sc_events", _md,
     Column("event_id", String, primary_key=True),
+    Column("source_type", String),
     Column("provider", String), Column("account_id", String), Column("region", String),
     Column("resource_id", String), Column("resource_name", String), Column("resource_type", String),
     Column("environment", String), Column("project_id", String), Column("owner_team", String),
@@ -95,6 +99,7 @@ sc_recommendations = Table(
     Column("estimated_monthly_savings", Float), Column("estimated_carbon_reduction_kg", Float),
     Column("confidence", Float), Column("agent_outputs", JSONB),
     Column("safe_to_execute", Boolean), Column("ai_generated", Boolean),
+    Column("agent_summary", String),
     _seq(),
 )
 
@@ -110,7 +115,8 @@ sc_approvals = Table(
 sc_rules = Table(
     "sc_rules", _md,
     Column("rule_id", String, primary_key=True),
-    Column("name", String), Column("enabled", Boolean), Column("template_key", String),
+    Column("name", String), Column("enabled", Boolean), Column("source_type", String),
+    Column("template_key", String),
     Column("resource_type", String), Column("conditions", JSONB),
     Column("severity_base", String), Column("escalate_in_prod", Boolean),
     Column("rule_confidence", Float), Column("category", String), Column("issue_type", String),
@@ -176,7 +182,7 @@ sc_meta = Table(
 def _make_engine(url: str):
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+    return create_engine(url, pool_pre_ping=True, poolclass=NullPool)
 
 
 def _json_cols(table: Table) -> set[str]:
@@ -312,6 +318,7 @@ class PostgresStore:
     def __init__(self, url: str) -> None:
         self._engine = _make_engine(url)
         _md.create_all(self._engine, checkfirst=True)
+        self._ensure_app_table_columns()
 
         self.events = TableDict(self._engine, sc_events, "event_id", CloudEvent)
         self.findings = TableDict(self._engine, sc_findings, "finding_id", Finding)
@@ -324,12 +331,154 @@ class PostgresStore:
         self.activities = TableList(self._engine, sc_activities, Activity, gen_id=True)
         self.workflows = TableDict(self._engine, sc_workflows, "workflow_id", Workflow)
 
-        if len(self.rules) == 0:
-            for rule in builtin_rules():
+        existing_rules = set(self.rules.keys())
+        for rule in builtin_rules():
+            if rule.rule_id not in existing_rules:
                 self.rules[rule.rule_id] = rule
-        if len(self.agents) == 0:
-            for agent in builtin_agents():
+                existing_rules.add(rule.rule_id)
+        existing_agents = set(self.agents.keys())
+        for agent in builtin_agents():
+            if agent.output_key not in existing_agents:
                 self.agents[agent.output_key] = agent
+                existing_agents.add(agent.output_key)
+        existing_workflows = set(self.workflows.keys())
+        for workflow in builtin_workflows():
+            if workflow.workflow_id not in existing_workflows:
+                self.workflows[workflow.workflow_id] = workflow
+                existing_workflows.add(workflow.workflow_id)
+
+    def _ensure_app_table_columns(self) -> None:
+        with self._engine.begin() as conn:
+            conn.execute(
+                text(
+                    "alter table if exists public.sc_events "
+                    "add column if not exists source_type text not null default 'asset_scan'"
+                )
+            )
+            conn.execute(
+                text(
+                    "alter table if exists public.sc_rules "
+                    "add column if not exists source_type text not null default 'asset_scan'"
+                )
+            )
+            conn.execute(
+                text(
+                    "alter table if exists public.sc_recommendations "
+                    "add column if not exists agent_summary text not null default ''"
+                )
+            )
+            conn.execute(text("update public.sc_events set source_type = 'asset_scan' where source_type is null"))
+            conn.execute(text("update public.sc_rules set source_type = 'asset_scan' where source_type is null"))
+            self._ensure_energy_table_columns(conn)
+
+    def _ensure_energy_table_columns(self, conn) -> None:
+        if conn.execute(text("select to_regclass('public.energy')")).scalar() is None:
+            return
+        self._ensure_energy_primary_key(conn)
+        energy_columns = [
+            ("source_type", "text not null default 'scanned_asset'"),
+            ("source_id", "text"),
+            ("asset_id", "text"),
+            ("asset_name", "text"),
+            ("resource_type", "text"),
+            ("provider", "text"),
+            ("cloud_account_id", "text"),
+            ("region", "text"),
+            ("environment", "text"),
+            ("owner_team", "text"),
+            ("business_service", "text"),
+            ("current_footprint_kg", "double precision"),
+            ("estimated_reduction_kg", "double precision not null default 0"),
+            ("projected_footprint_kg", "double precision"),
+            ("unit", "text not null default 'kg_co2e_per_month'"),
+            ("calculation_method", "text not null default 'scanned_asset_data.estimated_carbon_impact'"),
+            ("metadata", "jsonb not null default '{}'::jsonb"),
+            ("created_at", "timestamp with time zone not null default now()"),
+            ("updated_at", "timestamp with time zone not null default now()"),
+        ]
+        for name, definition in energy_columns:
+            conn.execute(
+                text(
+                    f"alter table if exists public.energy "
+                    f"add column if not exists {name} {definition}"
+                )
+            )
+        conn.execute(
+            text(
+                """
+                update public.energy
+                set current_footprint_kg = coalesce(current_footprint_kg, emission),
+                    projected_footprint_kg = coalesce(
+                        projected_footprint_kg,
+                        greatest(coalesce(current_footprint_kg, emission, 0) - estimated_reduction_kg, 0)
+                    ),
+                    resource_type = coalesce(resource_type, operation),
+                    updated_at = now()
+                where current_footprint_kg is null
+                   or projected_footprint_kg is null
+                   or resource_type is null
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "create index if not exists energy_source_time_idx "
+                "on public.energy(source_id, time desc)"
+            )
+        )
+        conn.execute(
+            text(
+                "create index if not exists energy_resource_time_idx "
+                "on public.energy(resource_type, time desc)"
+            )
+        )
+
+    def _ensure_energy_primary_key(self, conn) -> None:
+        conn.execute(text("create extension if not exists pgcrypto"))
+        conn.execute(
+            text(
+                "alter table if exists public.energy "
+                "add column if not exists energy_id uuid"
+            )
+        )
+        conn.execute(
+            text(
+                "update public.energy "
+                "set energy_id = gen_random_uuid() "
+                "where energy_id is null"
+            )
+        )
+        conn.execute(
+            text(
+                "alter table if exists public.energy "
+                "alter column energy_id set default gen_random_uuid()"
+            )
+        )
+        conn.execute(
+            text(
+                "alter table if exists public.energy "
+                "alter column energy_id set not null"
+            )
+        )
+        conn.execute(
+            text(
+                """
+                do $$
+                begin
+                    if to_regclass('public.energy') is not null
+                       and not exists (
+                           select 1
+                           from pg_constraint
+                           where conrelid = 'public.energy'::regclass
+                             and contype = 'p'
+                       ) then
+                        alter table public.energy
+                        add constraint energy_pkey primary key (energy_id);
+                    end if;
+                end $$;
+                """
+            )
+        )
 
     # --- scalar meta (latest_scan_at / agent_last_seen / agent_id) -----------
     def _meta_get(self, key: str):
@@ -382,6 +531,9 @@ class PostgresStore:
         return None
 
     def scan_source_events(self) -> list[CloudEvent]:
+        return build_scan_events_from_asset_rows(self.scan_source_rows())
+
+    def scan_source_rows(self) -> list[dict]:
         with self._engine.connect() as conn:
             rows = conn.execute(
                 text(
@@ -389,32 +541,268 @@ class PostgresStore:
                     "order by last_scanned_at desc nulls last"
                 )
             ).mappings().all()
-        return build_scan_events_from_asset_rows(rows)
+        return [dict(row) for row in rows]
+
+    def cloud_event_source_events(self) -> list[CloudEvent]:
+        return build_cloud_events_from_rows(self.cloud_event_source_rows())
+
+    def cloud_event_source_rows(self) -> list[dict]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "select * from public.cloud_events "
+                    "order by event_timestamp desc nulls last"
+                )
+            ).mappings().all()
+        return [dict(row) for row in rows]
+
+    def seed_energy_snapshots(self) -> int:
+        with self._engine.begin() as conn:
+            self._ensure_energy_table_columns(conn)
+            conn.execute(
+                text(
+                    """
+                    with recommendation_reductions as (
+                        select f.resource_id,
+                               sum(r.estimated_carbon_reduction_kg)::double precision as estimated_reduction_kg
+                        from public.sc_findings f
+                        join public.sc_recommendations r on r.finding_id = f.finding_id
+                        where f.status not in ('rejected', 'action_completed')
+                        group by f.resource_id
+                    ),
+                    source_rows as (
+                        select
+                            s.last_scanned_at as time,
+                            s.asset_type as operation,
+                            s.estimated_carbon_impact::double precision as emission,
+                            'scanned_asset' as source_type,
+                            s.id::text as source_id,
+                            s.asset_id::text as asset_id,
+                            s.asset_name::text as asset_name,
+                            case
+                                when lower(coalesce(s.asset_type::text, '')) like '%bucket%' then 'bucket'
+                                when lower(coalesce(s.asset_type::text, '')) like '%database%'
+                                  or lower(coalesce(s.asset_type::text, '')) in ('db', 'rds') then 'database'
+                                when lower(coalesce(s.asset_type::text, '')) like '%storage%'
+                                  or lower(coalesce(s.asset_type::text, '')) like '%volume%'
+                                  or lower(coalesce(s.asset_type::text, '')) like 'disk%' then 'storage'
+                                when lower(coalesce(s.asset_type::text, '')) like '%vm%'
+                                  or lower(coalesce(s.asset_type::text, '')) like '%instance%'
+                                  or lower(coalesce(s.asset_type::text, '')) like '%compute%' then 'vm'
+                                else lower(coalesce(s.asset_type::text, 'unknown'))
+                            end as resource_type,
+                            s.provider::text as provider,
+                            s.cloud_account_id::text as cloud_account_id,
+                            s.region::text as region,
+                            s.environment::text as environment,
+                            s.owner_team::text as owner_team,
+                            s.business_service::text as business_service,
+                            s.estimated_carbon_impact::double precision as current_footprint_kg,
+                            least(
+                                s.estimated_carbon_impact::double precision,
+                                coalesce(rr.estimated_reduction_kg, 0)::double precision
+                            ) as estimated_reduction_kg,
+                            s.estimated_carbon_impact::double precision
+                              - least(
+                                    s.estimated_carbon_impact::double precision,
+                                    coalesce(rr.estimated_reduction_kg, 0)::double precision
+                                ) as projected_footprint_kg,
+                            'kg_co2e_per_month' as unit,
+                            'scanned_asset_data.estimated_carbon_impact' as calculation_method,
+                            jsonb_strip_nulls(
+                                jsonb_build_object(
+                                    'estimated_cost', s.estimated_cost,
+                                    'utilisation_percentage', s.utilisation_percentage,
+                                    'public_exposure', s.public_exposure,
+                                    'encryption_status', s.encryption_status,
+                                    'resource_status', s.resource_status,
+                                    'installed_software', s.installed_software,
+                                    'raw_recommendation_reduction_kg', coalesce(rr.estimated_reduction_kg, 0),
+                                    'raw_scan_payload', s.raw_scan_payload
+                                )
+                            ) as metadata
+                        from public.scanned_asset_data s
+                        left join recommendation_reductions rr on rr.resource_id = s.asset_id::text
+                        where s.estimated_carbon_impact is not null
+                          and s.last_scanned_at is not null
+                    ),
+                    updated as (
+                        update public.energy e
+                        set operation = s.operation,
+                            emission = s.emission,
+                            source_type = s.source_type,
+                            asset_id = s.asset_id,
+                            asset_name = s.asset_name,
+                            resource_type = s.resource_type,
+                            provider = s.provider,
+                            cloud_account_id = s.cloud_account_id,
+                            region = s.region,
+                            environment = s.environment,
+                            owner_team = s.owner_team,
+                            business_service = s.business_service,
+                            current_footprint_kg = s.current_footprint_kg,
+                            estimated_reduction_kg = s.estimated_reduction_kg,
+                            projected_footprint_kg = s.projected_footprint_kg,
+                            unit = s.unit,
+                            calculation_method = s.calculation_method,
+                            metadata = s.metadata,
+                            updated_at = now()
+                        from source_rows s
+                        where e.source_id = s.source_id
+                          and e.time = s.time
+                        returning e.source_id, e.time
+                    )
+                    insert into public.energy(
+                        time,
+                        operation,
+                        emission,
+                        source_type,
+                        source_id,
+                        asset_id,
+                        asset_name,
+                        resource_type,
+                        provider,
+                        cloud_account_id,
+                        region,
+                        environment,
+                        owner_team,
+                        business_service,
+                        current_footprint_kg,
+                        estimated_reduction_kg,
+                        projected_footprint_kg,
+                        unit,
+                        calculation_method,
+                        metadata
+                    )
+                    select
+                        s.time,
+                        s.operation,
+                        s.emission,
+                        s.source_type,
+                        s.source_id,
+                        s.asset_id,
+                        s.asset_name,
+                        s.resource_type,
+                        s.provider,
+                        s.cloud_account_id,
+                        s.region,
+                        s.environment,
+                        s.owner_team,
+                        s.business_service,
+                        s.current_footprint_kg,
+                        s.estimated_reduction_kg,
+                        s.projected_footprint_kg,
+                        s.unit,
+                        s.calculation_method,
+                        s.metadata
+                    from source_rows s
+                    where not exists (
+                          select 1
+                          from public.energy e
+                          where e.source_id = s.source_id
+                            and e.time = s.time
+                      )
+                    """
+                )
+            )
+            return conn.execute(
+                text(
+                    """
+                    select count(*)
+                    from public.energy
+                    where source_type = 'scanned_asset'
+                    """
+                )
+            ).scalar() or 0
 
     def energy_source_summary(self) -> dict:
         by_resource_type: dict[str, float] = {}
         history: list[dict] = []
         with self._engine.connect() as conn:
-            asset_rows = conn.execute(
+            latest_rows = conn.execute(
                 text(
-                    "select asset_type, estimated_carbon_impact "
-                    "from public.scanned_asset_data"
+                    """
+                    with energy_scope as (
+                        select *
+                        from public.energy
+                        where source_id is not null
+                        union all
+                        select *
+                        from public.energy
+                        where source_id is null
+                          and not exists (
+                              select 1
+                              from public.energy
+                              where source_id is not null
+                          )
+                    )
+                    select distinct on (coalesce(source_id, asset_id, operation))
+                           coalesce(resource_type, operation) as resource_type,
+                           coalesce(current_footprint_kg, emission, 0) as current_footprint_kg,
+                           estimated_reduction_kg,
+                           projected_footprint_kg
+                    from energy_scope
+                    where coalesce(current_footprint_kg, emission) is not null
+                    order by coalesce(source_id, asset_id, operation),
+                             time desc nulls last,
+                             updated_at desc nulls last
+                    """
                 )
             ).mappings().all()
             energy_rows = conn.execute(
                 text(
-                    "select time, operation, emission from public.energy "
-                    "order by time"
+                    """
+                    with energy_scope as (
+                        select *
+                        from public.energy
+                        where source_id is not null
+                        union all
+                        select *
+                        from public.energy
+                        where source_id is null
+                          and not exists (
+                              select 1
+                              from public.energy
+                              where source_id is not null
+                          )
+                    ),
+                    daily_latest as (
+                        select distinct on (
+                            date_trunc('day', time),
+                            coalesce(source_id, asset_id, operation)
+                        )
+                               date_trunc('day', time) as time,
+                               coalesce(current_footprint_kg, emission, 0) as emission
+                        from energy_scope
+                        where time is not null
+                          and coalesce(current_footprint_kg, emission) is not null
+                        order by date_trunc('day', time),
+                                 coalesce(source_id, asset_id, operation),
+                                 time desc,
+                                 updated_at desc nulls last
+                    )
+                    select time, sum(emission) as emission
+                    from daily_latest
+                    group by time
+                    order by time
+                    """
                 )
             ).mappings().all()
 
-        for row in asset_rows:
-            kind = _resource_kind(row["asset_type"])
+        estimated_reduction = 0.0
+        projected_footprint = 0.0
+        for row in latest_rows:
+            kind = _resource_kind(row["resource_type"])
             if kind is None:
                 continue
-            by_resource_type[kind] = by_resource_type.get(kind, 0) + _float(
-                row["estimated_carbon_impact"]
-            )
+            current = _float(row["current_footprint_kg"])
+            reduction = _float(row["estimated_reduction_kg"])
+            projected = row["projected_footprint_kg"]
+            if projected is None:
+                projected = max(current - reduction, 0)
+            by_resource_type[kind] = by_resource_type.get(kind, 0) + current
+            estimated_reduction += reduction
+            projected_footprint += _float(projected)
 
         for row in energy_rows:
             timestamp = row["time"]
@@ -427,7 +815,13 @@ class PostgresStore:
                 }
             )
 
-        return {"by_resource_type": by_resource_type, "history": history}
+        return {
+            "by_resource_type": by_resource_type,
+            "current_footprint_kg": sum(by_resource_type.values()),
+            "estimated_reduction_kg": estimated_reduction,
+            "projected_footprint_kg": projected_footprint,
+            "history": history,
+        }
 
 
 def _float(value) -> float:

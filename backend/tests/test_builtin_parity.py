@@ -45,11 +45,17 @@ def test_unencrypted_db():
     assert m.required_reviewers == ["security", "devops", "application_owner", "dba"]
 
 
-def test_all_four_builtins_present():
+def test_all_builtins_present():
     ids = {r.rule_id for r in builtin_rules()}
     assert ids == {
         "RULE_PUBLIC_BUCKET",
         "RULE_IDLE_VM",
         "RULE_UNUSED_STORAGE",
         "RULE_UNENCRYPTED_DATABASE",
+        "RULE_FAILED_LOGIN",
+        "RULE_IAM_CHANGE",
+        "RULE_FIREWALL_INGRESS_CHANGE",
+        "RULE_BUCKET_POLICY_CHANGE",
+        "RULE_AUDIT_LOGGING_CHANGE",
+        "RULE_DATABASE_CHANGE",
     }

@@ -23,6 +23,8 @@ def evaluate_event(event: CloudEvent, rules: list[Rule]) -> list[RuleMatch]:
     for rule in rules:
         if not rule.enabled:
             continue
+        if rule.source_type != event.source_type:
+            continue
         if rule.resource_type is not None and rule.resource_type != event.resource_type:
             continue
         if all(evaluate_condition(event, condition) for condition in rule.conditions):

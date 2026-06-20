@@ -84,9 +84,12 @@ export default function AppShell({
     try {
       const res = await runScan();
       const n = res.data.created_findings;
+      const updated = res.data.updated_findings ?? 0;
       toast(
         n > 0
           ? `Scan complete - ${n} new finding${n === 1 ? "" : "s"} detected`
+          : updated > 0
+            ? `Scan complete - ${updated} finding${updated === 1 ? "" : "s"} updated`
           : "Scan complete - no new issues (estate clean)",
         res.error ? "info" : "success",
       );

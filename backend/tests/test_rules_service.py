@@ -9,7 +9,7 @@ def _service() -> RuleService:
 
 def test_list_includes_builtins():
     res = _service().list_rules()
-    assert res.total == 4
+    assert res.total == 10
 
 
 def test_templates_nonempty():
@@ -32,7 +32,7 @@ def test_create_then_get():
     )
     assert created.rule_id.startswith("rule-")
     assert svc.get_rule(created.rule_id) is not None
-    assert svc.list_rules().total == 5
+    assert svc.list_rules().total == 11
 
 
 def test_update_rule():

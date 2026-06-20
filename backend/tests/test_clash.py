@@ -18,7 +18,8 @@ def _rule(rule_id, field) -> Rule:
 
 
 def test_no_clash_among_builtins():
-    # built-ins target different resource_types -> no clashes
+    # Built-ins either target different resource/source types or mutually
+    # exclusive event actions/statuses.
     assert detect_clashes(builtin_rules()) == []
 
 

@@ -15,7 +15,12 @@ from app.schemas.agents import (
 from app.schemas.audit import AuditLog, AuditLogListResponse
 from app.schemas.dashboard import DashboardSummary
 from app.schemas.energy import EnergyHistoryPoint, EnergySummary
-from app.schemas.events import CloudEvent, EventIngestRequest, EventIngestResponse
+from app.schemas.events import (
+    CloudEvent,
+    EventIngestRequest,
+    EventIngestResponse,
+    SourceRecordCounts,
+)
 from app.schemas.findings import (
     ApprovalDecision,
     Finding,
@@ -87,6 +92,7 @@ __all__ = [
     "RulePreviewResponse",
     "RuleTemplate",
     "RuleUpdate",
+    "SourceRecordCounts",
     "ThreatReport",
     "TimelineEntry",
     "Workflow",

@@ -1,14 +1,14 @@
 from datetime import UTC, datetime
+from typing import Any, Callable
 from uuid import uuid4
 
 from app.agents.ai_client import generate_agent_analysis, generate_workflow_summary
 from app.agents.recommendations import build_recommendation
 from app.agents.summary import stitch_summary
-from app.agents.router import select_agents_for_finding
-from app.core.config import get_settings
 from app.rules.engine import evaluate_event
 from app.schemas import (
     ApprovalDecision,
+    Agent,
     AuditLog,
     AuditLogListResponse,
     CloudEvent,
@@ -22,9 +22,17 @@ from app.schemas import (
     Recommendation,
     ReviewRequest,
     ReviewResponse,
+    Rule,
+    SourceRecordCounts,
+    Workflow,
+    WorkflowRun,
 )
+from app.services.cloud_event_sources import build_cloud_events_from_rows
+from app.services.scan_sources import build_scan_events_from_asset_rows
 from app.services.seed import demo_events
 from app.services.store import InMemoryStore
+
+_INACTIVE = {"rejected", "action_completed"}
 
 
 class GovernanceService:
@@ -35,15 +43,27 @@ class GovernanceService:
     def has_events(self) -> bool:
         return bool(self.store.events)
 
-    def ingest_events(self, events: list[CloudEvent], actor_id: str) -> EventIngestResponse:
+    def ingest_events(
+        self,
+        events: list[CloudEvent],
+        actor_id: str,
+        *,
+        reprocess_existing: bool = False,
+        source_records: SourceRecordCounts | None = None,
+        agent_context: Callable[[CloudEvent], dict[str, Any]] | None = None,
+    ) -> EventIngestResponse:
         accepted = 0
         created_findings = 0
         duplicate_events = 0
+        updated_findings = 0
+        agent_runs = 0
 
         for event in events:
-            if event.event_id in self.store.events:
+            duplicate = event.event_id in self.store.events
+            if duplicate:
                 duplicate_events += 1
-                continue
+                if not reprocess_existing:
+                    continue
 
             accepted += 1
             self.store.events[event.event_id] = event
@@ -51,18 +71,31 @@ class GovernanceService:
             self._audit(
                 entity_type="event",
                 entity_id=event.event_id,
-                action="event_ingested",
+                action="event_reprocessed" if duplicate else "event_ingested",
                 actor_id=actor_id,
                 after_state=event.model_dump(mode="json"),
             )
 
             for rule_match in evaluate_event(event, list(self.store.rules.values())):
                 existing = self.store.find_active_duplicate(event.resource_id, rule_match.issue_type)
+                context = agent_context(event) if agent_context else None
                 if existing:
                     before = existing.model_dump(mode="json")
+                    existing.source_event_id = event.event_id
+                    existing.resource_name = event.resource_name
+                    existing.resource_type = event.resource_type
+                    existing.owner_team = event.owner_team
                     existing.evidence = rule_match.evidence
                     existing.updated_at = _now()
                     self.store.findings[existing.finding_id] = existing
+                    recommendation = self._refresh_recommendation(existing)
+                    updated_findings += 1
+                    agent_runs += self._maybe_enrich_recommendation(
+                        existing,
+                        recommendation,
+                        context=context,
+                        force=True,
+                    )
                     self._audit(
                         entity_type="finding",
                         entity_id=existing.finding_id,
@@ -97,6 +130,12 @@ class GovernanceService:
                 self.store.findings[finding.finding_id] = finding
                 self.store.recommendations[finding.finding_id] = recommendation
                 created_findings += 1
+                agent_runs += self._maybe_enrich_recommendation(
+                    finding,
+                    recommendation,
+                    context=context,
+                    force=True,
+                )
 
                 self._audit(
                     entity_type="finding",
@@ -117,15 +156,46 @@ class GovernanceService:
             accepted=accepted,
             created_findings=created_findings,
             duplicate_events=duplicate_events,
+            updated_findings=updated_findings,
+            agent_runs=agent_runs,
+            source_records=source_records or SourceRecordCounts(),
         )
 
     def ingest_events_from_seed(self) -> EventIngestResponse:
         return self.ingest_events(demo_events(), actor_id="system-seed")
 
     def run_scan_from_database_sources(self) -> EventIngestResponse:
-        loader = getattr(self.store, "scan_source_events", None)
-        events = loader() if callable(loader) else demo_events()
-        return self.ingest_events(events, actor_id="scan-run")
+        asset_rows_loader = getattr(self.store, "scan_source_rows", None)
+        if callable(asset_rows_loader):
+            scanned_asset_rows = asset_rows_loader()
+            asset_events = build_scan_events_from_asset_rows(scanned_asset_rows)
+        else:
+            scanned_asset_rows = []
+            loader = getattr(self.store, "scan_source_events", None)
+            asset_events = loader() if callable(loader) else demo_events()
+
+        cloud_rows_loader = getattr(self.store, "cloud_event_source_rows", None)
+        cloud_event_rows = cloud_rows_loader() if callable(cloud_rows_loader) else []
+        cloud_events = build_cloud_events_from_rows(cloud_event_rows)
+
+        response = self.ingest_events(
+            [*asset_events, *cloud_events],
+            actor_id="scan-run",
+            reprocess_existing=True,
+            source_records=SourceRecordCounts(
+                cloud_events=len(cloud_event_rows),
+                scanned_assets=len(scanned_asset_rows) if scanned_asset_rows else len(asset_events),
+            ),
+            agent_context=lambda event: _agent_context_for_event(
+                event,
+                scanned_asset_rows,
+                cloud_event_rows,
+            ),
+        )
+        seed_energy = getattr(self.store, "seed_energy_snapshots", None)
+        if callable(seed_energy):
+            seed_energy()
+        return response
 
     def list_findings(
         self,
@@ -171,19 +241,34 @@ class GovernanceService:
             key: round(float(value), 2)
             for key, value in (source.get("by_resource_type") or {}).items()
         }
-        current_footprint = round(sum(by_resource_type.values()), 2)
-        estimated_reduction = round(
-            sum(
-                item.estimated_carbon_reduction_kg
-                for item in self.store.recommendations.values()
-            ),
+        source_current = source.get("current_footprint_kg")
+        current_footprint = round(
+            float(source_current) if source_current is not None else sum(by_resource_type.values()),
+            2,
+        )
+        source_reduction = source.get("estimated_reduction_kg")
+        if source_reduction is None:
+            estimated_reduction = round(
+                sum(
+                    item.estimated_carbon_reduction_kg
+                    for item in self.store.recommendations.values()
+                ),
+                2,
+            )
+        else:
+            estimated_reduction = round(float(source_reduction), 2)
+        source_projected = source.get("projected_footprint_kg")
+        projected_footprint = round(
+            float(source_projected)
+            if source_projected is not None
+            else max(current_footprint - estimated_reduction, 0),
             2,
         )
         history = [EnergyHistoryPoint(**item) for item in source.get("history", [])]
 
         return EnergySummary(
             current_footprint_kg=current_footprint,
-            projected_footprint_kg=round(max(current_footprint - estimated_reduction, 0), 2),
+            projected_footprint_kg=projected_footprint,
             estimated_reduction_kg=estimated_reduction,
             by_resource_type=by_resource_type,
             history=history,
@@ -330,11 +415,30 @@ class GovernanceService:
             by_resource_type[event.resource_type] = by_resource_type.get(event.resource_type, 0) + float(value)
         return {"by_resource_type": by_resource_type, "history": []}
 
+    def _refresh_recommendation(self, finding: Finding) -> Recommendation:
+        existing = self.store.recommendations.get(finding.finding_id)
+        refreshed = build_recommendation(finding)
+        if existing is not None:
+            refreshed.recommendation_id = existing.recommendation_id
+            refreshed.agent_outputs = dict(existing.agent_outputs)
+            refreshed.ai_generated = existing.ai_generated
+            refreshed.agent_summary = existing.agent_summary
+        self.store.recommendations[finding.finding_id] = refreshed
+        finding.ai_confidence = refreshed.confidence
+        self.store.findings[finding.finding_id] = finding
+        return refreshed
+
+    def _get_rule(self, rule_id: str) -> Rule | None:
+        return self.store.rules.get(rule_id)
+
     def _maybe_enrich_recommendation(
         self,
         finding: Finding,
         recommendation: Recommendation | None,
-    ) -> None:
+        *,
+        context: dict[str, Any] | None = None,
+        force: bool = False,
+    ) -> int:
         """Lazily rewrite the analysis TEXT via the LLM, once per finding.
 
         Hybrid safety: the rule engine remains the source of truth. Only the
@@ -345,21 +449,46 @@ class GovernanceService:
         recommendation so generation happens at most once per finding.
         """
         if recommendation is None:
-            return
-        if recommendation.ai_generated:
-            return  # already enriched (cached) — generate once only
-        if not get_settings().ai_enabled:
-            return
+            return 0
+        if recommendation.ai_generated and not force:
+            return 0
 
-        selected = select_agents_for_finding(
-            finding, list(self.store.agents.values()), self.store.rules.get(finding.rule_id)
-        )
-        ai_outputs = generate_agent_analysis(finding, recommendation, selected)
-        if not ai_outputs:
-            return  # disabled/timeout/unparseable -> keep template text
+        workflows = self._workflows_for_rule(finding.rule_id)
+        if not workflows:
+            return 0
 
+        total_outputs = 0
         merged = dict(recommendation.agent_outputs)
-        merged.update(ai_outputs)
+        for workflow in workflows:
+            selected = self._agents_for_workflow(workflow)
+            ai_outputs = generate_agent_analysis(
+                finding,
+                recommendation,
+                selected,
+                context=context,
+            ) or {}
+            workflow_summary = (
+                generate_workflow_summary(finding, ai_outputs) or stitch_summary(ai_outputs)
+            )
+            if not workflow_summary:
+                workflow_summary = (
+                    "No agents are selected for this workflow." if not selected
+                    else "No analysis text was generated (AI layer off or empty)."
+                )
+            workflow.last_run = WorkflowRun(
+                ran_at=_now(),
+                finding_count=self._active_finding_count_for_rule(workflow.rule_id),
+                summary=workflow_summary,
+                agent_outputs={key: str(value) for key, value in ai_outputs.items()},
+                ai_generated=bool(ai_outputs),
+            )
+            self.store.workflows[workflow.workflow_id] = workflow
+            if ai_outputs:
+                merged.update(ai_outputs)
+                total_outputs += len(ai_outputs)
+
+        if total_outputs == 0:
+            return 0
         recommendation.agent_outputs = merged
         recommendation.ai_generated = True
         recommendation.agent_summary = (
@@ -367,6 +496,29 @@ class GovernanceService:
         )
         # Cache back so it's only generated once per finding.
         self.store.recommendations[finding.finding_id] = recommendation
+        return total_outputs
+
+    def _workflows_for_rule(self, rule_id: str) -> list[Workflow]:
+        return [
+            workflow
+            for workflow in self.store.workflows.values()
+            if workflow.rule_id == rule_id
+        ]
+
+    def _agents_for_workflow(self, workflow: Workflow) -> list[Agent]:
+        by_key = {
+            agent.output_key: agent
+            for agent in self.store.agents.values()
+            if agent.enabled
+        }
+        return [by_key[key] for key in workflow.agent_keys if key in by_key]
+
+    def _active_finding_count_for_rule(self, rule_id: str) -> int:
+        return sum(
+            1
+            for finding in self.store.findings.values()
+            if finding.rule_id == rule_id and finding.status not in _INACTIVE
+        )
 
     def record_activity(self, activities: list) -> int:
         for activity in activities:
@@ -416,6 +568,43 @@ def _count_by(findings: list[Finding], field_name: str) -> dict[str, int]:
         value = str(getattr(finding, field_name))
         counts[value] = counts.get(value, 0) + 1
     return counts
+
+
+def _agent_context_for_event(
+    event: CloudEvent,
+    scanned_asset_rows: list[dict],
+    cloud_event_rows: list[dict],
+) -> dict[str, Any]:
+    source_id = event.config.get("source_id")
+    asset_id = event.config.get("asset_id") or event.resource_id
+    triggering_source = _source_row(event, scanned_asset_rows, cloud_event_rows, source_id)
+    related_cloud_events = [
+        row
+        for row in cloud_event_rows
+        if row.get("asset_id") and row.get("asset_id") == asset_id
+    ]
+
+    return {
+        "triggering_source": triggering_source or event.model_dump(mode="json"),
+        "scanned_assets": scanned_asset_rows,
+        "related_cloud_events": related_cloud_events,
+    }
+
+
+def _source_row(
+    event: CloudEvent,
+    scanned_asset_rows: list[dict],
+    cloud_event_rows: list[dict],
+    source_id: Any,
+) -> dict | None:
+    if event.source_type == "asset_scan":
+        for row in scanned_asset_rows:
+            if row.get("id") == source_id or row.get("asset_id") == event.resource_id:
+                return row
+    for row in cloud_event_rows:
+        if row.get("id") == source_id:
+            return row
+    return None
 
 
 def _finding_matches(finding: Finding, query: str) -> bool:

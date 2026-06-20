@@ -42,7 +42,12 @@ _TIMEOUT_SECONDS = 8
 _SUMMARY_MAX_TOKENS = 320
 
 
-def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list | None = None) -> dict | None:
+def generate_agent_analysis(
+    finding: Any,
+    base_recommendation: Any,
+    agents: list | None = None,
+    context: dict | None = None,
+) -> dict | None:
     """Return a dict of per-agent analysis text, or ``None`` on any failure.
 
     AI rewrites only the analysis *text*. The deterministic numbers
@@ -62,7 +67,7 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list
         agents = agents or []
         if not agents:
             return None
-        prompt = build_prompt(finding, base_recommendation, agents)
+        prompt = build_prompt(finding, base_recommendation, agents, context)
         body = json.dumps(
             {
                 "model": settings.ai_model,
@@ -109,7 +114,7 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list
     return parse_response(raw, allowed)
 
 
-def build_prompt(finding, base_recommendation, agents) -> str:
+def build_prompt(finding, base_recommendation, agents, context: dict | None = None) -> str:
     issue_type = getattr(finding, "issue_type", "unknown")
     severity = getattr(finding, "severity", "unknown")
     evidence = getattr(finding, "evidence", {}) or {}
@@ -125,12 +130,24 @@ def build_prompt(finding, base_recommendation, agents) -> str:
         keys.append(key)
         blocks.append(f'- "{key}": {getattr(agent, "system_prompt", "")}')
     instructions = "\n".join(blocks)
+    context_block = ""
+    if context:
+        try:
+            context_text = json.dumps(context, default=str)
+        except (TypeError, ValueError):
+            context_text = str(context)
+        context_block = (
+            "\nAdditional scan context is provided for evidence only. "
+            "It includes the triggering source row, related cloud events, and the full scanned_asset_data table:\n"
+            f"{context_text}\n"
+        )
 
     return (
         "A deterministic rule engine detected a cloud governance issue.\n"
         f"issue_type: {issue_type}\nseverity: {severity}\n"
         f"evidence: {evidence_text}\n"
         f"deterministic_recommended_action: {recommended_action}\n\n"
+        f"{context_block}"
         "Produce a JSON object. For each agent key below, write one or two plain-English "
         "sentences following that agent's instruction:\n"
         f"{instructions}\n\n"

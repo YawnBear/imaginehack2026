@@ -1,6 +1,6 @@
 // Formatting helpers + severity/status presentation maps.
 
-import type { Category, Finding, FindingStatus, RiskLevel, Severity } from "./types";
+import type { Category, Finding, FindingStatus, Severity } from "./types";
 
 // Currency: the backend computes all savings in USD and some agent_outputs
 // strings embed a literal "$". We display USD with a "$" prefix so the live

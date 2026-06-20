@@ -37,7 +37,15 @@ def test_scan_run_endpoint_returns_ingest_response():
 
     assert res.status_code == 200
     body = res.json()
-    assert set(body) == {"accepted", "created_findings", "duplicate_events"}
+    assert {
+        "accepted",
+        "created_findings",
+        "duplicate_events",
+        "updated_findings",
+        "agent_runs",
+        "source_records",
+    } <= set(body)
+    assert set(body["source_records"]) == {"cloud_events", "scanned_assets"}
 
 
 def test_energy_summary_endpoint_returns_database_driven_shape():

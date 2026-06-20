@@ -9,6 +9,12 @@ def build_recommendation(finding: Finding) -> Recommendation:
         "idle_vm": _idle_vm,
         "unused_storage": _unused_storage,
         "unencrypted_database": _unencrypted_database,
+        "failed_login": _failed_login,
+        "iam_policy_change": _iam_policy_change,
+        "firewall_ingress_change": _firewall_ingress_change,
+        "bucket_policy_change": _bucket_policy_change,
+        "audit_logging_change": _audit_logging_change,
+        "database_change": _database_change,
     }
     builder = builders.get(finding.issue_type, _generic)
     payload = builder(finding)
@@ -70,6 +76,65 @@ def _unencrypted_database(finding: Finding) -> dict:
         "estimated_monthly_savings": 0,
         "estimated_carbon_reduction_kg": 0,
         "confidence": 0.86,
+    }
+
+
+def _failed_login(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Review the failed login, confirm the actor and source IP, and rotate credentials if suspicious.",
+        "A failed console login can indicate credential misuse or a blocked intrusion attempt.",
+    )
+
+
+def _iam_policy_change(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Review the IAM policy change and confirm it matches an approved deployment or access request.",
+        "IAM policy changes can expand access to cloud resources and require prompt human review.",
+    )
+
+
+def _firewall_ingress_change(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Review the ingress rule and restrict exposure if it was not part of an approved change.",
+        "Firewall ingress changes can expose project systems or databases to unintended networks.",
+    )
+
+
+def _bucket_policy_change(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Inspect the bucket policy change and verify that public or cross-account access is intended.",
+        "Bucket policy changes can expose construction documents or project data.",
+    )
+
+
+def _audit_logging_change(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Verify audit logging is still enabled and investigate the actor behind the logging change.",
+        "Audit logging changes can weaken traceability and may indicate attempted cover-up activity.",
+    )
+
+
+def _database_change(finding: Finding) -> dict:
+    return _security_event(
+        finding,
+        "Review the database change with DBA and application owners before accepting the new posture.",
+        "Database create/modify/delete events can affect sensitive records, availability, and compliance.",
+    )
+
+
+def _security_event(finding: Finding, action: str, rationale: str) -> dict:
+    return {
+        "recommended_action": action,
+        "rationale": rationale,
+        "risk_level": finding.severity,
+        "estimated_monthly_savings": 0,
+        "estimated_carbon_reduction_kg": 0,
+        "confidence": 0.78,
     }
 
 

@@ -44,6 +44,7 @@ import type {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 const MOCK_FALLBACK_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MOCK_FALLBACK === "true";
+const REQUEST_TIMEOUT_MS = 15000;
 
 export interface ApiResult<T> {
   data: T;
@@ -55,7 +56,7 @@ export interface ApiResult<T> {
 
 async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const url = BASE_URL ? `${BASE_URL}${path}` : path;
   try {
     const res = await fetch(url, {
@@ -73,6 +74,11 @@ async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
     }
     const text = await res.text();
     return (text ? JSON.parse(text) : undefined) as T;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Backend request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`);
+    }
+    throw err;
   } finally {
     clearTimeout(timeout);
   }
@@ -224,6 +230,12 @@ export interface SeedResponse {
   accepted: number;
   created_findings: number;
   duplicate_events: number;
+  updated_findings?: number;
+  agent_runs?: number;
+  source_records?: {
+    cloud_events: number;
+    scanned_assets: number;
+  };
 }
 
 // "Run scan" asks the backend to read database scan sources and ingest them
@@ -237,6 +249,9 @@ export async function runScan(): Promise<ApiResult<SeedResponse>> {
         accepted: 0,
         created_findings: 0,
         duplicate_events: 0,
+        updated_findings: 0,
+        agent_runs: 0,
+        source_records: { cloud_events: 0, scanned_assets: 0 },
       },
       e,
     );

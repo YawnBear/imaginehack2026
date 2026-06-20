@@ -16,6 +16,9 @@ def asset_row_to_event(row: Mapping[str, Any]) -> CloudEvent | None:
 
     event_metrics: dict[str, Any] = {}
     config: dict[str, Any] = {
+        "source_type": "asset_scan",
+        "source_id": row.get("id"),
+        "asset_id": row.get("asset_id"),
         "business_service": row.get("business_service"),
         "public_exposure": row.get("public_exposure"),
     }
@@ -63,6 +66,7 @@ def asset_row_to_event(row: Mapping[str, Any]) -> CloudEvent | None:
 
     return CloudEvent(
         event_id=f"scan-{row.get('id') or row.get('asset_id')}",
+        source_type="asset_scan",
         provider=str(row.get("provider") or "mock"),
         account_id=str(row.get("cloud_account_id") or "unknown"),
         region=row.get("region"),

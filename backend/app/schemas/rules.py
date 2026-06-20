@@ -6,9 +6,10 @@ from pydantic import BaseModel, Field
 ConditionOperator = Literal[
     "==", "!=", "<", "<=", ">", ">=", "in", "not_in", "exists", "contains"
 ]
-RuleResourceType = Literal["bucket", "vm", "storage", "database"]
+RuleResourceType = str
 RuleSeverity = Literal["critical", "high", "medium", "low"]
 RuleCategory = Literal["security", "cost", "energy", "workflow", "audit"]
+RuleSourceType = Literal["asset_scan", "cloud_event"]
 
 
 class RuleCondition(BaseModel):
@@ -21,6 +22,7 @@ class Rule(BaseModel):
     rule_id: str
     name: str
     enabled: bool = True
+    source_type: RuleSourceType = "asset_scan"
     template_key: str = "custom"
     resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] = Field(default_factory=list)
@@ -40,6 +42,7 @@ class Rule(BaseModel):
 class RuleCreate(BaseModel):
     name: str
     enabled: bool = True
+    source_type: RuleSourceType = "asset_scan"
     template_key: str = "custom"
     resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] = Field(default_factory=list)
@@ -58,6 +61,7 @@ class RuleCreate(BaseModel):
 class RuleUpdate(BaseModel):
     name: str | None = None
     enabled: bool | None = None
+    source_type: RuleSourceType | None = None
     resource_type: RuleResourceType | None = None
     conditions: list[RuleCondition] | None = None
     severity_base: RuleSeverity | None = None
@@ -81,6 +85,7 @@ class RuleTemplate(BaseModel):
     template_key: str
     name: str
     description: str
+    source_type: RuleSourceType = "asset_scan"
     resource_type: RuleResourceType
     conditions: list[RuleCondition] = Field(default_factory=list)
     severity_base: RuleSeverity = "medium"
