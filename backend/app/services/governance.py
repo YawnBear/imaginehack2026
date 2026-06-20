@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.agents.ai_client import generate_agent_analysis
 from app.agents.recommendations import build_recommendation
-from app.agents.router import build_agent_outputs
+from app.agents.router import build_agent_outputs, select_agents
 from app.core.config import get_settings
 from app.rules.engine import evaluate_event
 from app.schemas import (
@@ -299,7 +299,8 @@ class GovernanceService:
         if not get_settings().ai_enabled:
             return
 
-        ai_outputs = generate_agent_analysis(finding, recommendation)
+        selected = select_agents(finding, list(self.store.agents.values()))
+        ai_outputs = generate_agent_analysis(finding, recommendation, selected)
         if not ai_outputs:
             return  # disabled/timeout/unparseable -> keep template text
 

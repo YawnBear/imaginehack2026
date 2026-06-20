@@ -1,3 +1,4 @@
+from app.services.agents_service import AgentService
 from app.services.governance import GovernanceService
 from app.services.rules_service import RuleService
 from app.services.store import InMemoryStore
@@ -5,6 +6,7 @@ from app.services.store import InMemoryStore
 _store = InMemoryStore()
 _governance_service = GovernanceService(_store)
 _rule_service = RuleService(_store)
+_agent_service = AgentService(_store)
 
 
 def get_governance_service() -> GovernanceService:
@@ -13,3 +15,7 @@ def get_governance_service() -> GovernanceService:
 
 def get_rule_service() -> RuleService:
     return _rule_service
+
+
+def get_agent_service() -> AgentService:
+    return _agent_service

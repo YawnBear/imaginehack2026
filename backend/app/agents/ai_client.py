@@ -40,18 +40,8 @@ _COMPLETIONS_PATH = "chat/completions"
 _MAX_TOKENS = 600
 _TIMEOUT_SECONDS = 8
 
-# Agent keys that are meaningful per issue type. The model is asked to fill
-# only the relevant subset; we additionally clamp its output to these keys.
-_RELEVANT_AGENTS: dict[str, list[str]] = {
-    "public_bucket": ["security", "workflow", "audit"],
-    "idle_vm": ["cost", "energy", "workflow"],
-    "unused_storage": ["cost", "energy", "audit"],
-    "unencrypted_database": ["security", "workflow", "audit"],
-}
-_ALL_AGENTS = ["security", "cost", "energy", "workflow", "audit"]
 
-
-def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | None:
+def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list | None = None) -> dict | None:
     """Return a dict of per-agent analysis text, or ``None`` on any failure.
 
     AI rewrites only the analysis *text*. The deterministic numbers
@@ -68,7 +58,10 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | No
             base_url += "/"
         url = base_url + _COMPLETIONS_PATH
 
-        prompt = _build_prompt(finding, base_recommendation)
+        agents = agents or []
+        if not agents:
+            return None
+        prompt = build_prompt(finding, base_recommendation, agents)
         body = json.dumps(
             {
                 "model": settings.ai_model,
@@ -111,21 +104,35 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | No
     except Exception:  # noqa: BLE001 - defensive: AI is purely additive
         return None
 
-    return _parse_response(raw, finding)
+    allowed = {getattr(a, "output_key", "") for a in agents}
+    return parse_response(raw, allowed)
 
 
-def _build_prompt(finding: Any, base_recommendation: Any) -> str:
+def build_prompt(finding: Any, base_recommendation: Any, agents: list) -> str:
     issue_type = getattr(finding, "issue_type", "unknown")
     severity = getattr(finding, "severity", "unknown")
     rule_id = getattr(finding, "rule_id", "unknown")
     evidence = getattr(finding, "evidence", {}) or {}
     recommended_action = getattr(base_recommendation, "recommended_action", "")
-
-    agents = _RELEVANT_AGENTS.get(issue_type, _ALL_AGENTS)
     try:
         evidence_text = json.dumps(evidence, default=str)
     except (TypeError, ValueError):
         evidence_text = str(evidence)
+
+    persona_lines = []
+    keys = []
+    for agent in agents:
+        key = getattr(agent, "output_key", "")
+        keys.append(key)
+        lens = getattr(agent, "lens", "")
+        name = getattr(agent, "name", key)
+        tone = getattr(agent, "tone", "concise")
+        extra = getattr(agent, "extra_focus", "") or ""
+        line = f'- "{key}": persona "{name}", lens={lens}, tone={tone}.'
+        if extra:
+            line += f" Extra focus: {extra}."
+        persona_lines.append(line)
+    personas = "\n".join(persona_lines)
 
     return (
         "A deterministic rule engine detected a cloud governance issue.\n"
@@ -134,45 +141,41 @@ def _build_prompt(finding: Any, base_recommendation: Any) -> str:
         f"rule_id: {rule_id}\n"
         f"evidence: {evidence_text}\n"
         f"deterministic_recommended_action: {recommended_action}\n\n"
-        "Write a concise, construction-aware analysis for the human reviewers. "
-        "Return ONLY a JSON object whose keys are a subset of "
-        f"{agents} (use only the ones that are relevant to this issue). "
-        "Each value is one or two plain-English sentences of analysis from that "
-        "perspective. Do NOT include dollar amounts, carbon figures, or "
-        "approval counts (those are provided separately). Do NOT instruct "
-        "anyone to execute the change automatically — a human approves it. "
-        "Example shape: {\"security\": \"...\", \"workflow\": \"...\"}"
+        "Write a concise, construction-aware analysis for the human reviewers, "
+        "one entry per agent below, each writing from its own lens:\n"
+        f"{personas}\n\n"
+        "Return ONLY a JSON object whose keys are exactly these agent keys: "
+        f"{keys}. Each value is one or two plain-English sentences from that "
+        "agent's perspective. Do NOT include dollar amounts, carbon figures, or "
+        "approval counts (those are provided separately). Do NOT instruct anyone "
+        "to execute the change automatically — a human approves it. "
+        'Example shape: {"security": "...", "audit": "..."}'
     )
 
 
-def _parse_response(raw: str, finding: Any) -> dict | None:
-    """Robustly extract the per-agent dict from the LLM response."""
+def parse_response(raw: str, allowed_keys: set) -> dict | None:
+    """Robustly extract the per-agent dict, clamped to allowed_keys."""
     try:
         envelope = json.loads(raw)
     except (TypeError, ValueError):
         return None
-
     content = _extract_content(envelope)
     if not content:
         return None
-
     parsed = _loads_json_object(content)
     if not isinstance(parsed, dict) or not parsed:
         return None
-
-    # Clamp to known agent keys and coerce values to clean strings.
     cleaned: dict[str, str] = {}
     for key, value in parsed.items():
-        agent = str(key).strip().lower()
-        if agent not in _ALL_AGENTS:
+        agent_key = str(key).strip()
+        if agent_key not in allowed_keys:
             continue
         if isinstance(value, (list, tuple)):
             text = " ".join(str(item).strip() for item in value if str(item).strip())
         else:
             text = str(value).strip()
         if text:
-            cleaned[agent] = text
-
+            cleaned[agent_key] = text
     return cleaned or None
 
 
