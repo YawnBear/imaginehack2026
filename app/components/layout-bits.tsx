@@ -34,14 +34,14 @@ export function MetricCard({
   icon?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-[#E5E5E5] bg-white p-4">
+    <div className="group rounded-xl bg-[#F8F8F8] p-4 transition-colors hover:bg-[#F2F2F2]">
       <div className="flex items-center justify-between">
         <span className="text-[12px] font-medium tracking-label text-[#606060]">
           {label}
         </span>
         {icon && (
           <span
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
+            className="flex h-8 w-8 items-center justify-center rounded-full"
             style={{ background: `${accent}12`, color: accent }}
           >
             {icon}

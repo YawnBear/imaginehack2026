@@ -430,7 +430,7 @@ export default function FindingModal({
                   ) : (
                     <p className="pl-7 text-[12px]">
                       All required reviewers have approved. Cleared for remediation by a
-                      human — GreenGuard does not execute it.
+                      human — Safe Cloud does not execute it.
                     </p>
                   ))}
                 {decided !== "approved" && (
@@ -479,7 +479,7 @@ export default function FindingModal({
                   })}
                 </div>
                 <p className="mt-2 text-[11px] text-[#606060]">
-                  GreenGuard does not execute the action — it only records your decision and
+                  Safe Cloud does not execute the action — it only records your decision and
                   notifies the remaining reviewers.
                 </p>
               </>

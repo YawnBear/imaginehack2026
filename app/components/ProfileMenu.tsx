@@ -121,7 +121,7 @@ export default function ProfileMenu({ onHelp }: { onHelp: () => void }) {
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[#0F0F0F] hover:bg-[#F2F2F2]"
             >
-              How to use GreenGuard
+              How to use Safe Cloud
             </button>
             <button
               onClick={() => {

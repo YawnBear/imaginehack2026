@@ -38,7 +38,7 @@ export function DonutChart({
   return (
     <div className="flex items-center gap-5">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img">
-        <circle cx={c} cy={c} r={r} fill="none" stroke="#F2F2F2" strokeWidth={thickness} />
+        <circle cx={c} cy={c} r={r} fill="none" stroke="var(--sc-surface)" strokeWidth={thickness} />
         {segments.map(({ d, len, offset }) => (
           <circle
             key={d.label}
@@ -61,13 +61,13 @@ export function DonutChart({
             textAnchor="middle"
             fontSize="26"
             fontWeight="700"
-            fill="#0F0F0F"
+            fill="var(--sc-text)"
           >
             {centerLabel}
           </text>
         )}
         {centerSub && (
-          <text x={c} y={c + 16} textAnchor="middle" fontSize="11" fill="#606060">
+          <text x={c} y={c + 16} textAnchor="middle" fontSize="11" fill="var(--sc-text-muted)">
             {centerSub}
           </text>
         )}
@@ -169,8 +169,8 @@ export function AreaLineChart({
         const val = Math.round((min + g * span) as number);
         return (
           <g key={g}>
-            <line x1={pad.l} x2={width - pad.r} y1={y} y2={y} stroke="#E5E5E5" strokeWidth={1} />
-            <text x={4} y={y + 3} fontSize="10" fill="#606060">
+            <line x1={pad.l} x2={width - pad.r} y1={y} y2={y} stroke="var(--sc-border)" strokeWidth={1} />
+            <text x={4} y={y + 3} fontSize="10" fill="var(--sc-text-muted)">
               {val}
             </text>
           </g>
@@ -179,7 +179,7 @@ export function AreaLineChart({
       <path d={area} fill="url(#ggArea)" />
       <path d={line} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" />
       {pts.map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={3} fill="#fff" stroke={color} strokeWidth={2} />
+        <circle key={i} cx={x} cy={y} r={3} fill="var(--sc-canvas)" stroke={color} strokeWidth={2} />
       ))}
       {labels &&
         labels.map((l, i) => (
@@ -188,14 +188,14 @@ export function AreaLineChart({
             x={pad.l + i * step}
             y={height - 6}
             fontSize="10"
-            fill="#606060"
+            fill="var(--sc-text-muted)"
             textAnchor="middle"
           >
             {l}
           </text>
         ))}
       {unit && (
-        <text x={width - pad.r} y={pad.t + 4} fontSize="10" fill="#606060" textAnchor="end">
+        <text x={width - pad.r} y={pad.t + 4} fontSize="10" fill="var(--sc-text-muted)" textAnchor="end">
           {unit}
         </text>
       )}

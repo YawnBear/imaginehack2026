@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   GreenGuard Cloud — "Red Broadcast" design tokens (Tailwind v4 @theme).
+   Safe Cloud — "Red Broadcast" design tokens (Tailwind v4 @theme).
    Clean, grid-driven, red-accented, low-elevation. Red used sparingly.
 --------------------------------------------------------------------------- */
 
@@ -42,6 +42,27 @@
 :root {
   --background: #ffffff;
   --foreground: #0f0f0f;
+  --sc-canvas: #ffffff;
+  --sc-surface: #f2f2f2;
+  --sc-surface-raised: #ffffff;
+  --sc-surface-hover: #e9e9e9;
+  --sc-text: #0f0f0f;
+  --sc-text-muted: #606060;
+  --sc-border: #e5e5e5;
+  --sc-overlay: rgba(15, 15, 15, 0.5);
+}
+
+:root[data-theme="dark"] {
+  --background: #0f0f0f;
+  --foreground: #f1f1f1;
+  --sc-canvas: #0f0f0f;
+  --sc-surface: #272727;
+  --sc-surface-raised: #1b1b1b;
+  --sc-surface-hover: #333333;
+  --sc-text: #f1f1f1;
+  --sc-text-muted: #aaaaaa;
+  --sc-border: #3f3f3f;
+  --sc-overlay: rgba(0, 0, 0, 0.72);
 }
 
 html,
@@ -55,6 +76,49 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+button, a, input, textarea, select { outline-offset: 2px; }
+:focus-visible { outline: 2px solid #065fd4; }
+::selection { background: #ff0000; color: #ffffff; }
+
+.gg-icon-button {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--sc-text-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.gg-icon-button:hover { background: var(--sc-surface); color: var(--sc-text); }
+.theme-icon-light { display: none; }
+:root[data-theme="dark"] .theme-icon-dark { display: none; }
+:root[data-theme="dark"] .theme-icon-light { display: block; }
+
+/* Bridge existing Tailwind utilities into the semantic dark theme. */
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .bg-white { background-color: var(--sc-canvas) !important; color: var(--sc-text); }
+:root[data-theme="dark"] .bg-\[\#F8F8F8\],
+:root[data-theme="dark"] .bg-\[\#F2F2F2\] { background-color: var(--sc-surface) !important; }
+:root[data-theme="dark"] .hover\:bg-\[\#F2F2F2\]:hover,
+:root[data-theme="dark"] .hover\:bg-\[\#E5E5E5\]:hover { background-color: var(--sc-surface-hover) !important; }
+:root[data-theme="dark"] .text-\[\#0F0F0F\] { color: var(--sc-text) !important; }
+:root[data-theme="dark"] .text-\[\#606060\],
+:root[data-theme="dark"] .text-\[\#909090\] { color: var(--sc-text-muted) !important; }
+:root[data-theme="dark"] .border-\[\#E5E5E5\],
+:root[data-theme="dark"] .border-\[\#F2F2F2\] { border-color: var(--sc-border) !important; }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select { border-color: var(--sc-border); background-color: var(--sc-surface-raised); color: var(--sc-text); }
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: #8b8b8b; }
+
+:root[data-theme="dark"] .gg-impact-hero {
+  background-image: linear-gradient(135deg, rgba(43, 166, 64, 0.16), #1b1b1b) !important;
+}
+:root[data-theme="dark"] .gg-impact-hero .text-\[\#1d7a2e\] { color: #55c96b !important; }
 
 /* Utility: 2-line clamp for list titles */
 .clamp-2 {
@@ -120,7 +184,7 @@ body {
 
 /* Modal scrim */
 .gg-scrim {
-  background: rgba(15, 15, 15, 0.5);
+  background: var(--sc-overlay);
 }
 
 @keyframes gg-agent-float {

@@ -55,7 +55,7 @@ const STEPS: { title: string; body: React.ReactNode }[] = [
         Every scan, finding, recommendation and decision lands in the{" "}
         <strong>Audit</strong> log with before/after state.{" "}
         <strong>
-          GreenGuard never executes cloud changes - humans do, after approval.
+          Safe Cloud never executes cloud changes — humans do, after approval.
         </strong>
       </>
     ),
@@ -87,7 +87,7 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="text-[18px] font-bold leading-snug text-[#0F0F0F]">
-              How to use GreenGuard
+              How to use Safe Cloud
             </h2>
             <p className="mt-0.5 text-[13px] text-[#606060]">
               AI-assisted cloud governance - explain, recommend, and approve.
@@ -125,7 +125,7 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
               <path d="M9 12l2 2 4-4" />
             </svg>
             <span>
-              <strong>Safety:</strong> GreenGuard never executes any cloud change.
+              <strong>Safety:</strong> Safe Cloud never executes any cloud change.
               It analyses and recommends; a human approves; remediation is carried
               out by your team - every step is auditable.
             </span>

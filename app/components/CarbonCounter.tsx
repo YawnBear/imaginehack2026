@@ -43,7 +43,7 @@ export default function CarbonCounter({
   }, [monthlyCarbonKg, monthlySavingsRm]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[#2BA64033] bg-gradient-to-br from-[#2BA6400D] to-white p-6">
+    <div className="gg-impact-hero relative overflow-hidden rounded-xl border border-[#2BA64033] bg-gradient-to-br from-[#2BA6400D] to-white p-6">
       <div className="absolute -right-6 -top-6 text-[#2BA64014]">
         <IconLeaf width={140} height={140} />
       </div>

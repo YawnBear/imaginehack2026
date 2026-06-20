@@ -64,7 +64,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-[#E5E5E5] bg-white p-5 ${className}`}
+      className={`rounded-xl bg-[#F8F8F8] p-5 transition-colors ${className}`}
     >
       {children}
     </div>
@@ -123,7 +123,7 @@ export function EmptyState({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#E5E5E5] bg-white py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded-xl bg-[#F8F8F8] py-16 text-center">
       <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F2F2F2] text-[#2BA640]">
         <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M5 13l4 4L19 7" />
@@ -174,7 +174,7 @@ export function SafetyBanner({ compact = false }: { compact?: boolean }) {
         <path d="M9 12l2 2 4-4" />
       </svg>
       <span>
-        <strong>AI recommends — a human must approve.</strong> GreenGuard never executes
+        <strong>AI recommends — a human must approve.</strong> Safe Cloud never executes
         any cloud action automatically. Nothing changes until required reviewers sign off.
       </span>
     </div>

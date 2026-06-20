@@ -51,7 +51,7 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
     const header = COLUMNS.join(",");
     const rows = logs.map((log) => COLUMNS.map((c) => csvCell(log[c])).join(","));
     download(
-      `greenguard-audit-${todayStamp()}.csv`,
+      `safe-cloud-audit-${todayStamp()}.csv`,
       [header, ...rows].join("\n"),
       "text/csv;charset=utf-8",
     );
@@ -60,7 +60,7 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
 
   function exportJson() {
     download(
-      `greenguard-audit-${todayStamp()}.json`,
+      `safe-cloud-audit-${todayStamp()}.json`,
       JSON.stringify(logs, null, 2),
       "application/json",
     );

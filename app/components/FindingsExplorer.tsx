@@ -23,7 +23,7 @@ export function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => 
   return (
     <button
       onClick={() => onOpen(f.finding_id)}
-      className="group flex w-full items-center gap-4 rounded-xl border border-transparent px-3 py-3 text-left transition-colors hover:border-[#E5E5E5] hover:bg-[#F2F2F2]"
+      className="group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#F2F2F2]"
     >
       {/* severity / resource block (stands in for the thumbnail) */}
       <span
@@ -162,7 +162,7 @@ export default function FindingsExplorer({
       {filtered.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="divide-y divide-[#F2F2F2] rounded-xl border border-[#E5E5E5] bg-white p-1.5">
+        <div className="divide-y divide-[#F2F2F2] bg-white p-1.5">
           {filtered.map((f) => (
             <FindingRow key={f.finding_id} f={f} onOpen={setOpenId} />
           ))}

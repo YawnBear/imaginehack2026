@@ -157,7 +157,7 @@ export default async function OverviewPage() {
           <SectionTitle>Recent critical findings</SectionTitle>
           <span className="text-[12px] text-[#606060]">click any finding to review</span>
         </div>
-        <div className="rounded-xl border border-[#E5E5E5] bg-white p-1.5">
+        <div className="bg-white p-1.5">
           <CompactFindingList findings={criticalFindings} />
         </div>
       </section>

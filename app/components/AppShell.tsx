@@ -21,6 +21,7 @@ import GlobalSearch from "./GlobalSearch";
 import ProfileMenu from "./ProfileMenu";
 import HelpModal from "./HelpModal";
 import AgentStatusChip from "./AgentStatusChip";
+import ThemeToggle from "./ThemeToggle";
 
 const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
@@ -42,7 +43,7 @@ function BrandMark() {
         </svg>
       </span>
       <span className="text-[16px] font-bold tracking-tight text-[#0F0F0F]">
-        GreenGuard <span className="text-[#606060] font-medium">Cloud</span>
+        Safe <span className="font-medium text-[#606060]">Cloud</span>
       </span>
     </span>
   );
@@ -119,7 +120,7 @@ export default function AppShell({
         <GlobalSearch />
 
         {/* Right cluster */}
-        <div className="ml-auto flex items-center gap-2 md:ml-0 md:gap-3">
+        <div className="ml-auto flex items-center gap-1 md:ml-0 md:gap-2">
           {/* Run scan */}
           <button
             onClick={handleRunScan}
@@ -141,12 +142,14 @@ export default function AppShell({
           {/* Agent online status */}
           <AgentStatusChip />
 
+          <ThemeToggle />
+
           {/* Help */}
           <button
-            aria-label="How to use GreenGuard"
+            aria-label="How to use Safe Cloud"
             onClick={() => setHelpOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#606060] hover:bg-[#F2F2F2]"
-            title="How to use GreenGuard"
+            className="gg-icon-button"
+            title="How to use Safe Cloud"
           >
             <IconInfo width={20} height={20} />
           </button>
@@ -234,7 +237,7 @@ export default function AppShell({
 
         {/* Main content */}
         <main className="min-w-0 flex-1">
-          <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+          <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
 
