@@ -25,10 +25,10 @@ export default function AgentStatusChip() {
   return (
     <span
       className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium md:flex"
-      style={{ background: online ? "#2BA64014" : "#F2F2F2", color: online ? "#1f7a3d" : "#909090" }}
+      style={{ background: online ? "var(--color-success-soft)" : "var(--color-surface)", color: online ? "var(--color-success-strong)" : "var(--color-subtle)" }}
       title={online ? `Agent online${status?.agent_id ? ` (${status.agent_id})` : ""}` : "Agent offline"}
     >
-      <span className={`h-2 w-2 rounded-full ${online ? "bg-[#2BA640]" : "bg-[#B0B0B0]"}`} />
+      <span className={`h-2 w-2 rounded-full ${online ? "bg-[var(--color-success)]" : "bg-[var(--color-subtle)]"}`} />
       Agent {online ? "online" : "offline"}
     </span>
   );

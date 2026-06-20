@@ -76,20 +76,20 @@ export default function WorkflowsManager({
     <div className="space-y-5">
       {/* Action bar */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[13px] text-[#606060]">
+        <p className="text-[13px] text-muted">
           {list.length} workflow{list.length === 1 ? "" : "s"}
         </p>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setModalOpen(true)}
-            className="h-9 rounded-full border border-[#E5E5E5] bg-white px-4 text-[13px] font-medium text-[#0F0F0F] hover:bg-[#F2F2F2]"
+            className="h-9 rounded-full border border-border bg-canvas px-4 text-[13px] font-medium text-ink hover:bg-surface"
           >
             + Create workflow
           </button>
           <button
             onClick={runAll}
             disabled={list.length === 0 || running}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
             {running ? "Running…" : "Run all ▶"}
           </button>
@@ -98,9 +98,9 @@ export default function WorkflowsManager({
 
       {/* Cards grid */}
       {list.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[#E5E5E5] bg-white py-16 text-center">
-          <p className="text-[14px] font-medium text-[#0F0F0F]">No workflows yet</p>
-          <p className="mt-1 text-[12px] text-[#606060]">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-canvas py-16 text-center">
+          <p className="text-[14px] font-medium text-ink">No workflows yet</p>
+          <p className="mt-1 text-[12px] text-muted">
             Press <strong>+ Create workflow</strong> to pick a rule and its agents.
           </p>
         </div>
@@ -153,21 +153,21 @@ function WorkflowCard({
       {/* Header: name + delete */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-medium text-[#0F0F0F]">{wf.name}</p>
-          <p className="mt-1 text-[12px] text-[#606060]">
+          <p className="truncate text-[15px] font-medium text-ink">{wf.name}</p>
+          <p className="mt-1 text-[12px] text-muted">
             {rule ? (
               <>
                 {rule.name} · {issueLabel(rule.issue_type)}
               </>
             ) : (
-              <span className="text-[#909090]">rule removed</span>
+              <span className="text-subtle">rule removed</span>
             )}
           </p>
         </div>
         <button
           onClick={onDelete}
           aria-label="Delete workflow"
-          className="shrink-0 rounded-full px-2 py-1 text-[14px] text-[#909090] hover:bg-[#FFECEC] hover:text-[#FF0000]"
+          className="shrink-0 rounded-full px-2 py-1 text-[14px] text-subtle hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
         >
           ✕
         </button>
@@ -179,7 +179,7 @@ function WorkflowCard({
           {wf.agent_keys.map((key) => {
             const agent = agentByKey[key];
             const color =
-              CATEGORY_COLOR[key as keyof typeof CATEGORY_COLOR] ?? "#606060";
+              CATEGORY_COLOR[key as keyof typeof CATEGORY_COLOR] ?? "var(--color-muted)";
             return (
               <span
                 key={key}
@@ -193,32 +193,32 @@ function WorkflowCard({
           })}
         </div>
       ) : (
-        <p className="text-[12px] text-[#909090]">No agents selected.</p>
+        <p className="text-[12px] text-subtle">No agents selected.</p>
       )}
 
       {/* Result */}
       {run ? (
         <div className="space-y-3">
-          <div className="rounded-lg border border-[#065FD433] bg-[#065FD40A] p-3">
+          <div className="rounded-lg border border-[var(--color-link-border)] bg-[var(--color-link-tint)] p-3">
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <h4 className="text-[12px] font-medium tracking-label text-[#606060]">
+              <h4 className="text-[12px] font-medium tracking-label text-muted">
                 WORKFLOW SUMMARY
               </h4>
               {run.ai_generated ? (
                 <span
                   className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                  style={{ background: "#065FD414", color: "#065FD4" }}
+                  style={{ background: "var(--color-link-soft)", color: "var(--color-link)" }}
                 >
                   ✨ AI-generated
                 </span>
               ) : (
-                <span className="rounded-full bg-[#F2F2F2] px-2 py-0.5 text-[10px] font-medium text-[#606060]">
+                <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-medium text-muted">
                   offline / stitched
                 </span>
               )}
             </div>
-            <p className="text-[13px] leading-relaxed text-[#0F0F0F]">{run.summary}</p>
-            <p className="mt-2 text-[11px] text-[#909090]">
+            <p className="text-[13px] leading-relaxed text-ink">{run.summary}</p>
+            <p className="mt-2 text-[11px] text-subtle">
               {run.finding_count} resource{run.finding_count === 1 ? "" : "s"}
               {run.ran_at ? ` · ${relativeTime(run.ran_at)}` : ""}
             </p>
@@ -228,7 +228,7 @@ function WorkflowCard({
             <div>
               <button
                 onClick={() => setShowOutputs((s) => !s)}
-                className="mb-2 flex items-center gap-1.5 text-[12px] font-medium tracking-label text-[#606060] hover:text-[#0F0F0F]"
+                className="mb-2 flex items-center gap-1.5 text-[12px] font-medium tracking-label text-muted hover:text-ink"
               >
                 <span>{showOutputs ? "▾" : "▸"}</span>
                 AGENT OUTPUTS ({Object.keys(run.agent_outputs).length})
@@ -238,16 +238,16 @@ function WorkflowCard({
                   {orderedKeys(run.agent_outputs).map((agent) => {
                     const color =
                       CATEGORY_COLOR[agent.toLowerCase() as keyof typeof CATEGORY_COLOR] ??
-                      "#606060";
+                      "var(--color-muted)";
                     return (
-                      <div key={agent} className="flex gap-3 rounded-lg bg-[#F8F8F8] p-3">
+                      <div key={agent} className="flex gap-3 rounded-lg bg-surface-subtle p-3">
                         <span
                           className="mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-[11px] font-medium capitalize"
                           style={{ background: `${color}1a`, color }}
                         >
                           {agent}
                         </span>
-                        <p className="text-[13px] leading-relaxed text-[#0F0F0F]">
+                        <p className="text-[13px] leading-relaxed text-ink">
                           {run.agent_outputs[agent]}
                         </p>
                       </div>
@@ -259,7 +259,7 @@ function WorkflowCard({
           )}
         </div>
       ) : (
-        <p className="text-[12px] text-[#909090]">Not run yet — press Run all.</p>
+        <p className="text-[12px] text-subtle">Not run yet — press Run all.</p>
       )}
     </Card>
   );
@@ -310,30 +310,30 @@ function CreateWorkflowModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-[var(--shadow-e3)]">
+      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-border bg-canvas p-5 shadow-[var(--shadow-e3)]">
         <div className="flex items-center justify-between">
           <h2 className="text-[18px] font-bold">Create workflow</h2>
-          <button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">
+          <button onClick={onClose} className="text-muted hover:text-ink">
             ✕
           </button>
         </div>
 
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Name</label>
+        <label className="mt-4 block text-[12px] font-medium text-muted">Name</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Public bucket sweep"
-          className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]"
+          className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]"
         />
 
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Rule</label>
+        <label className="mt-4 block text-[12px] font-medium text-muted">Rule</label>
         {rules.length === 0 ? (
-          <p className="mt-1 text-[13px] text-[#909090]">No rules configured yet.</p>
+          <p className="mt-1 text-[13px] text-subtle">No rules configured yet.</p>
         ) : (
           <select
             value={ruleId}
             onChange={(e) => setRuleId(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-[#E5E5E5] bg-[#F8F8F8] px-3 py-2 text-[14px] text-[#0F0F0F] focus:border-[#0F0F0F] focus:bg-white focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-border bg-surface-subtle px-3 py-2 text-[14px] text-ink focus:border-ink focus:bg-canvas focus:outline-none"
           >
             {rules.map((r) => (
               <option key={r.rule_id} value={r.rule_id}>
@@ -343,15 +343,15 @@ function CreateWorkflowModal({
           </select>
         )}
 
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Agents</label>
+        <label className="mt-4 block text-[12px] font-medium text-muted">Agents</label>
         {agents.length === 0 ? (
-          <p className="mt-1 text-[13px] text-[#909090]">No agents configured yet.</p>
+          <p className="mt-1 text-[13px] text-subtle">No agents configured yet.</p>
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {agents.map((a) => {
               const on = keys.has(a.output_key);
               const color =
-                CATEGORY_COLOR[a.output_key as keyof typeof CATEGORY_COLOR] ?? "#606060";
+                CATEGORY_COLOR[a.output_key as keyof typeof CATEGORY_COLOR] ?? "var(--color-muted)";
               return (
                 <button
                   key={a.agent_id}
@@ -360,13 +360,13 @@ function CreateWorkflowModal({
                   aria-pressed={on}
                   className={`rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${
                     on
-                      ? "border-[#0F0F0F] bg-[#0F0F0F] text-white"
-                      : "border-[#E5E5E5] bg-white text-[#0F0F0F] hover:bg-[#F2F2F2]"
+                      ? "border-ink bg-action text-on-action"
+                      : "border-border bg-canvas text-ink hover:bg-surface"
                   }`}
                 >
                   <span
                     className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
-                    style={{ background: on ? "#FFFFFF" : color }}
+                    style={{ background: on ? "var(--color-on-accent)" : color }}
                   />
                   {a.name}
                 </button>
@@ -378,14 +378,14 @@ function CreateWorkflowModal({
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]"
+            className="h-9 rounded-full px-4 text-[13px] hover:bg-surface"
           >
             Cancel
           </button>
           <button
             onClick={save}
             disabled={saving || !name.trim() || !ruleId}
-            className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50"
+            className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save workflow"}
           </button>

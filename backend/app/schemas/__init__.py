@@ -8,7 +8,10 @@ from app.schemas.agent_io import (
 )
 from app.schemas.agents import (
     Agent,
+    AgentChatTurn,
     AgentCreate,
+    AgentGenerateRequest,
+    AgentGenerateResponse,
     AgentListResponse,
     AgentUpdate,
 )
@@ -63,7 +66,10 @@ __all__ = [
     "AgentEventsResponse",
     "AgentStatusResponse",
     "Agent",
+    "AgentChatTurn",
     "AgentCreate",
+    "AgentGenerateRequest",
+    "AgentGenerateResponse",
     "AgentListResponse",
     "AgentUpdate",
     "ApprovalDecision",

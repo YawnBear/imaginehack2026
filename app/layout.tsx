@@ -17,7 +17,7 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GreenGuard Cloud — AI Cloud Governance for Construction",
+  title: "Safe Cloud — AI Cloud Governance for Construction",
   description:
     "AI-assisted cloud-governance dashboard: explainable security & cost findings, estimated cost + carbon savings, with human-approved remediation.",
 };
@@ -26,7 +26,10 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} h-full`}>
+    <html lang="en" data-theme="light" suppressHydrationWarning className={`${roboto.variable} ${robotoMono.variable} h-full`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("safe-cloud.theme");if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}` }} />
+      </head>
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );

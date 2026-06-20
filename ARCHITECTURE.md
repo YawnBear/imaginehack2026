@@ -1,4 +1,4 @@
-# GreenGuard Cloud — Architecture & Shared Contract
+# Safe Cloud — Architecture & Shared Contract
 
 > **This file is the single source of truth for everything that crosses a team boundary:**
 > the data model, the API contract, enum values, the data flow, env vars, and how to run
@@ -13,7 +13,7 @@
 
 ## 1. What we're building (one paragraph)
 
-GreenGuard Cloud is an **AI-assisted cloud-governance dashboard for construction orgs** (Hilti
+Safe Cloud is an **AI-assisted cloud-governance dashboard for construction orgs** (Hilti
 "Secure & Energy-Aware Cloud Platforms" track). Mock cloud-scan events are ingested → a
 **deterministic rule engine** detects four issue types → each finding is routed by a **master
 agent** to **specialized AI agents** (Security / Cost / Energy / Workflow / Audit) that explain
