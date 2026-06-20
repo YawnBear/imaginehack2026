@@ -1,3 +1,13 @@
+from app.schemas.agents import (
+    Agent,
+    AgentCreate,
+    AgentLens,
+    AgentListResponse,
+    AgentPreviewRequest,
+    AgentPreviewResponse,
+    AgentTemplate,
+    AgentUpdate,
+)
 from app.schemas.audit import AuditLog, AuditLogListResponse
 from app.schemas.dashboard import DashboardSummary
 from app.schemas.events import CloudEvent, EventIngestRequest, EventIngestResponse
@@ -25,6 +35,14 @@ from app.schemas.rules import (
 )
 
 __all__ = [
+    "Agent",
+    "AgentCreate",
+    "AgentLens",
+    "AgentListResponse",
+    "AgentPreviewRequest",
+    "AgentPreviewResponse",
+    "AgentTemplate",
+    "AgentUpdate",
     "ApprovalDecision",
     "AuditLog",
     "AuditLogListResponse",
