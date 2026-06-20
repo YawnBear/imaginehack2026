@@ -1,72 +1,114 @@
+import json
+import os
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.agents.ai_client import generate_agent_analysis, generate_workflow_summary
 from app.agents.recommendations import build_recommendation
 from app.agents.summary import stitch_summary
-from app.schemas import Finding, WorkflowRunResponse
+from app.agent.runtime import snapshot_to_events
+from app.schemas import (
+    CloudEvent,
+    Workflow,
+    WorkflowCreate,
+    WorkflowListResponse,
+    WorkflowRun,
+    WorkflowRunAllResponse,
+)
+
+# repo_root/watch/infra-snapshot.json  (…/backend/app/services/this -> 4x up = repo root)
+_REPO_ROOT = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+_SNAPSHOT_PATH = os.environ.get(
+    "SAFECLOUD_SNAPSHOT", os.path.join(_REPO_ROOT, "watch", "infra-snapshot.json")
+)
+
+_INACTIVE = {"rejected", "action_completed"}
 
 
 class WorkflowService:
-    """On-demand preview: run a rule's selected agents + summarizer. Persists nothing."""
+    """Saved workflows (name + rule + agents) and a Run-all that re-scans the logs."""
 
-    def __init__(self, store) -> None:
+    def __init__(self, store, governance) -> None:
         self.store = store
+        self.governance = governance
 
-    def run(self, rule_id: str, agent_keys: list[str]) -> WorkflowRunResponse | None:
-        rule = self.store.rules.get(rule_id)
-        if rule is None:
-            return None
-        finding, synthetic = self._representative_finding(rule_id, rule)
-        rec = build_recommendation(finding)
+    def list(self) -> WorkflowListResponse:
+        items = list(self.store.workflows.values())
+        return WorkflowListResponse(items=items, total=len(items))
+
+    def create(self, payload: WorkflowCreate) -> Workflow:
+        wf = Workflow(
+            workflow_id=f"wf-{uuid4().hex[:10]}",
+            name=payload.name.strip() or "Untitled workflow",
+            rule_id=payload.rule_id,
+            agent_keys=list(payload.agent_keys),
+            created_at=datetime.now(UTC),
+            last_run=None,
+        )
+        self.store.workflows[wf.workflow_id] = wf
+        return wf
+
+    def delete(self, workflow_id: str) -> bool:
+        if workflow_id in self.store.workflows:
+            del self.store.workflows[workflow_id]
+            return True
+        return False
+
+    def rule_exists(self, rule_id: str) -> bool:
+        return rule_id in self.store.rules
+
+    def run_all(self) -> WorkflowRunAllResponse:
+        scanned = self._scan()
+        results: list[Workflow] = []
+        for wf in list(self.store.workflows.values()):
+            wf.last_run = self._run_one(wf)
+            self.store.workflows[wf.workflow_id] = wf  # persist last_run
+            results.append(wf)
+        return WorkflowRunAllResponse(scanned_findings=scanned, workflows=results)
+
+    # ---- internals ----
+    def _scan(self) -> int:
+        try:
+            with open(_SNAPSHOT_PATH) as fh:
+                snap = json.load(fh)
+        except (OSError, ValueError):
+            return 0  # no snapshot on this box -> run over whatever's already ingested
+        events = snapshot_to_events(snap, datetime.now(UTC).isoformat())
+        try:
+            cloud_events = [CloudEvent(**e) for e in events]
+        except (TypeError, ValueError):
+            return 0
+        return self.governance.ingest_events(cloud_events, actor_id="workflow-run").created_findings
+
+    def _run_one(self, wf: Workflow) -> WorkflowRun:
+        now = datetime.now(UTC)
+        findings = [
+            f for f in self.store.findings.values()
+            if f.rule_id == wf.rule_id and f.status not in _INACTIVE
+        ]
+        if not findings:
+            return WorkflowRun(
+                ran_at=now, finding_count=0,
+                summary="No matching resources found in the latest scan for this rule.",
+            )
+        finding = max(findings, key=lambda f: f.created_at)
         by_key = {a.output_key: a for a in self.store.agents.values() if a.enabled}
-        selected = [by_key[k] for k in agent_keys if k in by_key]
+        selected = [by_key[k] for k in wf.agent_keys if k in by_key]
+        rec = build_recommendation(finding)
         ai_outputs = generate_agent_analysis(finding, rec, selected) or {}
         ai_generated = bool(ai_outputs)
         summary = generate_workflow_summary(finding, ai_outputs) or stitch_summary(ai_outputs)
         if not summary:
-            summary = self._empty_summary(selected)
-        return WorkflowRunResponse(
+            summary = (
+                "No agents are selected for this workflow." if not selected
+                else "No analysis text was generated (AI layer off or empty)."
+            )
+        return WorkflowRun(
+            ran_at=now,
+            finding_count=len(findings),
             summary=summary,
             agent_outputs={k: str(v) for k, v in ai_outputs.items()},
             ai_generated=ai_generated,
-            finding_preview=finding.model_dump(mode="json"),
-            synthetic=synthetic,
-        )
-
-    def _representative_finding(self, rule_id: str, rule):
-        matches = [f for f in self.store.findings.values() if f.rule_id == rule_id]
-        if matches:
-            return max(matches, key=lambda f: f.created_at), False
-        return self._synthetic_finding(rule), True
-
-    def _synthetic_finding(self, rule) -> Finding:
-        now = datetime.now(UTC)
-        return Finding(
-            finding_id=f"preview-{uuid4().hex[:8]}",
-            source_event_id="preview",
-            resource_id="preview-resource",
-            resource_name="Sample resource",
-            resource_type=getattr(rule, "resource_type", None) or "bucket",
-            issue_type=getattr(rule, "issue_type", "unknown"),
-            category=getattr(rule, "category", "security"),
-            severity=getattr(rule, "severity_base", "medium"),
-            status="pending_review",
-            rule_id=rule.rule_id,
-            evidence={"preview": True, "note": "Synthetic sample for workflow preview"},
-            rule_confidence=getattr(rule, "rule_confidence", 0.8),
-            created_at=now,
-            updated_at=now,
-        )
-
-    @staticmethod
-    def _empty_summary(selected) -> str:
-        if not selected:
-            return (
-                "No agents are selected for this rule yet. Pick one or more agents above to "
-                "generate a combined analysis."
-            )
-        return (
-            "No analysis text was generated (the AI layer is off or returned nothing). "
-            "Configure an AI key to see a merged summary."
         )

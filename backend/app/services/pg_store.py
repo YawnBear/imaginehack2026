@@ -49,6 +49,7 @@ from app.schemas import (
     Recommendation,
     Rule,
     ThreatReport,
+    Workflow,
 )
 
 _md = MetaData()
@@ -149,6 +150,16 @@ sc_activities = Table(
     Column("id", String, primary_key=True),  # generated (Activity has no id)
     Column("actor", String), Column("action", String), Column("target_resource_id", String),
     Column("timestamp", DateTime(timezone=True)), Column("source", String),
+    _seq(),
+)
+
+sc_workflows = Table(
+    "sc_workflows", _md,
+    Column("workflow_id", String, primary_key=True),
+    Column("name", String), Column("rule_id", String),
+    Column("agent_keys", JSONB),
+    Column("created_at", DateTime(timezone=True)),
+    Column("last_run", JSONB),
     _seq(),
 )
 
@@ -308,6 +319,7 @@ class PostgresStore:
         self.threat_reports = TableDict(self._engine, sc_threat_reports, "finding_id", ThreatReport)
         self.audit_logs = TableList(self._engine, sc_audit_logs, AuditLog)
         self.activities = TableList(self._engine, sc_activities, Activity, gen_id=True)
+        self.workflows = TableDict(self._engine, sc_workflows, "workflow_id", Workflow)
 
         if len(self.rules) == 0:
             for rule in builtin_rules():

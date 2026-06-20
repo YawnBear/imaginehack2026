@@ -18,7 +18,7 @@ _governance_service = GovernanceService(_store)
 _rule_service = RuleService(_store)
 _agent_service = AgentService(_store)
 _threat_service = ThreatService(_store)
-_workflow_service = WorkflowService(_store)
+_workflow_service = WorkflowService(_store, _governance_service)
 
 
 def get_governance_service() -> GovernanceService:

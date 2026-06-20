@@ -1,8 +1,9 @@
-"""Tests for the merged workflow summary + /api/workflows/run preview.
+"""Tests for the merged workflow summary + saved-workflow CRUD + Run-all.
 
 SAFETY: the test backend has a real AI key (ai_enabled == True), so every path
-that reaches WorkflowService.run / generate_workflow_summary / generate_agent_analysis
-is stubbed or forced AI-off here. The suite makes ZERO network calls.
+that reaches generate_workflow_summary / generate_agent_analysis is stubbed or
+forced AI-off here, and WorkflowService._scan is patched so no test reads the
+real snapshot file. The suite makes ZERO network calls and stays fast.
 """
 
 from datetime import UTC, datetime
@@ -14,14 +15,13 @@ import app.services.workflows_service as workflows_service
 from app.agents.summary import stitch_summary
 from app.agents.ai_client import generate_workflow_summary, parse_summary
 from app.main import create_app
-from app.schemas import Rule, RuleCondition
-from app.services import dependencies
+from app.services.governance import GovernanceService
 from app.services.store import InMemoryStore
 from app.services.workflows_service import WorkflowService
 
 
 # --------------------------------------------------------------------------- #
-# B2: stitch_summary (deterministic fallback)
+# stitch_summary (deterministic fallback)
 # --------------------------------------------------------------------------- #
 def test_stitch_summary_empty_returns_empty():
     assert stitch_summary({}) == ""
@@ -44,7 +44,7 @@ def test_stitch_summary_singular_lead_for_one_agent():
 
 
 # --------------------------------------------------------------------------- #
-# B3: parse_summary
+# parse_summary
 # --------------------------------------------------------------------------- #
 def test_parse_summary_extracts_text_from_valid_body():
     raw = '{"choices":[{"message":{"content":"This is the merged summary."}}]}'
@@ -70,7 +70,7 @@ def test_parse_summary_none_on_empty_content():
 
 
 # --------------------------------------------------------------------------- #
-# B3: generate_workflow_summary (never raises, no network in tests)
+# generate_workflow_summary (never raises, no network in tests)
 # --------------------------------------------------------------------------- #
 def test_generate_workflow_summary_none_when_ai_disabled(monkeypatch):
     settings = ai_client.get_settings()
@@ -88,130 +88,132 @@ def test_generate_workflow_summary_none_when_no_outputs(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# B6: WorkflowService.run
+# CRUD via TestClient
 # --------------------------------------------------------------------------- #
-def test_run_missing_rule_returns_none():
-    store = InMemoryStore()
-    assert WorkflowService(store).run("DOES_NOT_EXIST", ["security"]) is None
+def test_create_lists_and_deletes_workflow(monkeypatch):
+    # _scan never reads the real file / hits the network in CRUD tests.
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+
+    created = client.post(
+        "/api/workflows",
+        json={"name": "Bucket review", "rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
+    )
+    assert created.status_code == 201
+    body = created.json()
+    wf_id = body["workflow_id"]
+    assert body["name"] == "Bucket review"
+    assert body["rule_id"] == "RULE_PUBLIC_BUCKET"
+    assert body["agent_keys"] == ["security"]
+    assert body["last_run"] is None
+
+    listed = client.get("/api/workflows")
+    assert listed.status_code == 200
+    listed_body = listed.json()
+    assert listed_body["total"] == 1
+    assert any(w["workflow_id"] == wf_id for w in listed_body["items"])
+
+    deleted = client.delete(f"/api/workflows/{wf_id}")
+    assert deleted.status_code == 204
+
+    listed_after = client.get("/api/workflows")
+    assert listed_after.json()["total"] == 0
 
 
-def test_run_with_ai_outputs(monkeypatch):
+def test_delete_missing_workflow_404(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+    res = client.delete("/api/workflows/does-not-exist")
+    assert res.status_code == 404
+
+
+def test_create_unknown_rule_400(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+    res = client.post(
+        "/api/workflows",
+        json={"name": "Bad", "rule_id": "NOPE", "agent_keys": []},
+    )
+    assert res.status_code == 400
+
+
+# --------------------------------------------------------------------------- #
+# run_all
+# --------------------------------------------------------------------------- #
+def test_run_all_persists_last_run(monkeypatch):
     store = InMemoryStore()
+    service = WorkflowService(store, GovernanceService(store))
+    # Stub scan so it injects no findings via the real file; seed one directly.
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 1)
+    finding = _finding(rule_id="RULE_PUBLIC_BUCKET", finding_id="real-1")
+    store.findings[finding.finding_id] = finding
     monkeypatch.setattr(
         workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: {"security": "exposed", "audit": "needs approval"},
+        lambda finding, rec, selected: {"security": "exposed bucket"},
     )
     monkeypatch.setattr(
         workflows_service, "generate_workflow_summary",
-        lambda finding, outputs: "Merged summary paragraph.",
+        lambda finding, outputs: "merged",
     )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", ["security", "audit"])
-    assert res is not None
-    assert res.summary == "Merged summary paragraph."
-    assert res.ai_generated is True
-    assert res.agent_outputs == {"security": "exposed", "audit": "needs approval"}
+    from app.schemas import WorkflowCreate
+
+    wf = service.create(WorkflowCreate(name="W", rule_id="RULE_PUBLIC_BUCKET", agent_keys=["security"]))
+
+    res = service.run_all()
+    assert res.scanned_findings == 1
+    assert len(res.workflows) == 1
+    ran = res.workflows[0]
+    assert ran.last_run is not None
+    assert ran.last_run.summary == "merged"
+    assert ran.last_run.finding_count >= 1
+    assert ran.last_run.ai_generated is True
+    assert ran.last_run.agent_outputs == {"security": "exposed bucket"}
+    # Persisted on the store row.
+    assert store.workflows[wf.workflow_id].last_run is not None
+    assert store.workflows[wf.workflow_id].last_run.summary == "merged"
 
 
-def test_run_falls_back_to_stitch_when_summarizer_none(monkeypatch):
+def test_run_all_no_matching_findings(monkeypatch):
     store = InMemoryStore()
+    service = WorkflowService(store, GovernanceService(store))
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
     monkeypatch.setattr(
         workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: {"security": "exposed", "cost": "wasted"},
+        lambda finding, rec, selected: None,
     )
     monkeypatch.setattr(
         workflows_service, "generate_workflow_summary",
         lambda finding, outputs: None,
     )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", ["security", "cost"])
-    assert res.ai_generated is True
-    assert res.summary.startswith("2 agents reviewed this finding.")
+    from app.schemas import WorkflowCreate
+
+    service.create(WorkflowCreate(name="W", rule_id="RULE_PUBLIC_BUCKET", agent_keys=["security"]))
+
+    res = service.run_all()
+    assert res.scanned_findings == 0
+    assert len(res.workflows) == 1
+    last_run = res.workflows[0].last_run
+    assert last_run is not None
+    assert last_run.finding_count == 0
+    assert last_run.summary.startswith("No matching resources")
 
 
-def test_run_ai_off_returns_empty_path_summary(monkeypatch):
-    store = InMemoryStore()
+def test_run_all_route_returns_200(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
     monkeypatch.setattr(
         workflows_service, "generate_agent_analysis",
         lambda finding, rec, selected: None,
-    )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", ["security", "audit"])
-    assert res.ai_generated is False
-    assert res.agent_outputs == {}
-    assert res.summary  # non-empty empty-path copy
-    assert "No analysis text was generated" in res.summary
-
-
-def test_run_no_agents_selected_empty_summary(monkeypatch):
-    store = InMemoryStore()
-    monkeypatch.setattr(
-        workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: None,
-    )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", [])
-    assert res.ai_generated is False
-    assert "No agents are selected" in res.summary
-
-
-def test_run_synthetic_when_no_finding(monkeypatch):
-    store = InMemoryStore()  # no findings ingested
-    monkeypatch.setattr(
-        workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: None,
-    )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", ["security"])
-    assert res.synthetic is True
-    assert res.finding_preview.get("finding_id", "").startswith("preview-")
-
-
-def test_run_real_finding_used_when_present(monkeypatch):
-    store = InMemoryStore()
-    finding = _finding(rule_id="RULE_PUBLIC_BUCKET", finding_id="real-1")
-    store.findings[finding.finding_id] = finding
-    monkeypatch.setattr(
-        workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: None,
-    )
-    res = WorkflowService(store).run("RULE_PUBLIC_BUCKET", ["security"])
-    assert res.synthetic is False
-    assert res.finding_preview.get("finding_id") == "real-1"
-
-
-# --------------------------------------------------------------------------- #
-# B8: route POST /api/workflows/run
-# --------------------------------------------------------------------------- #
-def test_route_happy_path(monkeypatch):
-    monkeypatch.setattr(
-        workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: {"security": "exposed"},
     )
     monkeypatch.setattr(
         workflows_service, "generate_workflow_summary",
-        lambda finding, outputs: "A merged summary.",
+        lambda finding, outputs: None,
     )
     client = TestClient(create_app())
-    res = client.post(
-        "/api/workflows/run",
-        json={"rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
-    )
+    res = client.post("/api/workflows/run-all")
     assert res.status_code == 200
     body = res.json()
-    assert body["summary"] == "A merged summary."
-    assert body["ai_generated"] is True
-    assert body["agent_outputs"] == {"security": "exposed"}
-
-
-def test_route_404_unknown_rule(monkeypatch):
-    # Stub AI off so even if it reached run() there's no network; rule is missing
-    # so it 404s before any AI call anyway.
-    monkeypatch.setattr(
-        workflows_service, "generate_agent_analysis",
-        lambda finding, rec, selected: None,
-    )
-    client = TestClient(create_app())
-    res = client.post(
-        "/api/workflows/run",
-        json={"rule_id": "NOPE", "agent_keys": ["security"]},
-    )
-    assert res.status_code == 404
+    assert body["scanned_findings"] == 0
+    assert body["workflows"] == []
 
 
 # --------------------------------------------------------------------------- #
