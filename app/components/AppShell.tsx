@@ -9,6 +9,7 @@ import {
   IconCost,
   IconEnergy,
   IconAudit,
+  IconRules,
   IconMenu,
   IconInfo,
 } from "./icons";
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/cost", label: "Cost", icon: IconCost },
   { href: "/energy", label: "Energy", icon: IconEnergy },
   { href: "/audit", label: "Audit", icon: IconAudit },
+  { href: "/rules", label: "Rules", icon: IconRules },
 ];
 
 function BrandMark() {
