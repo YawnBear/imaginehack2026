@@ -143,8 +143,8 @@ export default function AppShell({
             Latest scan: {latestScanAt ? relativeTime(latestScanAt, renderedAt) : "-"}
           </span>
 
-          {/* Agent online status */}
-          <AgentStatusChip />
+          {/*/!* Agent online status *!/*/}
+          {/*<AgentStatusChip />*/}
 
           <ThemeToggle />
 
