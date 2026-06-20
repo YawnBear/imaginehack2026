@@ -45,7 +45,7 @@ function TriggerNode({ rule }: { rule: Rule | null }) {
       </div>
     );
   }
-  const color = CATEGORY_COLOR[rule.category] ?? "var(--color-muted)";
+  const color = "var(--color-muted)";
   return (
     <div
       style={{ borderColor: mix(color, 35) }}
