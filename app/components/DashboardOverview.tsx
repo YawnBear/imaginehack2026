@@ -18,17 +18,17 @@ const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"];
 
 function DashboardCard({ title, icon, children, onClick, hint }: DashboardCardProps) {
   const content = (
-    <>
+    <div className="w-full ">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">{title}</p>
         <span className="text-muted">{icon}</span>
       </div>
       <div className="mt-2.5">{children}</div>
       {hint && <p className="mt-1.5 text-[10px] text-muted">{hint}</p>}
-    </>
+    </div>
   );
-  const classes = "h-full w-full overflow-hidden rounded-xl border border-border bg-surface-subtle p-3.5 text-left transition hover:border-[var(--color-link-border)] hover:bg-surface";
-  return onClick ? <button type="button" onClick={onClick} className={classes}>{content}</button> : <article className={classes}>{content}</article>;
+  const classes = "flex justify-between h-full w-full overflow-hidden rounded-xl border border-border bg-surface-subtle p-3.5 text-left transition hover:border-[var(--color-link-border)] hover:bg-surface";
+  return onClick ? <button type="button" onClick={onClick} className={classes}>{content}</button> : <div className={classes}>{content}</div>;
 }
 
 function categoryName(finding: Finding): string {
