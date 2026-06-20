@@ -50,3 +50,4 @@ __pycache__/
 # misc lockfiles / agent artifacts
 bun.lock
 /.agent-context/
+.claude/skills/

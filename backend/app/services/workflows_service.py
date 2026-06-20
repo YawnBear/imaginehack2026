@@ -73,13 +73,12 @@ class WorkflowService:
         try:
             with open(_SNAPSHOT_PATH) as fh:
                 snap = json.load(fh)
-        except (OSError, ValueError):
-            return 0  # no snapshot on this box -> run over whatever's already ingested
-        events = snapshot_to_events(snap, datetime.now(UTC).isoformat())
-        try:
+            if not isinstance(snap, dict):
+                return 0  # valid JSON but not an object (e.g. [], "foo", 42, null)
+            events = snapshot_to_events(snap, datetime.now(UTC).isoformat())
             cloud_events = [CloudEvent(**e) for e in events]
-        except (TypeError, ValueError):
-            return 0
+        except (OSError, ValueError, TypeError, AttributeError):
+            return 0  # no/garbage snapshot on this box -> run over whatever's already ingested
         return self.governance.ingest_events(cloud_events, actor_id="workflow-run").created_findings
 
     def _run_one(self, wf: Workflow) -> WorkflowRun:

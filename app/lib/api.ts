@@ -64,7 +64,14 @@ async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
+    // 204 No Content (e.g. DELETE) and other empty bodies have no JSON to parse;
+    // calling res.json() on them throws SyntaxError. Return undefined instead so
+    // callers like deleteWorkflow/deleteRule/deleteAgent resolve to ok(true).
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T;
+    }
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   } finally {
     clearTimeout(timeout);
   }

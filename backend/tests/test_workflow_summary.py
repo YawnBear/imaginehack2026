@@ -198,6 +198,19 @@ def test_run_all_no_matching_findings(monkeypatch):
     assert last_run.summary.startswith("No matching resources")
 
 
+def test_scan_tolerates_non_object_snapshot(monkeypatch, tmp_path):
+    """A syntactically-valid-but-non-object snapshot ([], "foo", 42, null) must
+    not raise — _scan returns 0 instead of letting AttributeError 500 run_all.
+    _scan is intentionally NOT patched here so the real load path is exercised."""
+    store = InMemoryStore()
+    service = WorkflowService(store, GovernanceService(store))
+    for raw in ("[]", '"foo"', "42", "null"):
+        snap = tmp_path / "infra-snapshot.json"
+        snap.write_text(raw)
+        monkeypatch.setattr(workflows_service, "_SNAPSHOT_PATH", str(snap))
+        assert service._scan() == 0, f"non-object snapshot {raw!r} should yield 0"
+
+
 def test_run_all_route_returns_200(monkeypatch):
     monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
     monkeypatch.setattr(
