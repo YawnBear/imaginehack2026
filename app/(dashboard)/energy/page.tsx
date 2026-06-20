@@ -4,6 +4,10 @@ import { Card, SectionTitle, MockBanner, EstimateNote } from "@/app/components/u
 import { AreaLineChart, BarChart, type Slice } from "@/app/components/charts";
 import { kg } from "@/app/lib/format";
 import { IconLeaf } from "@/app/components/icons";
+import ESGReportExport, {
+  type ESGReductionCategory,
+  type ESGTrendPoint,
+} from "@/app/components/ESGReportExport";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +25,14 @@ export default async function EnergyPage() {
 
   // Aggregate estimated carbon reduction by resource type.
   const byType: Record<string, number> = {};
+  const byOptimization: Record<string, number> = {};
   let totalReduction = 0;
   for (let i = 0; i < findings.length; i++) {
     const red = details[i]?.data.recommendation?.estimated_carbon_reduction_kg ?? 0;
     totalReduction += red;
     byType[findings[i].resource_type] = (byType[findings[i].resource_type] ?? 0) + red;
+    const label = optimizationLabel(findings[i].issue_type, findings[i].resource_type);
+    byOptimization[label] = (byOptimization[label] ?? 0) + red;
   }
 
   const typeColors: Record<string, string> = {
@@ -44,6 +51,25 @@ export default async function EnergyPage() {
 
   const beforeFootprint = 588;
   const afterFootprint = Math.max(beforeFootprint - Math.round(totalReduction), 0);
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  const reportTrend = buildReportTrend(trend, trendLabels);
+  const reductionCategories = buildReductionCategories(byOptimization);
+  const esgScore =
+    beforeFootprint > 0
+      ? Math.min(100, Math.round(72 + (totalReduction / beforeFootprint) * 100))
+      : null;
+  const reportData = {
+    organizationName: "GreenGuard Cloud Demo Organization",
+    generatedAt: now.toISOString(),
+    periodStart: periodStart.toISOString(),
+    periodEnd: now.toISOString(),
+    overallFootprintKg: afterFootprint,
+    totalReducedKg: Math.round(totalReduction),
+    esgScore,
+    trend: reportTrend,
+    reductions: reductionCategories,
+  };
 
   return (
     <div className="space-y-5">
@@ -51,9 +77,12 @@ export default async function EnergyPage() {
         title="Energy"
         subtitle="Estimated carbon footprint of the cloud estate, and the reduction unlocked once recommended actions are approved."
         right={
-          <span className="hidden items-center gap-1.5 rounded-full bg-[#2BA6400D] px-3 py-1.5 text-[12px] font-medium text-[#1d7a2e] sm:flex">
-            <IconLeaf width={14} height={14} /> all values are estimates
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="hidden items-center gap-1.5 rounded-full bg-[#2BA6400D] px-3 py-1.5 text-[12px] font-medium text-[#1d7a2e] sm:flex">
+              <IconLeaf width={14} height={14} /> all values are estimates
+            </span>
+            <ESGReportExport data={reportData} />
+          </div>
         }
       />
       {mock && <MockBanner reason={costRes.error} />}
@@ -114,6 +143,49 @@ export default async function EnergyPage() {
       <EstimateNote />
     </div>
   );
+}
+
+function optimizationLabel(issueType: string, resourceType: string): string {
+  const normalized = issueType.toLowerCase().replace(/\s+/g, "_");
+  if (normalized.includes("idle_vm") || normalized.includes("idle_compute")) {
+    return "Idle VM Shutdown";
+  }
+  if (normalized.includes("unused_storage") || normalized.includes("orphaned_storage")) {
+    return "Unused Storage Removal";
+  }
+  if (normalized.includes("storage") || resourceType === "storage") {
+    return "Storage Tier Optimization";
+  }
+  if (normalized.includes("right") || normalized.includes("over_provisioned") || resourceType === "vm") {
+    return "VM Right-Sizing";
+  }
+  if (resourceType === "database") {
+    return "Database Optimization";
+  }
+  return "Other Optimizations";
+}
+
+function buildReductionCategories(source: Record<string, number>): ESGReductionCategory[] {
+  const ordered = [
+    "Idle VM Shutdown",
+    "Unused Storage Removal",
+    "Storage Tier Optimization",
+    "VM Right-Sizing",
+    "Database Optimization",
+    "Other Optimizations",
+  ];
+  return ordered.map((category) => ({
+    category,
+    savedKg: Math.round(source[category] ?? 0),
+  }));
+}
+
+function buildReportTrend(values: number[], labels: string[]): ESGTrendPoint[] {
+  return values.map((value, index) => ({
+    date: labels[index] ?? String(index + 1),
+    label: labels[index] ?? String(index + 1),
+    footprintKg: Math.max(0, Math.round(value)),
+  }));
 }
 
 function BeforeAfterBar({
