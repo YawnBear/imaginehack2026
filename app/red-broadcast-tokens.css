@@ -18,6 +18,7 @@
   --color-on-accent: #ffffff;
   --color-success: #2ba640;
   --color-success-strong: #1d7a2e;
+  --color-footprint: #14532d;
   --color-warning: #fb8c00;
   --color-warning-strong: #8a5300;
   --color-danger: #ff0000;
@@ -111,6 +112,7 @@
   --color-on-action: #0f0f0f;
   --color-success: #55c96b;
   --color-success-strong: #70d982;
+  --color-footprint: #14532d;
   --color-success-soft: #17351e;
   --color-success-tint: #102516;
   --color-success-border: #285d33;

@@ -18,9 +18,13 @@ const robotoMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Safe Cloud — AI Cloud Governance for Construction",
+  title: "SafeCloud — AI Cloud Governance for Construction",
   description:
     "AI-assisted cloud-governance dashboard: explainable security & cost findings, estimated cost + carbon savings, with human-approved remediation.",
+  icons: {
+    icon: "/footprint-svgrepo-com.svg",
+    shortcut: "/footprint-svgrepo-com.svg",
+  },
 };
 
 export default function RootLayout({

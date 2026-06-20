@@ -1,7 +1,7 @@
 import { getEnergySummary } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { Card, SectionTitle, MockBanner, EstimateNote } from "@/app/components/ui";
-import { AreaLineChart } from "@/app/components/charts";
+import { AreaLineChart } from "@/app/components/AnimatedAreaLineChart";
 import { kg } from "@/app/lib/format";
 import { IconLeaf } from "@/app/components/icons";
 import ESGReportExport, {
