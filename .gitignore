@@ -50,3 +50,6 @@ __pycache__/
 # misc lockfiles / agent artifacts
 bun.lock
 /.agent-context/
+backend/scripts/*
+backend/test-output/*
+.vscode/settings.json
