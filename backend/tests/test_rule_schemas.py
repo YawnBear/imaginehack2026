@@ -17,7 +17,6 @@ def test_rule_create_defaults():
         conditions=[RuleCondition(field="config.public_access", operator="==", value=True)],
     )
     assert payload.enabled is True
-    assert payload.mode == "manual"
     assert payload.severity_base == "medium"
     assert payload.required_reviewers == []
     assert payload.remediation_destructive is False

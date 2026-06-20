@@ -1,11 +1,4 @@
-from app.schemas import AgentConfigResponse, AgentEventsRequest, AgentStatusResponse, Activity, RemediationCommand
-
-
-def test_command_has_resource_id():
-    c = RemediationCommand(command_id="c1", finding_id="f1", resource_id="bucket-x",
-                           action_key="restrict_public_access", destructive=False,
-                           created_at="2026-06-20T00:00:00Z")
-    assert c.resource_id == "bucket-x"
+from app.schemas import AgentEventsRequest, AgentStatusResponse, Activity
 
 
 def test_activity_and_io_models():

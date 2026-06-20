@@ -10,12 +10,9 @@ from app.schemas import (
     AgentEventsRequest,
     AgentEventsResponse,
     AgentStatusResponse,
-    CommandListResponse,
-    CommandResultRequest,
 )
-from app.services.dependencies import get_governance_service, get_threat_service
+from app.services.dependencies import get_governance_service
 from app.services.governance import GovernanceService
-from app.services.threats_service import ThreatService
 
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
@@ -40,13 +37,11 @@ def enroll(governance: GovernanceService = Depends(require_agent_token)) -> Agen
 @router.get("/config", response_model=AgentConfigResponse)
 def get_config(
     governance: GovernanceService = Depends(require_agent_token),
-    threats: ThreatService = Depends(get_threat_service),
 ) -> AgentConfigResponse:
     store = governance.store
     return AgentConfigResponse(
         rules=[r.model_dump(mode="json") for r in store.rules.values()],
         agents=[a.model_dump(mode="json") for a in store.agents.values()],
-        policy=store.policy.model_dump(mode="json"),
     )
 
 
@@ -63,24 +58,6 @@ def post_events(
         duplicate_events=ingest.duplicate_events,
         activities_recorded=recorded,
     )
-
-
-@router.get("/commands", response_model=CommandListResponse)
-def get_commands(governance: GovernanceService = Depends(require_agent_token)) -> CommandListResponse:
-    queued = [c for c in governance.store.commands.values() if c.status == "queued"]
-    queued.sort(key=lambda c: c.created_at)
-    return CommandListResponse(items=queued, total=len(queued))
-
-
-@router.post("/commands/{command_id}/result")
-def post_command_result(
-    command_id: str,
-    payload: CommandResultRequest,
-    governance: GovernanceService = Depends(require_agent_token),
-) -> dict:
-    if not governance.complete_command(command_id, payload.status, payload.result):
-        raise HTTPException(status_code=404, detail="Command not found")
-    return {"command_id": command_id, "status": payload.status}
 
 
 @router.get("/status", response_model=AgentStatusResponse)

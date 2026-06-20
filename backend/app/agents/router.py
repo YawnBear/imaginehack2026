@@ -26,6 +26,15 @@ def select_agents(finding: Finding, agents: list[Agent]) -> list[Agent]:
     return picked
 
 
+def select_agents_for_finding(finding, agents, rule):
+    """A finding's rule may pin specific agents via ``agent_keys`` (Workflows).
+    Empty/None -> fall back to the agents' own coverage selection."""
+    if rule is not None and getattr(rule, "agent_keys", None):
+        by_key = {a.output_key: a for a in agents if a.enabled}
+        return [by_key[k] for k in rule.agent_keys if k in by_key]
+    return select_agents(finding, agents)
+
+
 def _exposure(f: Finding, r: Recommendation) -> str:
     return (
         f"{issue_label(f.issue_type)} on {f.resource_id} is a {f.severity} exposure / "
@@ -87,11 +96,11 @@ LENS_TEMPLATES: dict[str, Callable[[Finding, Recommendation], str]] = {
 
 
 def build_agent_outputs(
-    finding: Finding, recommendation: Recommendation, agents: list[Agent]
+    finding: Finding, recommendation: Recommendation, agents: list[Agent], rule=None
 ) -> dict[str, str]:
     """Deterministic per-agent base text, keyed by each selected agent's output_key."""
     outputs: dict[str, Any] = {}
-    for agent in select_agents(finding, agents):
+    for agent in select_agents_for_finding(finding, agents, rule):
         template = LENS_TEMPLATES.get(agent.lens)
         if template is None:
             continue

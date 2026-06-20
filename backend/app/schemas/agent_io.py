@@ -22,7 +22,6 @@ class AgentEnrollResponse(BaseModel):
 class AgentConfigResponse(BaseModel):
     rules: list[dict[str, Any]] = Field(default_factory=list)
     agents: list[dict[str, Any]] = Field(default_factory=list)
-    policy: dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentEventsRequest(BaseModel):
@@ -35,11 +34,6 @@ class AgentEventsResponse(BaseModel):
     created_findings: int
     duplicate_events: int
     activities_recorded: int
-
-
-class CommandResultRequest(BaseModel):
-    status: str  # "completed" | "failed"
-    result: str = ""
 
 
 class AgentStatusResponse(BaseModel):

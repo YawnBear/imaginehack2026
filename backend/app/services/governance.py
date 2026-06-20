@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from app.agents.ai_client import generate_agent_analysis
 from app.agents.recommendations import build_recommendation
-from app.agents.router import build_agent_outputs, select_agents
+from app.agents.router import build_agent_outputs
 from app.core.config import get_settings
 from app.rules.engine import evaluate_event
 from app.schemas import (
@@ -17,14 +17,11 @@ from app.schemas import (
     FindingDetail,
     FindingListResponse,
     Recommendation,
-    RemediationCommand,
     ReviewRequest,
     ReviewResponse,
 )
 from app.services.seed import demo_events
 from app.services.store import InMemoryStore
-from app.threats.criticality import compute_criticality
-from app.threats.report import build_threat_report
 
 
 class GovernanceService:
@@ -93,7 +90,8 @@ class GovernanceService:
                 )
                 recommendation = build_recommendation(finding)
                 recommendation.agent_outputs = build_agent_outputs(
-                    finding, recommendation, list(self.store.agents.values())
+                    finding, recommendation, list(self.store.agents.values()),
+                    self.store.rules.get(finding.rule_id),
                 )
                 finding.ai_confidence = recommendation.confidence
 
@@ -115,21 +113,6 @@ class GovernanceService:
                     actor_id="recommendation-engine",
                     after_state=recommendation.model_dump(mode="json"),
                 )
-
-                score, _factors = compute_criticality(finding, event)
-                if self.store.policy.default_mode == "auto" and score >= self.store.policy.auto_threshold:
-                    report = build_threat_report(
-                        finding, recommendation, event, self.store.audit_logs, finding.status
-                    )
-                    self.store.threat_reports[finding.finding_id] = report
-                    self._audit(
-                        entity_type="threat_report",
-                        entity_id=report.report_id,
-                        action="threat_report_auto_generated",
-                        actor_id="response-policy",
-                        after_state={"criticality_score": score},
-                        metadata={"finding_id": finding.finding_id},
-                    )
 
         return EventIngestResponse(
             accepted=accepted,
@@ -215,10 +198,6 @@ class GovernanceService:
         if review.decision == "approved":
             remaining = self._remaining_reviewers(finding_id, finding.required_reviewers)
             finding.status = "approved" if not remaining else "pending_review"
-            if finding.status == "approved" and not any(
-                cmd.finding_id == finding_id for cmd in self.store.commands.values()
-            ):
-                self._queue_remediation(finding, review.reviewer_id)
         elif review.decision == "rejected":
             finding.status = "rejected"
         elif review.decision == "deferred":
@@ -321,7 +300,10 @@ class GovernanceService:
         if not get_settings().ai_enabled:
             return
 
-        selected = select_agents(finding, list(self.store.agents.values()))
+        from app.agents.router import select_agents_for_finding
+        selected = select_agents_for_finding(
+            finding, list(self.store.agents.values()), self.store.rules.get(finding.rule_id)
+        )
         ai_outputs = generate_agent_analysis(finding, recommendation, selected)
         if not ai_outputs:
             return  # disabled/timeout/unparseable -> keep template text
@@ -333,63 +315,10 @@ class GovernanceService:
         # Cache back so it's only generated once per finding.
         self.store.recommendations[finding.finding_id] = recommendation
 
-    def _queue_remediation(self, finding: Finding, actor_id: str) -> None:
-        rule = self.store.rules.get(finding.rule_id)
-        action_key = rule.remediation_action_key if rule else "tag_resource"
-        destructive = rule.remediation_destructive if rule else False
-        approved_roles = [
-            approval.reviewer_role
-            for approval in self.store.approvals.values()
-            if approval.finding_id == finding.finding_id and approval.decision == "approved"
-        ]
-        command = RemediationCommand(
-            command_id=f"cmd-{uuid4().hex[:10]}",
-            finding_id=finding.finding_id,
-            resource_id=finding.resource_id,
-            action_key=action_key,
-            destructive=destructive,
-            approved_by=approved_roles,
-            created_at=_now(),
-        )
-        self.store.commands[command.command_id] = command
-        self._audit(
-            entity_type="command",
-            entity_id=command.command_id,
-            action="remediation_command_queued",
-            actor_id=actor_id,
-            after_state=command.model_dump(mode="json"),
-            metadata={"finding_id": finding.finding_id},
-        )
-
     def record_activity(self, activities: list) -> int:
         for activity in activities:
             self.store.activities.append(activity)
         return len(activities)
-
-    def complete_command(self, command_id: str, status: str, result: str) -> bool:
-        command = self.store.commands.get(command_id)
-        if command is None:
-            return False
-        before = command.model_dump(mode="json")
-        command.status = "completed" if status == "completed" else "failed"
-        command.result = result
-        command.executed_at = _now()
-        self.store.commands[command_id] = command
-        finding = self.store.findings.get(command.finding_id)
-        if finding is not None and command.status == "completed":
-            finding.status = "action_completed"
-            finding.updated_at = _now()
-            self.store.findings[finding.finding_id] = finding
-        self._audit(
-            entity_type="command",
-            entity_id=command_id,
-            action=f"remediation_{command.status}",
-            actor_id="safecloud-agent",
-            before_state=before,
-            after_state=command.model_dump(mode="json"),
-            metadata={"finding_id": command.finding_id},
-        )
-        return True
 
     def _remaining_reviewers(self, finding_id: str, required_reviewers: list[str]) -> list[str]:
         approved_roles = {

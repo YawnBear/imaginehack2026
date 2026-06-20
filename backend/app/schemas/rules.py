@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 ConditionOperator = Literal[
     "==", "!=", "<", "<=", ">", ">=", "in", "not_in", "exists", "contains"
 ]
-RuleMode = Literal["monitor", "manual", "auto"]
 RuleResourceType = Literal["bucket", "vm", "storage", "database"]
 RuleSeverity = Literal["critical", "high", "medium", "low"]
 RuleCategory = Literal["security", "cost", "energy", "workflow", "audit"]
@@ -34,8 +33,7 @@ class Rule(BaseModel):
     evidence_fields: list[str] = Field(default_factory=list)
     remediation_action_key: str = "tag_resource"
     remediation_destructive: bool = False
-    mode: RuleMode = "manual"
-    auto_threshold: int | None = None
+    agent_keys: list[str] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -54,8 +52,7 @@ class RuleCreate(BaseModel):
     evidence_fields: list[str] = Field(default_factory=list)
     remediation_action_key: str = "tag_resource"
     remediation_destructive: bool = False
-    mode: RuleMode = "manual"
-    auto_threshold: int | None = None
+    agent_keys: list[str] = Field(default_factory=list)
 
 
 class RuleUpdate(BaseModel):
@@ -72,8 +69,7 @@ class RuleUpdate(BaseModel):
     evidence_fields: list[str] | None = None
     remediation_action_key: str | None = None
     remediation_destructive: bool | None = None
-    mode: RuleMode | None = None
-    auto_threshold: int | None = None
+    agent_keys: list[str] | None = None
 
 
 class RuleListResponse(BaseModel):

@@ -1,10 +1,4 @@
-from app.schemas import (
-    CommandListResponse,
-    ResponsePolicy,
-    ResponsePolicyUpdate,
-    ThreatListResponse,
-    ThreatReport,
-)
+from app.schemas import ThreatReport
 from app.services.store import InMemoryStore
 from app.threats.report import build_threat_report
 
@@ -29,25 +23,3 @@ class ThreatService:
 
     def get(self, finding_id: str) -> ThreatReport | None:
         return self.store.threat_reports.get(finding_id) or self.generate(finding_id)
-
-    def list_reports(self) -> ThreatListResponse:
-        items = sorted(
-            self.store.threat_reports.values(),
-            key=lambda r: r.criticality_score,
-            reverse=True,
-        )
-        return ThreatListResponse(items=items, total=len(items))
-
-    def get_policy(self) -> ResponsePolicy:
-        return self.store.policy
-
-    def update_policy(self, payload: ResponsePolicyUpdate) -> ResponsePolicy:
-        updates = payload.model_dump(exclude_unset=True)
-        self.store.policy = self.store.policy.model_copy(update=updates)
-        return self.store.policy
-
-    def list_commands(self) -> CommandListResponse:
-        items = sorted(
-            self.store.commands.values(), key=lambda c: c.created_at, reverse=True
-        )
-        return CommandListResponse(items=items, total=len(items))
