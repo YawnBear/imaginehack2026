@@ -21,9 +21,13 @@ export function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
 
-export function relativeTime(isoStr: string): string {
+export function relativeTime(isoStr: string, referenceTime: number | string | Date = Date.now()): string {
   const then = new Date(isoStr).getTime();
-  const diff = Date.now() - then;
+  const reference =
+    typeof referenceTime === "number"
+      ? referenceTime
+      : new Date(referenceTime).getTime();
+  const diff = reference - then;
   const mins = Math.round(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins} min ago`;
@@ -120,6 +124,17 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   energy: "var(--color-success)",
   workflow: "var(--color-warning)",
   audit: "var(--color-muted)",
+};
+
+// Short, plain-language role of each specialized agent, keyed by output_key.
+// Used by the Workflows pipeline cards (and reusable elsewhere). Unknown keys
+// fall back to "" so the chip still renders with just the agent name.
+export const AGENT_ROLE_BLURB: Record<string, string> = {
+  security: "exposure & data risk",
+  cost: "wasted spend & savings",
+  energy: "carbon impact",
+  workflow: "downtime & project risk",
+  audit: "audit-trail & approvals",
 };
 
 // One canonical matcher used by BOTH the top-bar suggestions dropdown and the

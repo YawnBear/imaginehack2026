@@ -22,3 +22,19 @@ def test_threat_service_generate_on_demand():
     report = svc.generate(finding_id)
     assert report is not None
     assert report.finding_id == finding_id
+
+
+def test_threat_service_generates_ai_summary_override(monkeypatch):
+    monkeypatch.setattr(
+        "app.threats.report.generate_threat_summary",
+        lambda finding, recommendation, event, score, factors: "AI service summary.",
+    )
+    store = _seeded()
+    svc = ThreatService(store)
+    finding_id = next(iter(store.findings))
+
+    report = svc.generate(finding_id)
+
+    assert report is not None
+    assert report.summary == "AI service summary."
+    assert report.ai_generated is True

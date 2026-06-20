@@ -417,7 +417,7 @@ class GovernanceService:
         if existing is not None:
             refreshed.recommendation_id = existing.recommendation_id
             refreshed.agent_outputs = dict(existing.agent_outputs)
-            refreshed.ai_generated = existing.ai_generated
+            refreshed.ai_generated = refreshed.ai_generated or existing.ai_generated
             refreshed.agent_summary = existing.agent_summary
         self.store.recommendations[finding.finding_id] = refreshed
         finding.ai_confidence = refreshed.confidence
@@ -446,7 +446,7 @@ class GovernanceService:
         """
         if recommendation is None:
             return 0
-        if recommendation.ai_generated and not force:
+        if recommendation.agent_outputs and not force:
             return 0
 
         workflows = self._workflows_for_rule(finding.rule_id)

@@ -8,6 +8,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const renderedAt = new Date().toISOString();
   let latestScanAt: string | null = null;
   try {
     const summary = await getSummary();
@@ -19,7 +20,7 @@ export default async function DashboardLayout({
   return (
     <SessionProvider>
       <ToastProvider>
-        <AppShell latestScanAt={latestScanAt}>{children}</AppShell>
+        <AppShell latestScanAt={latestScanAt} renderedAt={renderedAt}>{children}</AppShell>
       </ToastProvider>
     </SessionProvider>
   );

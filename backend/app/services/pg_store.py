@@ -454,36 +454,17 @@ class PostgresStore:
             if conn.execute(text("select to_regclass('public.energy')")).scalar() is None:
                 return {"by_operation": by_operation, "history": history}
 
+            columns = _energy_table_columns(conn)
+            latest_query = _energy_latest_query(columns)
+            history_query = _energy_history_query(columns)
+            if latest_query is None or history_query is None:
+                return {"by_operation": by_operation, "history": history}
+
             latest_rows = conn.execute(
-                text(
-                    """
-                    with latest_day as (
-                        select date_trunc('day', max(time)) as day
-                        from public.energy
-                    )
-                    select
-                        e.operation,
-                        sum(e.current_footprint_kg) as current_footprint_kg,
-                        sum(e.estimated_reduction_kg) as estimated_reduction_kg,
-                        sum(e.projected_footprint_kg) as projected_footprint_kg
-                    from public.energy e
-                    join latest_day l on date_trunc('day', e.time) = l.day
-                    group by e.operation
-                    order by e.operation
-                    """
-                )
+                text(latest_query)
             ).mappings().all()
             energy_rows = conn.execute(
-                text(
-                    """
-                    select
-                        date_trunc('day', time) as time,
-                        sum(emission) as emission
-                    from public.energy
-                    group by date_trunc('day', time)
-                    order by time
-                    """
-                )
+                text(history_query)
             ).mappings().all()
 
         current_footprint = 0.0
@@ -517,6 +498,132 @@ class PostgresStore:
             "projected_footprint_kg": projected_footprint,
             "history": history,
         }
+
+
+def _energy_table_columns(conn) -> set[str]:
+    rows = conn.execute(
+        text(
+            """
+            select column_name
+            from information_schema.columns
+            where table_schema = 'public'
+              and table_name = 'energy'
+            """
+        )
+    ).mappings().all()
+    return {str(row["column_name"]) for row in rows}
+
+
+def _energy_latest_query(columns: set[str]) -> str | None:
+    time_column = _energy_time_column(columns)
+    if time_column is None:
+        return None
+
+    operation_expr = _energy_coalesce(columns, ("resource_type", "operation"), "'unknown'", "e")
+    current_expr = _energy_coalesce(columns, ("current_footprint_kg", "emission"), "0", "e")
+    current_filter = _energy_coalesce(columns, ("current_footprint_kg", "emission"), None, "e")
+    reduction_expr = _energy_coalesce(columns, ("estimated_reduction_kg",), "0", "e")
+    projected_expr = _energy_coalesce(columns, ("projected_footprint_kg",), "0", "e")
+    key_expr = _energy_coalesce(columns, ("source_id", "asset_id", "operation"), "'energy'", "e", cast_text=True)
+    scope = _energy_scope(columns)
+    order_parts = [key_expr, f"e.{time_column} desc nulls last"]
+    if "updated_at" in columns:
+        order_parts.append("e.updated_at desc nulls last")
+    if "energy_id" in columns:
+        order_parts.append("e.energy_id desc")
+
+    where = f"where {current_filter} is not null" if current_filter != "null" else ""
+    return f"""
+        select
+            latest.operation,
+            sum(latest.current_footprint_kg) as current_footprint_kg,
+            sum(latest.estimated_reduction_kg) as estimated_reduction_kg,
+            sum(latest.projected_footprint_kg) as projected_footprint_kg
+        from (
+            select distinct on ({key_expr})
+                   {operation_expr} as operation,
+                   {current_expr} as current_footprint_kg,
+                   {reduction_expr} as estimated_reduction_kg,
+                   {projected_expr} as projected_footprint_kg
+            from {scope}
+            {where}
+            order by {", ".join(order_parts)}
+        ) latest
+        group by latest.operation
+        order by latest.operation
+    """
+
+
+def _energy_history_query(columns: set[str]) -> str | None:
+    time_column = _energy_time_column(columns)
+    if time_column is None:
+        return None
+
+    history_value = _energy_coalesce(columns, ("emission", "current_footprint_kg"), "0", "e")
+    history_filter = _energy_coalesce(columns, ("emission", "current_footprint_kg"), None, "e")
+    scope = _energy_scope(columns)
+    where = f"where {history_filter} is not null" if history_filter != "null" else ""
+    return f"""
+        select
+            date_trunc('day', e.{time_column}) as time,
+            sum({history_value}) as emission
+        from {scope}
+        {where}
+        group by date_trunc('day', e.{time_column})
+        order by time
+    """
+
+
+def _energy_scope(columns: set[str]) -> str:
+    if "source_id" not in columns:
+        return "public.energy e"
+
+    return """
+        (
+            select *
+            from public.energy
+            where source_id is not null
+            union all
+            select *
+            from public.energy
+            where source_id is null
+              and not exists (
+                  select 1
+                  from public.energy
+                  where source_id is not null
+              )
+        ) e
+    """
+
+
+def _energy_time_column(columns: set[str]) -> str | None:
+    if "time" in columns:
+        return "time"
+    if "updated_at" in columns:
+        return "updated_at"
+    return None
+
+
+def _energy_coalesce(
+    columns: set[str],
+    names: tuple[str, ...],
+    default: str | None,
+    qualifier: str,
+    *,
+    cast_text: bool = False,
+) -> str:
+    values = [
+        f"{qualifier}.{name}::text" if cast_text else f"{qualifier}.{name}"
+        for name in names
+        if name in columns
+    ]
+    if default is not None:
+        values.append(default)
+    if not values:
+        return "null"
+    if len(values) == 1:
+        return values[0]
+    return f"coalesce({', '.join(values)})"
 
 
 def _float(value) -> float:

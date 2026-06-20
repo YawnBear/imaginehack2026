@@ -3,6 +3,7 @@ import os
 # The test suite must NEVER touch the real database. Force the in-memory store
 # by clearing DATABASE_URL BEFORE app modules (and pydantic settings) load.
 os.environ["DATABASE_URL"] = ""
+os.environ["AI_PROVIDER_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

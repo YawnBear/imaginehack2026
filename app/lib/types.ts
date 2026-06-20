@@ -31,7 +31,13 @@ export type IssueType =
   | "public_bucket"
   | "idle_vm"
   | "unused_storage"
-  | "unencrypted_database";
+  | "unencrypted_database"
+  | "failed_login"
+  | "iam_policy_change"
+  | "firewall_ingress_change"
+  | "bucket_policy_change"
+  | "audit_logging_change"
+  | "database_change";
 
 export interface Finding {
   finding_id: string;
