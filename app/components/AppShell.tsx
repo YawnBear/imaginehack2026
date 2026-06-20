@@ -160,7 +160,7 @@ export default function AppShell({
           </button>
 
           {/* Profile / reviewer role */}
-          <ProfileMenu onHelp={() => setHelpOpen(true)} />
+          <ProfileMenu />
         </div>
       </header>
 
