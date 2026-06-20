@@ -9,6 +9,7 @@ from app.schemas import (
     ThreatReport,
     TimelineEntry,
 )
+from app.agents.ai_client import generate_threat_summary
 from app.threats.criticality import compute_criticality
 
 
@@ -51,6 +52,7 @@ def build_threat_report(
     audit_logs: list[AuditLog],
     approval_status: str,
     summary_override: str | None = None,
+    use_ai_summary: bool = False,
 ) -> ThreatReport:
     score, factors = compute_criticality(finding, event)
     recommended = (
@@ -60,6 +62,14 @@ def build_threat_report(
     )
     agent_sections = dict(recommendation.agent_outputs) if recommendation else {}
     why = ", ".join(f"{k.replace('_', ' ')} (+{v})" for k, v in factors.items())
+    if summary_override is None and use_ai_summary:
+        summary_override = generate_threat_summary(
+            finding,
+            recommendation,
+            event,
+            score,
+            factors,
+        )
     summary = summary_override or (
         f"{_issue_label(finding.issue_type)} detected on {finding.resource_id} "
         f"({finding.severity}). Criticality {score}/100 — driven by {why}. "

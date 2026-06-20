@@ -171,7 +171,7 @@ export async function getEnergySummary(): Promise<ApiResult<EnergySummary>> {
         current_footprint_kg: 0,
         projected_footprint_kg: 0,
         estimated_reduction_kg: MOCK_SUMMARY.estimated_carbon_reduction_kg,
-        by_resource_type: {},
+        by_operation: {},
         history: [],
       },
       e,

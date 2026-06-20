@@ -1,9 +1,10 @@
 from uuid import uuid4
 
+from app.agents.ai_client import generate_recommendation_text
 from app.schemas import Finding, Recommendation
 
 
-def build_recommendation(finding: Finding) -> Recommendation:
+def build_recommendation(finding: Finding, *, use_ai: bool = True) -> Recommendation:
     builders = {
         "public_bucket": _public_bucket,
         "idle_vm": _idle_vm,
@@ -18,6 +19,9 @@ def build_recommendation(finding: Finding) -> Recommendation:
     }
     builder = builders.get(finding.issue_type, _generic)
     payload = builder(finding)
+    ai_payload = generate_recommendation_text(finding, payload) if use_ai else None
+    if ai_payload:
+        payload.update(ai_payload)
 
     return Recommendation(
         recommendation_id=f"rec-{uuid4().hex[:10]}",
@@ -25,6 +29,7 @@ def build_recommendation(finding: Finding) -> Recommendation:
         confidence=payload.pop("confidence"),
         agent_outputs=payload.pop("agent_outputs", {}),
         safe_to_execute=False,
+        ai_generated=bool(ai_payload),
         **payload,
     )
 

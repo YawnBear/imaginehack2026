@@ -15,7 +15,6 @@ import {
   EstimateNote,
   SafetyBanner,
 } from "./ui";
-import { ConfidenceBar } from "./charts";
 import { IconClose, ResourceIcon, IconLeaf, IconCost } from "./icons";
 
 const DECISIONS: { key: ReviewDecision; label: string; kind: "primary" | "danger" | "ghost" }[] = [
@@ -239,8 +238,8 @@ export default function FindingModal({
                 </p>
               )}
 
-              {/* Evidence + confidence */}
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Evidence */}
+              <div className="space-y-4">
                 <section className="rounded-lg border border-border p-4">
                   <h3 className="mb-2 text-[12px] font-medium tracking-label text-muted">
                     EVIDENCE
@@ -257,20 +256,6 @@ export default function FindingModal({
                       </div>
                     ))}
                   </dl>
-                </section>
-
-                <section className="rounded-lg border border-border p-4">
-                  <h3 className="mb-3 text-[12px] font-medium tracking-label text-muted">
-                    CONFIDENCE
-                  </h3>
-                  <div className="space-y-3">
-                    <ConfidenceBar label="Rule confidence" value={finding.rule_confidence} color="var(--color-muted)" />
-                    <ConfidenceBar label="AI confidence" value={finding.ai_confidence} color="var(--color-link)" />
-                  </div>
-                  <p className="mt-3 text-[11px] text-muted">
-                    Rule and AI confidence are shown separately so reviewers can weigh the
-                    deterministic rule against the AI’s judgment.
-                  </p>
                 </section>
               </div>
 

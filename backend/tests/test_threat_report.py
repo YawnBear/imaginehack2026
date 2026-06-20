@@ -43,3 +43,22 @@ def test_summary_override_marks_ai_generated():
                                  summary_override="LLM text")
     assert report.summary == "LLM text"
     assert report.ai_generated is True
+
+
+def test_ai_summary_override_used_when_enabled(monkeypatch):
+    monkeypatch.setattr(
+        "app.threats.report.generate_threat_summary",
+        lambda finding, recommendation, event, score, factors: "AI-written threat summary.",
+    )
+
+    report = build_threat_report(
+        _finding(),
+        _rec(),
+        _event(),
+        _audit(),
+        "pending_review",
+        use_ai_summary=True,
+    )
+
+    assert report.summary == "AI-written threat summary."
+    assert report.ai_generated is True

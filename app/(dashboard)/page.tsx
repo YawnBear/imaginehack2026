@@ -6,6 +6,7 @@ import { getEnergySummary, getFindings, getSummary } from "@/app/lib/api";
 export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
+  const renderedAt = new Date().toISOString();
   let summaryRes: Awaited<ReturnType<typeof getSummary>>;
   let findingsRes: Awaited<ReturnType<typeof getFindings>>;
   let energyRes: Awaited<ReturnType<typeof getEnergySummary>>;
@@ -43,6 +44,7 @@ export default async function OverviewPage() {
       findings={findingsRes.data.items}
       carbonHistory={carbonHistory}
       usingMock={summaryRes.mock || findingsRes.mock || energyRes.mock}
+      renderedAt={renderedAt}
       mockReason={summaryRes.error ?? findingsRes.error ?? energyRes.error}
     />
   );

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto, Roboto_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const roboto = Roboto({
@@ -27,10 +28,14 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning className={`${roboto.variable} ${robotoMono.variable} h-full`}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("safe-cloud.theme");if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}` }} />
-      </head>
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        <Script
+          id="safe-cloud-theme"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("safe-cloud.theme");if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}}catch(e){}` }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

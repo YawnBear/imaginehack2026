@@ -40,6 +40,8 @@ _COMPLETIONS_PATH = "chat/completions"
 _MAX_TOKENS = 600
 _TIMEOUT_SECONDS = 8
 _SUMMARY_MAX_TOKENS = 320
+_RECOMMENDATION_MAX_TOKENS = 420
+_THREAT_SUMMARY_MAX_TOKENS = 320
 
 # The conversational agent builder writes a full system prompt plus an
 # explanation, so it needs more room and a longer budget than per-finding
@@ -120,6 +122,90 @@ def generate_agent_analysis(
     return parse_response(raw, allowed)
 
 
+def generate_recommendation_text(finding: Any, base_payload: dict) -> dict | None:
+    """Rewrite recommendation action/rationale with an LLM, or ``None``.
+
+    The deterministic builder still owns risk, savings, carbon, confidence and
+    execution safety. AI only replaces the human-readable prose so the
+    recommendation is no longer canned per issue type. Never raises.
+    """
+    raw = _chat_completion(
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a cloud governance remediation advisor for a "
+                    "construction-tech company. Write specific, practical "
+                    "recommendation prose for human reviewers. Do not invent "
+                    "numbers, do not alter risk or savings, and never tell "
+                    "anyone to auto-execute a change. Respond with one JSON "
+                    "object only."
+                ),
+            },
+            {"role": "user", "content": build_recommendation_text_prompt(finding, base_payload)},
+        ],
+        max_tokens=_RECOMMENDATION_MAX_TOKENS,
+    )
+    if raw is None:
+        return None
+    return parse_recommendation_text(raw)
+
+
+def build_recommendation_text_prompt(finding: Any, base_payload: dict) -> str:
+    data = {
+        "finding": {
+            "finding_id": getattr(finding, "finding_id", ""),
+            "resource_id": getattr(finding, "resource_id", ""),
+            "resource_name": getattr(finding, "resource_name", None),
+            "resource_type": getattr(finding, "resource_type", ""),
+            "owner_team": getattr(finding, "owner_team", None),
+            "issue_type": getattr(finding, "issue_type", "unknown"),
+            "category": getattr(finding, "category", "unknown"),
+            "severity": getattr(finding, "severity", "unknown"),
+            "evidence": getattr(finding, "evidence", {}) or {},
+            "required_reviewers": getattr(finding, "required_reviewers", []) or [],
+        },
+        "deterministic_fallback": {
+            "recommended_action": base_payload.get("recommended_action", ""),
+            "rationale": base_payload.get("rationale", ""),
+            "risk_level": base_payload.get("risk_level", ""),
+            "estimated_monthly_savings": base_payload.get("estimated_monthly_savings", 0),
+            "estimated_carbon_reduction_kg": base_payload.get("estimated_carbon_reduction_kg", 0),
+        },
+    }
+    return (
+        "Rewrite the deterministic fallback recommendation for this exact finding.\n"
+        "Use the evidence and resource context to make the text specific, but preserve "
+        "the same remediation intent. Return ONLY JSON with exactly these keys: "
+        'recommended_action, rationale.\n'
+        "Keep recommended_action to one sentence. Keep rationale to one or two "
+        "sentences. Mention approvals/reviewers when relevant. Do not invent dollar "
+        "amounts, carbon figures, owners, compliance obligations, or incident facts.\n\n"
+        f"{json.dumps(data, default=str)}"
+    )
+
+
+def parse_recommendation_text(raw: str) -> dict | None:
+    try:
+        envelope = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    content = _extract_content(envelope)
+    if not content:
+        return None
+    parsed = _loads_json_object(content)
+    if not isinstance(parsed, dict):
+        return None
+    action = _clean_model_text(parsed.get("recommended_action"), max_chars=500)
+    rationale = _clean_model_text(parsed.get("rationale"), max_chars=900)
+    if not action or not rationale:
+        return None
+    return {
+        "recommended_action": action,
+        "rationale": rationale,
+    }
+
+
 def build_prompt(finding, base_recommendation, agents, context: dict | None = None) -> str:
     issue_type = getattr(finding, "issue_type", "unknown")
     severity = getattr(finding, "severity", "unknown")
@@ -187,6 +273,81 @@ def parse_response(raw: str, allowed_keys: set) -> dict | None:
         if text:
             cleaned[agent_key] = text
     return cleaned or None
+
+
+def generate_threat_summary(
+    finding: Any,
+    recommendation: Any,
+    event: Any,
+    criticality_score: int,
+    criticality_factors: dict,
+) -> str | None:
+    """Return an LLM-written threat summary, or ``None`` for fallback."""
+    raw = _chat_completion(
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You write concise threat report summaries for cloud "
+                    "governance reviewers at a construction-tech company. "
+                    "Summarize only the provided facts, include the criticality "
+                    "score, and do not invent evidence or tell anyone to "
+                    "auto-execute a change. Plain text only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": build_threat_summary_prompt(
+                    finding,
+                    recommendation,
+                    event,
+                    criticality_score,
+                    criticality_factors,
+                ),
+            },
+        ],
+        max_tokens=_THREAT_SUMMARY_MAX_TOKENS,
+    )
+    if raw is None:
+        return None
+    summary = _clean_model_text(parse_summary(raw), max_chars=1200)
+    return summary or None
+
+
+def build_threat_summary_prompt(
+    finding: Any,
+    recommendation: Any,
+    event: Any,
+    criticality_score: int,
+    criticality_factors: dict,
+) -> str:
+    event_payload = _model_payload(event)
+    recommendation_payload = _model_payload(recommendation)
+    data = {
+        "finding": {
+            "finding_id": getattr(finding, "finding_id", ""),
+            "resource_id": getattr(finding, "resource_id", ""),
+            "resource_name": getattr(finding, "resource_name", None),
+            "resource_type": getattr(finding, "resource_type", ""),
+            "owner_team": getattr(finding, "owner_team", None),
+            "issue_type": getattr(finding, "issue_type", "unknown"),
+            "category": getattr(finding, "category", "unknown"),
+            "severity": getattr(finding, "severity", "unknown"),
+            "status": getattr(finding, "status", "unknown"),
+            "evidence": getattr(finding, "evidence", {}) or {},
+        },
+        "event": event_payload,
+        "recommendation": recommendation_payload,
+        "criticality_score": criticality_score,
+        "criticality_factors": criticality_factors,
+    }
+    return (
+        "Write one short threat report summary paragraph, 2-4 sentences. "
+        "Explain what was detected, why it matters, what drives the criticality "
+        "score, and the headline remediation. Use plain English for a human "
+        "approver. Do not output JSON.\n\n"
+        f"{json.dumps(data, default=str)}"
+    )
 
 
 def _extract_content(envelope: Any) -> str | None:
@@ -313,6 +474,65 @@ def parse_summary(raw: str) -> str | None:
     if text.startswith("```"):
         text = text.strip("`").strip()
     return text or None
+
+
+def _chat_completion(
+    messages: list[dict],
+    max_tokens: int,
+    temperature: float = 0.4,
+    timeout: int = _TIMEOUT_SECONDS,
+) -> str | None:
+    settings = get_settings()
+    if not settings.ai_enabled:
+        return None
+    try:
+        base_url = settings.ai_provider_base_url
+        if not base_url.endswith("/"):
+            base_url += "/"
+        url = base_url + _COMPLETIONS_PATH
+        body = json.dumps(
+            {
+                "model": settings.ai_model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.ai_provider_api_key}",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            if response.status != 200:
+                return None
+            return response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - defensive: AI is purely additive
+        return None
+
+
+def _model_payload(value: Any) -> Any:
+    if value is None:
+        return None
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return model_dump(mode="json")
+    return value
+
+
+def _clean_model_text(value: Any, max_chars: int) -> str:
+    if value is None:
+        return ""
+    text = " ".join(str(value).split())
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip()
 
 
 # ---------------------------------------------------------------------------

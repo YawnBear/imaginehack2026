@@ -1,6 +1,13 @@
 from datetime import UTC, datetime
 
-from app.agents.ai_client import build_prompt, generate_agent_analysis, parse_response
+from app.agents.ai_client import (
+    build_prompt,
+    generate_agent_analysis,
+    generate_recommendation_text,
+    generate_threat_summary,
+    parse_recommendation_text,
+    parse_response,
+)
 from app.schemas import Agent, Finding, Recommendation
 
 
@@ -48,6 +55,19 @@ def test_parse_clamps_to_allowed_keys():
     assert out == {"security": "risk"}  # "cost" dropped (not in allowed)
 
 
+def test_parse_recommendation_text_extracts_expected_fields():
+    raw = (
+        '{"choices":[{"message":{"content":"{\\"recommended_action\\":\\"Review bucket policy.\\",'
+        '\\"rationale\\":\\"The evidence says public access is enabled.\\",'
+        '\\"confidence\\":0.1}"}}]}'
+    )
+    out = parse_recommendation_text(raw)
+    assert out == {
+        "recommended_action": "Review bucket policy.",
+        "rationale": "The evidence says public access is enabled.",
+    }
+
+
 def test_generate_returns_none_when_ai_disabled(monkeypatch):
     # With AI disabled, generation short-circuits to None (deterministic, no
     # network). Force ai_enabled off so the test is independent of any key.
@@ -57,3 +77,19 @@ def test_generate_returns_none_when_ai_disabled(monkeypatch):
     monkeypatch.setattr(type(settings), "ai_enabled", property(lambda self: False))
     agent = _agent("security", "You are a security analyst.")
     assert generate_agent_analysis(_finding(), _rec(), [agent]) is None
+
+
+def test_generate_recommendation_text_none_when_ai_disabled(monkeypatch):
+    import app.agents.ai_client as ai_client
+
+    settings = ai_client.get_settings()
+    monkeypatch.setattr(type(settings), "ai_enabled", property(lambda self: False))
+    assert generate_recommendation_text(_finding(), {"recommended_action": "Fallback"}) is None
+
+
+def test_generate_threat_summary_none_when_ai_disabled(monkeypatch):
+    import app.agents.ai_client as ai_client
+
+    settings = ai_client.get_settings()
+    monkeypatch.setattr(type(settings), "ai_enabled", property(lambda self: False))
+    assert generate_threat_summary(_finding(), _rec(), None, 80, {"severity": 20}) is None

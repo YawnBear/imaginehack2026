@@ -58,7 +58,7 @@ def test_energy_summary_endpoint_returns_database_driven_shape():
         "current_footprint_kg",
         "projected_footprint_kg",
         "estimated_reduction_kg",
-        "by_resource_type",
+        "by_operation",
         "history",
     }
     assert isinstance(body["history"], list)

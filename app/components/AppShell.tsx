@@ -52,9 +52,11 @@ function BrandMark() {
 export default function AppShell({
   children,
   latestScanAt,
+  renderedAt,
 }: {
   children: ReactNode;
   latestScanAt: string | null;
+  renderedAt: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -139,7 +141,7 @@ export default function AppShell({
           </button>
 
           <span className="hidden items-center gap-1.5 text-[12px] text-muted lg:flex">
-            Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "-"}
+            Latest scan: {latestScanAt ? relativeTime(latestScanAt, renderedAt) : "-"}
           </span>
 
           {/* Agent online status */}

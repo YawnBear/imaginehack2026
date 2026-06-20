@@ -27,9 +27,7 @@ export function AnimatedCategoryPie({ data, onSelect }: { data: PieDatum[]; onSe
       <svg viewBox="0 0 80 80" className="h-[72px] w-[72px] shrink-0" role="img" aria-label={`Findings by category, ${total} total`}>
         <circle cx="40" cy="40" r="36" fill="var(--color-surface)" />
         {slices.filter((slice) => slice.value > 0).map((slice, index) => (
-          <path key={slice.label} d={piePath(slice.start, slice.end)} fill={slice.color} className="gg-pie-slice cursor-pointer" style={{ animationDelay: `${index * 90}ms` }} onClick={() => onSelect(slice.label)}>
-            <title>{slice.label}: {slice.value}</title>
-          </path>
+          <path key={slice.label} d={piePath(slice.start, slice.end)} fill={slice.color} className="gg-pie-slice cursor-pointer" style={{ animationDelay: `${index * 90}ms` }} onClick={() => onSelect(slice.label)} aria-label={`${slice.label}: ${slice.value}`} />
         ))}
         <circle cx="40" cy="40" r="15" fill="var(--color-surface-subtle)" />
         <text x="40" y="43" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--color-ink)">{total}</text>

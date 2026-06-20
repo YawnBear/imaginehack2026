@@ -192,9 +192,6 @@ class GovernanceService:
                 cloud_event_rows,
             ),
         )
-        seed_energy = getattr(self.store, "seed_energy_snapshots", None)
-        if callable(seed_energy):
-            seed_energy()
         return response
 
     def list_findings(
@@ -237,26 +234,17 @@ class GovernanceService:
     def dashboard_energy_summary(self) -> EnergySummary:
         source_reader = getattr(self.store, "energy_source_summary", None)
         source = source_reader() if callable(source_reader) else self._in_memory_energy_source()
-        by_resource_type = {
+        by_operation = {
             key: round(float(value), 2)
-            for key, value in (source.get("by_resource_type") or {}).items()
+            for key, value in (source.get("by_operation") or {}).items()
         }
         source_current = source.get("current_footprint_kg")
         current_footprint = round(
-            float(source_current) if source_current is not None else sum(by_resource_type.values()),
+            float(source_current) if source_current is not None else sum(by_operation.values()),
             2,
         )
         source_reduction = source.get("estimated_reduction_kg")
-        if source_reduction is None:
-            estimated_reduction = round(
-                sum(
-                    item.estimated_carbon_reduction_kg
-                    for item in self.store.recommendations.values()
-                ),
-                2,
-            )
-        else:
-            estimated_reduction = round(float(source_reduction), 2)
+        estimated_reduction = round(float(source_reduction or 0), 2)
         source_projected = source.get("projected_footprint_kg")
         projected_footprint = round(
             float(source_projected)
@@ -270,7 +258,7 @@ class GovernanceService:
             current_footprint_kg=current_footprint,
             projected_footprint_kg=projected_footprint,
             estimated_reduction_kg=estimated_reduction,
-            by_resource_type=by_resource_type,
+            by_operation=by_operation,
             history=history,
         )
 
@@ -405,15 +393,23 @@ class GovernanceService:
         )
 
     def _in_memory_energy_source(self) -> dict:
-        by_resource_type: dict[str, float] = {}
+        by_operation: dict[str, float] = {}
         for event in self.store.events.values():
             value = event.metrics.get("estimated_carbon_impact")
             if value is None:
                 value = event.cost.get("estimated_carbon_impact")
             if value is None:
                 continue
-            by_resource_type[event.resource_type] = by_resource_type.get(event.resource_type, 0) + float(value)
-        return {"by_resource_type": by_resource_type, "history": []}
+            operation = _operation_label(event.resource_type)
+            by_operation[operation] = by_operation.get(operation, 0) + float(value)
+        current_footprint = sum(by_operation.values())
+        return {
+            "by_operation": by_operation,
+            "current_footprint_kg": current_footprint,
+            "estimated_reduction_kg": 0,
+            "projected_footprint_kg": current_footprint,
+            "history": [],
+        }
 
     def _refresh_recommendation(self, finding: Finding) -> Recommendation:
         existing = self.store.recommendations.get(finding.finding_id)
@@ -421,7 +417,7 @@ class GovernanceService:
         if existing is not None:
             refreshed.recommendation_id = existing.recommendation_id
             refreshed.agent_outputs = dict(existing.agent_outputs)
-            refreshed.ai_generated = existing.ai_generated
+            refreshed.ai_generated = refreshed.ai_generated or existing.ai_generated
             refreshed.agent_summary = existing.agent_summary
         self.store.recommendations[finding.finding_id] = refreshed
         finding.ai_confidence = refreshed.confidence
@@ -450,7 +446,7 @@ class GovernanceService:
         """
         if recommendation is None:
             return 0
-        if recommendation.ai_generated and not force:
+        if recommendation.agent_outputs and not force:
             return 0
 
         workflows = self._workflows_for_rule(finding.rule_id)
@@ -568,6 +564,15 @@ def _count_by(findings: list[Finding], field_name: str) -> dict[str, int]:
         value = str(getattr(finding, field_name))
         counts[value] = counts.get(value, 0) + 1
     return counts
+
+
+def _operation_label(resource_type: str) -> str:
+    text_value = str(resource_type or "").lower()
+    if "database" in text_value or text_value in {"db", "rds"}:
+        return "idle database"
+    if "storage" in text_value or "volume" in text_value or text_value.startswith("disk"):
+        return "Unused Storage"
+    return "idle VM"
 
 
 def _agent_context_for_event(

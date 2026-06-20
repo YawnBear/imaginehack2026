@@ -13,5 +13,5 @@ class EnergySummary(BaseModel):
     current_footprint_kg: float = 0
     projected_footprint_kg: float = 0
     estimated_reduction_kg: float = 0
-    by_resource_type: dict[str, float] = Field(default_factory=dict)
+    by_operation: dict[str, float] = Field(default_factory=dict)
     history: list[EnergyHistoryPoint] = Field(default_factory=list)
