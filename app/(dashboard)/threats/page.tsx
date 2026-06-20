@@ -23,6 +23,14 @@ const LABELS: Record<string, string> = {
   vm: "VMs",
 };
 
+function titleCase(value: string): string {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function groupOptions(
   findings: Finding[],
   key: keyof Finding,
@@ -37,7 +45,7 @@ function groupOptions(
     ...order.filter((value) => values.has(value)),
     ...Array.from(values).filter((value) => !order.includes(value)).sort(),
   ];
-  return ordered.map((value) => ({ value, label: LABELS[value] ?? value }));
+  return ordered.map((value) => ({ value, label: LABELS[value] ?? titleCase(value) }));
 }
 
 function buildGroups(findings: Finding[]): ChipGroup[] {

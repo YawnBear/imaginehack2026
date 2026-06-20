@@ -155,6 +155,7 @@ export function AreaLineChart({
   } Z`;
 
   const gridY = [0, 0.25, 0.5, 0.75, 1];
+  const labelEvery = labels ? Math.max(1, Math.ceil(labels.length / 6)) : 1;
 
   return (
     <svg width="100%" viewBox={`0 0 ${width} ${height}`} role="img" className="overflow-visible">
@@ -170,7 +171,7 @@ export function AreaLineChart({
         return (
           <g key={g}>
             <line x1={pad.l} x2={width - pad.r} y1={y} y2={y} stroke="var(--color-border)" strokeWidth={1} />
-            <text x={4} y={y + 3} fontSize="10" fill="var(--color-muted)">
+            <text x={4} y={y + 3} fontSize="8" fill="var(--color-muted)">
               {val}
             </text>
           </g>
@@ -182,18 +183,24 @@ export function AreaLineChart({
         <circle key={i} cx={x} cy={y} r={3} fill="var(--color-canvas)" stroke={color} strokeWidth={2} />
       ))}
       {labels &&
-        labels.map((l, i) => (
+        labels.map((l, i) => {
+          const shouldShow = i === 0 || i === labels.length - 1 || i % labelEvery === 0;
+          if (!shouldShow) return null;
+          const x = pad.l + i * step;
+          return (
           <text
             key={l + i}
-            x={pad.l + i * step}
+            x={x}
             y={height - 6}
-            fontSize="10"
+            fontSize="8"
             fill="var(--color-muted)"
             textAnchor="middle"
+            transform={`rotate(-25 ${x} ${height - 6})`}
           >
             {l}
           </text>
-        ))}
+          );
+        })}
       {unit && (
         <text x={width - pad.r} y={pad.t + 4} fontSize="10" fill="var(--color-muted)" textAnchor="end">
           {unit}

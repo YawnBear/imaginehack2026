@@ -1,7 +1,7 @@
 import { getEnergySummary } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { Card, SectionTitle, MockBanner, EstimateNote } from "@/app/components/ui";
-import { AreaLineChart, BarChart, type Slice } from "@/app/components/charts";
+import { AreaLineChart } from "@/app/components/charts";
 import { kg } from "@/app/lib/format";
 import { IconLeaf } from "@/app/components/icons";
 import ESGReportExport, {
@@ -15,17 +15,13 @@ export default async function EnergyPage() {
   const res = await getEnergySummary();
   const summary = res.data;
 
-  const operationColors: Record<string, string> = {
-    "idle VM": "var(--color-warning)",
-    "Unused Storage": "var(--color-link)",
-    "idle database": "var(--color-muted)",
-  };
-  const energyBars: Slice[] = Object.entries(summary.by_operation)
+  const operationRows = Object.entries(summary.by_operation)
     .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({
-      label: formatOperation(k),
-      value: Math.round(v),
-      color: operationColors[k] ?? "var(--color-muted)",
+    .sort(([, a], [, b]) => b - a)
+    .map(([operation, value], index) => ({
+      label: formatOperation(operation),
+      value: Math.round(value),
+      color: operationColor(index),
     }));
 
   const trend = summary.history.map((point) => Math.round(point.value_kg));
@@ -85,7 +81,7 @@ export default async function EnergyPage() {
         </div>
         <div className="mt-4">
           {trend.length > 0 ? (
-            <AreaLineChart values={trend} labels={trendLabels} height={220} unit="kg CO2e" />
+            <AreaLineChart values={trend} labels={trendLabels} height={250} unit="kg CO2e" />
           ) : (
             <div className="flex min-h-[220px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface-subtle text-center">
               <p className="text-[14px] font-medium text-ink">No energy history yet</p>
@@ -120,9 +116,9 @@ export default async function EnergyPage() {
         <Card>
           <SectionTitle>Energy impact by operation</SectionTitle>
           <p className="mb-4 mt-1 text-[12px] text-muted">
-            Latest estimated CO2e footprint by energy operation (kg / month).
+            Latest estimated CO2e footprint by operation from the energy table (kg / month).
           </p>
-          <BarChart data={energyBars} unit=" kg" height={170} />
+          <OperationImpact rows={operationRows} />
         </Card>
       </div>
 
@@ -192,6 +188,62 @@ function formatOperation(value: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function operationColor(index: number): string {
+  const colors = [
+    "var(--color-success)",
+    "var(--color-link)",
+    "var(--color-warning)",
+    "var(--color-muted)",
+    "var(--color-danger)",
+  ];
+  return colors[index % colors.length];
+}
+
+function OperationImpact({
+  rows,
+}: {
+  rows: { label: string; value: number; color: string }[];
+}) {
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const max = Math.max(...rows.map((row) => row.value), 1);
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex min-h-[170px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface-subtle text-center">
+        <p className="text-[14px] font-medium text-ink">No operation data yet</p>
+        <p className="mt-1 max-w-sm text-[12px] text-muted">
+          Add rows to the energy table with an operation or resource_type to populate this view.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => {
+        const width = Math.max((row.value / max) * 100, 3);
+        const share = total > 0 ? Math.round((row.value / total) * 100) : 0;
+        return (
+          <div key={row.label}>
+            <div className="mb-1 flex items-center justify-between gap-3 text-[13px]">
+              <span className="font-medium text-ink">{row.label}</span>
+              <span className="shrink-0 text-muted">
+                {row.value} kg · {share}%
+              </span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-surface">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${width}%`, background: row.color }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function BeforeAfterBar({
