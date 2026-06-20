@@ -5,6 +5,8 @@
 // demo renders fully with zero backend.
 
 import {
+  MOCK_AGENT_TEMPLATES,
+  MOCK_AGENTS,
   MOCK_AUDIT_LOGS,
   MOCK_FINDINGS,
   MOCK_RULE_TEMPLATES,
@@ -14,6 +16,11 @@ import {
 } from "./mockData";
 import { buildScanEvents } from "./scanEvents";
 import type {
+  Agent,
+  AgentCreateBody,
+  AgentListResponse,
+  AgentPreviewResponse,
+  AgentTemplate,
   AuditLog,
   AuditLogsResponse,
   ClashWarning,
@@ -301,6 +308,78 @@ function hashString(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return h;
+}
+
+// ---- Agents (SafeCloud Phase 2) ----
+
+export async function getAgents(): Promise<ApiResult<AgentListResponse>> {
+  try {
+    return ok(await tryFetch<AgentListResponse>("/api/agents"));
+  } catch (e) {
+    return fallback({ items: MOCK_AGENTS, total: MOCK_AGENTS.length }, e);
+  }
+}
+
+export async function getAgentTemplates(): Promise<ApiResult<AgentTemplate[]>> {
+  try {
+    return ok(await tryFetch<AgentTemplate[]>("/api/agents/templates"));
+  } catch (e) {
+    return fallback(MOCK_AGENT_TEMPLATES, e);
+  }
+}
+
+export async function createAgent(body: AgentCreateBody): Promise<ApiResult<Agent>> {
+  try {
+    return ok(await tryFetch<Agent>("/api/agents", { method: "POST", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback(
+      {
+        ...body,
+        agent_id: `agent-mock-${Math.abs(hashString(body.name))}`,
+        enabled: body.enabled ?? true,
+        coverage_categories: body.coverage_categories ?? [],
+        coverage_issue_types: body.coverage_issue_types ?? [],
+        tone: body.tone ?? "concise",
+        extra_focus: body.extra_focus ?? "",
+        template_key: body.template_key ?? "custom",
+        created_at: new Date().toISOString(),
+      } as Agent,
+      e,
+    );
+  }
+}
+
+export async function updateAgent(
+  id: string,
+  body: Partial<AgentCreateBody> & { enabled?: boolean },
+): Promise<ApiResult<Agent | null>> {
+  try {
+    return ok(await tryFetch<Agent>(`/api/agents/${id}`, { method: "PATCH", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback(null, e);
+  }
+}
+
+export async function deleteAgent(id: string): Promise<ApiResult<boolean>> {
+  try {
+    await tryFetch<unknown>(`/api/agents/${id}`, { method: "DELETE" });
+    return ok(true);
+  } catch (e) {
+    return fallback(false, e);
+  }
+}
+
+export async function previewAgent(body: {
+  lens: string;
+  issue_type: string;
+  tone: string;
+  extra_focus: string;
+}): Promise<ApiResult<AgentPreviewResponse>> {
+  try {
+    return ok(await tryFetch<AgentPreviewResponse>("/api/agents/preview", { method: "POST", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback({ text: "Preview unavailable offline." }, e);
+  }
 }
 
 export const apiBaseConfigured = Boolean(BASE_URL);

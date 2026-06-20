@@ -246,3 +246,62 @@ export interface RulePreviewResponse {
   match_count: number;
   matched_resource_ids: string[];
 }
+
+// ---- Custom Agents (SafeCloud Phase 2) ----
+export type AgentLens =
+  | "exposure"
+  | "encryption"
+  | "cost"
+  | "carbon"
+  | "compliance"
+  | "workflow"
+  | "forensics";
+
+export type AgentTone = "concise" | "detailed" | "executive" | "construction-aware";
+
+export interface Agent {
+  agent_id: string;
+  name: string;
+  enabled: boolean;
+  lens: AgentLens;
+  output_key: string;
+  coverage_categories: string[];
+  coverage_issue_types: string[];
+  tone: AgentTone;
+  extra_focus: string;
+  template_key: string;
+  created_at: string;
+}
+
+export interface AgentListResponse {
+  items: Agent[];
+  total: number;
+}
+
+export interface AgentTemplate {
+  template_key: string;
+  name: string;
+  description: string;
+  lens: AgentLens;
+  output_key: string;
+  coverage_categories: string[];
+  coverage_issue_types: string[];
+  tone: AgentTone;
+  extra_focus: string;
+}
+
+export interface AgentCreateBody {
+  name: string;
+  lens: AgentLens;
+  output_key: string;
+  enabled?: boolean;
+  coverage_categories?: string[];
+  coverage_issue_types?: string[];
+  tone?: AgentTone;
+  extra_focus?: string;
+  template_key?: string;
+}
+
+export interface AgentPreviewResponse {
+  text: string;
+}

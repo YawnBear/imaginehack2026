@@ -2,6 +2,8 @@
 // as a complete, clickable demo with ZERO backend.
 
 import type {
+  Agent,
+  AgentTemplate,
   AuditLog,
   DashboardSummary,
   Finding,
@@ -595,4 +597,22 @@ export const MOCK_RULE_TEMPLATES: RuleTemplate[] = [
     remediation_action_key: "tag_resource",
     remediation_destructive: false,
   },
+];
+
+// ---------------------------------------------------------------------------
+// Agents (SafeCloud Phase 2)
+// ---------------------------------------------------------------------------
+
+export const MOCK_AGENTS: Agent[] = [
+  { agent_id: "agent-security", name: "Security Analyst", enabled: true, lens: "exposure", output_key: "security", coverage_categories: ["security"], coverage_issue_types: [], tone: "construction-aware", extra_focus: "", template_key: "security_analyst", created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-cost", name: "Cost Optimizer", enabled: true, lens: "cost", output_key: "cost", coverage_categories: ["cost"], coverage_issue_types: [], tone: "executive", extra_focus: "", template_key: "cost_optimizer", created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-energy", name: "Carbon Analyst", enabled: true, lens: "carbon", output_key: "energy", coverage_categories: [], coverage_issue_types: ["idle_vm", "unused_storage"], tone: "concise", extra_focus: "", template_key: "carbon_analyst", created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-workflow", name: "Workflow Impact", enabled: true, lens: "workflow", output_key: "workflow", coverage_categories: [], coverage_issue_types: ["public_bucket", "idle_vm", "unencrypted_database"], tone: "construction-aware", extra_focus: "", template_key: "workflow_impact", created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-audit", name: "Compliance Auditor", enabled: true, lens: "compliance", output_key: "audit", coverage_categories: [], coverage_issue_types: ["public_bucket", "unused_storage", "unencrypted_database"], tone: "detailed", extra_focus: "", template_key: "compliance_auditor", created_at: "2026-06-20T00:00:00Z" },
+];
+
+export const MOCK_AGENT_TEMPLATES: AgentTemplate[] = [
+  { template_key: "security_analyst", name: "Security Analyst", description: "Explains exposure and data-protection risk.", lens: "exposure", output_key: "security", coverage_categories: ["security"], coverage_issue_types: [], tone: "construction-aware", extra_focus: "" },
+  { template_key: "forensics_analyst", name: "Forensics Analyst", description: "Traces who changed a resource and when.", lens: "forensics", output_key: "forensics", coverage_categories: ["security"], coverage_issue_types: [], tone: "detailed", extra_focus: "" },
+  { template_key: "custom", name: "Custom Agent", description: "Start from scratch — pick a lens and coverage.", lens: "exposure", output_key: "custom_agent", coverage_categories: [], coverage_issue_types: [], tone: "concise", extra_focus: "" },
 ];
