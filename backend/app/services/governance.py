@@ -52,7 +52,7 @@ class GovernanceService:
                 after_state=event.model_dump(mode="json"),
             )
 
-            for rule_match in evaluate_event(event):
+            for rule_match in evaluate_event(event, list(self.store.rules.values())):
                 existing = self.store.find_active_duplicate(event.resource_id, rule_match.issue_type)
                 if existing:
                     before = existing.model_dump(mode="json")

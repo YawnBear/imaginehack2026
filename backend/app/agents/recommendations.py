@@ -41,7 +41,7 @@ def _public_bucket(finding: Finding) -> dict:
 
 
 def _idle_vm(finding: Finding) -> dict:
-    monthly_cost = float(finding.evidence.get("monthly_cost_usd") or 0)
+    monthly_cost = float(finding.evidence.get("monthly_usd") or finding.evidence.get("monthly_cost_usd") or 0)
     savings = round(monthly_cost * 0.8, 2)
     carbon = round(savings * 0.35, 2)
     return {
@@ -60,7 +60,7 @@ def _idle_vm(finding: Finding) -> dict:
 
 
 def _unused_storage(finding: Finding) -> dict:
-    monthly_cost = float(finding.evidence.get("monthly_cost_usd") or 0)
+    monthly_cost = float(finding.evidence.get("monthly_usd") or finding.evidence.get("monthly_cost_usd") or 0)
     savings = round(monthly_cost * 0.7, 2)
     carbon = round(savings * 0.2, 2)
     return {

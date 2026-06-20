@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from app.schemas import ApprovalDecision, AuditLog, CloudEvent, Finding, Recommendation
+from app.schemas import Rule
+from app.rules.seed_rules import builtin_rules
 
 
 class InMemoryStore:
@@ -11,6 +13,7 @@ class InMemoryStore:
         self.approvals: dict[str, ApprovalDecision] = {}
         self.audit_logs: list[AuditLog] = []
         self.latest_scan_at: datetime | None = None
+        self.rules: dict[str, Rule] = {rule.rule_id: rule for rule in builtin_rules()}
 
     def find_active_duplicate(self, resource_id: str, issue_type: str) -> Finding | None:
         for finding in self.findings.values():
