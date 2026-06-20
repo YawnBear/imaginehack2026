@@ -42,3 +42,15 @@ class EventIngestResponse(BaseModel):
     updated_findings: int = 0
     agent_runs: int = 0
     source_records: SourceRecordCounts = Field(default_factory=SourceRecordCounts)
+
+
+ScanRunState = Literal["idle", "running", "succeeded", "failed"]
+
+
+class ScanRunStatusResponse(BaseModel):
+    scan_id: str | None = None
+    state: ScanRunState = "idle"
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    message: str | None = None
+    result: EventIngestResponse | None = None

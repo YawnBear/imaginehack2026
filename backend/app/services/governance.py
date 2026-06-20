@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from threading import Lock, Thread
 from typing import Any, Callable
 from uuid import uuid4
 
@@ -23,6 +24,7 @@ from app.schemas import (
     ReviewRequest,
     ReviewResponse,
     Rule,
+    ScanRunStatusResponse,
     SourceRecordCounts,
     Workflow,
     WorkflowRun,
@@ -37,6 +39,8 @@ _INACTIVE = {"rejected", "action_completed"}
 class GovernanceService:
     def __init__(self, store: InMemoryStore) -> None:
         self.store = store
+        self._scan_run_lock = Lock()
+        self._scan_run_status = ScanRunStatusResponse()
 
     @property
     def has_events(self) -> bool:
@@ -189,6 +193,70 @@ class GovernanceService:
             ),
         )
         return response
+
+    def begin_background_scan(self) -> tuple[ScanRunStatusResponse, bool]:
+        with self._scan_run_lock:
+            if self._scan_run_status.state == "running":
+                return self._scan_run_status.model_copy(deep=True), False
+
+            self._scan_run_status = ScanRunStatusResponse(
+                scan_id=f"scan-{uuid4().hex[:10]}",
+                state="running",
+                started_at=_now(),
+                message="Scan is running.",
+            )
+            return self._scan_run_status.model_copy(deep=True), True
+
+    def start_background_scan(self) -> ScanRunStatusResponse:
+        scan_status, should_start = self.begin_background_scan()
+        if should_start:
+            Thread(
+                target=self.complete_background_scan,
+                args=(scan_status.scan_id,),
+                daemon=True,
+            ).start()
+        return scan_status
+
+    def complete_background_scan(self, scan_id: str | None) -> None:
+        if not scan_id:
+            return
+
+        with self._scan_run_lock:
+            current = self._scan_run_status
+            if current.scan_id != scan_id:
+                return
+            started_at = current.started_at
+
+        try:
+            result = self.run_scan_from_database_sources()
+        except Exception as exc:
+            with self._scan_run_lock:
+                current = self._scan_run_status
+                if current.scan_id == scan_id:
+                    self._scan_run_status = ScanRunStatusResponse(
+                        scan_id=scan_id,
+                        state="failed",
+                        started_at=started_at,
+                        finished_at=_now(),
+                        message=str(exc) or "Scan failed.",
+                    )
+            return
+
+        with self._scan_run_lock:
+            current = self._scan_run_status
+            if current.scan_id == scan_id:
+                self._scan_run_status = ScanRunStatusResponse(
+                    scan_id=scan_id,
+                    state="succeeded",
+                    started_at=started_at,
+                    finished_at=_now(),
+                    message="Scan complete.",
+                    result=result,
+                )
+
+    def background_scan_status(self) -> ScanRunStatusResponse:
+        with self._scan_run_lock:
+            return self._scan_run_status.model_copy(deep=True)
 
     def list_findings(
         self,

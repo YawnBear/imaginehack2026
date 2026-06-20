@@ -22,6 +22,7 @@ from app.schemas.events import (
     CloudEvent,
     EventIngestRequest,
     EventIngestResponse,
+    ScanRunStatusResponse,
     SourceRecordCounts,
 )
 from app.schemas.findings import (
@@ -99,6 +100,7 @@ __all__ = [
     "RulePreviewResponse",
     "RuleTemplate",
     "RuleUpdate",
+    "ScanRunStatusResponse",
     "SourceRecordCounts",
     "ThreatReport",
     "TimelineEntry",

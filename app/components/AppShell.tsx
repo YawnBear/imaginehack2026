@@ -14,7 +14,7 @@ import {
   IconMenu,
 } from "./icons";
 import { relativeTime } from "@/app/lib/format";
-import { runScan } from "@/app/lib/api";
+import { getScanStatus, runScan, type ScanRunStatus, type SeedResponse } from "@/app/lib/api";
 import { useToast } from "@/app/lib/toast";
 import GlobalSearch from "./GlobalSearch";
 import ProfileMenu from "./ProfileMenu";
@@ -25,11 +25,47 @@ const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
   { href: "/threats", label: "Threats", icon: IconThreats },
   { href: "/energy", label: "Energy", icon: IconEnergy },
-  { href: "/workflows", label: "Workflows", icon: IconWorkflows },
   { href: "/rules", label: "Rules", icon: IconRules },
   { href: "/agents", label: "Agents", icon: IconAgents },
+  { href: "/workflows", label: "Workflows", icon: IconWorkflows },
   { href: "/audit", label: "Audit", icon: IconAudit },
 ];
+
+const SCAN_POLL_INTERVAL_MS = 5000;
+const SCAN_POLL_MAX_ATTEMPTS = 1440;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLongRunningScanMessage(message: string) {
+  return message.startsWith("Backend request timed out") || message === "HTTP 500";
+}
+
+function scanCompleteMessage(result: SeedResponse | null | undefined) {
+  const created = result?.created_findings ?? 0;
+  const updated = result?.updated_findings ?? 0;
+  if (created > 0) {
+    return `Scan complete - ${created} new finding${created === 1 ? "" : "s"} detected`;
+  }
+  if (updated > 0) {
+    return `Scan complete - ${updated} finding${updated === 1 ? "" : "s"} updated`;
+  }
+  return "Scan complete - no new issues (estate clean)";
+}
+
+async function waitForScanToFinish(initialStatus: ScanRunStatus) {
+  let latest = initialStatus;
+  for (let attempt = 0; attempt < SCAN_POLL_MAX_ATTEMPTS; attempt += 1) {
+    if (latest.state !== "running") return latest;
+    await sleep(SCAN_POLL_INTERVAL_MS);
+    const status = await getScanStatus();
+    if (!initialStatus.scan_id || status.data.scan_id === initialStatus.scan_id) {
+      latest = status.data;
+    }
+  }
+  return latest;
+}
 
 function BrandMark() {
   return (
@@ -83,21 +119,34 @@ export default function AppShell({
     setScanning(true);
     try {
       const res = await runScan();
-      const n = res.data.created_findings;
-      const updated = res.data.updated_findings ?? 0;
-      toast(
-        n > 0
-          ? `Scan complete - ${n} new finding${n === 1 ? "" : "s"} detected`
-          : updated > 0
-            ? `Scan complete - ${updated} finding${updated === 1 ? "" : "s"} updated`
-          : "Scan complete - no new issues (estate clean)",
-        res.error ? "info" : "success",
-      );
-      // Refresh server components so counts/statuses/lists update live.
+      const status = await waitForScanToFinish(res.data);
+      if (status.state === "succeeded") {
+        toast(scanCompleteMessage(status.result), res.error ? "info" : "success");
+      } else if (status.state === "failed") {
+        toast(`Scan failed: ${status.message ?? "Check backend logs for details."}`, "error");
+      } else {
+        toast("Scan is still running in the background", "info");
+      }
       router.refresh();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      toast(`Scan failed: ${message}`, "error");
+      if (isLongRunningScanMessage(message)) {
+        try {
+          const status = await waitForScanToFinish(await getScanStatus().then((res) => res.data));
+          if (status.state === "succeeded") {
+            toast(scanCompleteMessage(status.result), "success");
+          } else if (status.state === "failed") {
+            toast(`Scan failed: ${status.message ?? "Check backend logs for details."}`, "error");
+          } else {
+            toast("Scan is still running in the background", "info");
+          }
+          router.refresh();
+        } catch {
+          toast("Scan is still running in the background", "info");
+        }
+      } else {
+        toast(`Scan failed: ${message}`, "error");
+      }
     } finally {
       setScanning(false);
     }
@@ -127,12 +176,11 @@ export default function AppShell({
           <button
             onClick={handleRunScan}
             disabled={scanning}
+            aria-busy={scanning}
             title="Re-scan: ingest cloud events and detect findings"
-            className="flex h-9 items-center gap-1.5 rounded-full bg-action px-3 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-60 sm:px-4"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-action px-3 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-75 sm:px-4"
           >
-            <span
-              className={`h-2 w-2 rounded-full bg-[var(--color-success)] ${scanning ? "gg-pulse" : ""}`}
-            />
+            {!scanning && <span className="h-2 w-2 rounded-full bg-[var(--color-success)]" aria-hidden="true" />}
             <span className="hidden sm:inline">{scanning ? "Scanning..." : "Run scan"}</span>
             <span className="sm:hidden">{scanning ? "..." : "Scan"}</span>
           </button>

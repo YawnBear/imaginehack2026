@@ -247,23 +247,62 @@ export interface SeedResponse {
   };
 }
 
-// "Run scan" asks the backend to read database scan sources and ingest them
-// through the rule engine. In live mode, failures surface to the UI.
-export async function runScan(): Promise<ApiResult<SeedResponse>> {
+export type ScanRunState = "idle" | "running" | "succeeded" | "failed";
+
+export interface ScanRunStatus {
+  scan_id: string | null;
+  state: ScanRunState;
+  started_at: string | null;
+  finished_at: string | null;
+  message: string | null;
+  result: SeedResponse | null;
+}
+
+const EMPTY_SCAN_RESULT: SeedResponse = {
+  accepted: 0,
+  created_findings: 0,
+  duplicate_events: 0,
+  updated_findings: 0,
+  agent_runs: 0,
+  source_records: { cloud_events: 0, scanned_assets: 0 },
+};
+
+const IDLE_SCAN_STATUS: ScanRunStatus = {
+  scan_id: null,
+  state: "idle",
+  started_at: null,
+  finished_at: null,
+  message: null,
+  result: null,
+};
+
+// "Run scan" starts a background backend scan. The scan may outlive the HTTP
+// request, so callers should poll getScanStatus() until it leaves "running".
+export async function runScan(): Promise<ApiResult<ScanRunStatus>> {
   try {
-    return ok(await tryFetch<SeedResponse>("/api/scan/run", { method: "POST" }));
+    return ok(
+      await tryFetch<ScanRunStatus>(
+        "/api/scan/run-background",
+        { method: "POST" },
+      ),
+    );
   } catch (e) {
     return fallback(
       {
-        accepted: 0,
-        created_findings: 0,
-        duplicate_events: 0,
-        updated_findings: 0,
-        agent_runs: 0,
-        source_records: { cloud_events: 0, scanned_assets: 0 },
+        ...IDLE_SCAN_STATUS,
+        state: "succeeded",
+        result: EMPTY_SCAN_RESULT,
       },
       e,
     );
+  }
+}
+
+export async function getScanStatus(): Promise<ApiResult<ScanRunStatus>> {
+  try {
+    return ok(await tryFetch<ScanRunStatus>("/api/scan/status"));
+  } catch (e) {
+    return fallback(IDLE_SCAN_STATUS, e);
   }
 }
 
