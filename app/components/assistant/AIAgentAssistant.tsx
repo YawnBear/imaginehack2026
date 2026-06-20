@@ -1,6 +1,7 @@
 import type { Agent } from "@/app/lib/types";
 import AIAgentMascot, {
   type AIAgentColor,
+  type AIAgentSprite,
   type AIAgentState,
 } from "./AIAgentMascot";
 
@@ -36,34 +37,6 @@ function getAgentState(agent: Agent, index: number): AIAgentState {
   return index % 2 === 0 ? "idle" : "success";
 }
 
-function getStatusCopy(state: AIAgentState, enabled: boolean) {
-  if (!enabled) {
-    return {
-      label: "Needs attention",
-      tone: "bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]",
-    };
-  }
-
-  if (state === "scanning") {
-    return {
-      label: "Scanning live",
-      tone: "bg-[var(--color-agent-ice)] text-[var(--color-agent-blue)]",
-    };
-  }
-
-  if (state === "success") {
-    return {
-      label: "Healthy",
-      tone: "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]",
-    };
-  }
-
-  return {
-    label: "Idle watch",
-    tone: "bg-[var(--color-agent-surface)] text-[var(--color-agent-blue)]",
-  };
-}
-
 const AGENT_COLORS: AIAgentColor[] = [
   "yellow",
   "orange",
@@ -71,6 +44,8 @@ const AGENT_COLORS: AIAgentColor[] = [
   "blue",
   "green",
 ];
+
+const AGENT_SPRITES: AIAgentSprite[] = ["doux", "mort", "tard", "vita"];
 
 export default function AIAgentAssistant({
                                            agents,
@@ -82,30 +57,22 @@ export default function AIAgentAssistant({
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {agents.map((agent, index) => {
             const state = getAgentState(agent, index);
-            const status = getStatusCopy(state, agent.enabled);
             const color = AGENT_COLORS[index % AGENT_COLORS.length];
+            const sprite = AGENT_SPRITES[index % AGENT_SPRITES.length];
 
             return (
                 <div
                     key={agent.agent_id}
                     className="flex min-w-0 flex-col items-center justify-between rounded-2xl border border-white/70 bg-canvas/60 px-5 py-6 text-center shadow-agent"
-                    aria-label={`${agent.name}: ${status.label}`}
+                    aria-label={agent.name}
                 >
                   <div className="rounded-full border border-on-accent/80 bg-transparent shadow-agent">
-                    <AIAgentMascot state={state} collapsed color={color} />
+                    <AIAgentMascot state={state} collapsed color={color} sprite={sprite} />
                   </div>
 
                   <h3 className="mt-3 text-[15px] font-semibold text-ink">
                     {agent.name}
                   </h3>
-
-                  <div className="mt-2 flex justify-center">
-                <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${status.tone}`}
-                >
-                  {status.label}
-                </span>
-                  </div>
 
                   <p className="mt-3 line-clamp-4 text-[12px] leading-5 text-[var(--color-agent-muted)]">
                     {agent.system_prompt}
