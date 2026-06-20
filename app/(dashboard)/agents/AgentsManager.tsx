@@ -7,6 +7,7 @@ import { createAgent, deleteAgent, updateAgent } from "@/app/lib/api";
 import { Card } from "@/app/components/ui";
 import { useToast } from "@/app/lib/toast";
 import AIAgentAssistant from "@/app/components/assistant/AIAgentAssistant";
+import AgentAIBuilder from "./AgentAIBuilder";
 
 export default function AgentsManager({ initialAgents }: { initialAgents: Agent[] }) {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
 }
 
 function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (a: Agent) => void }) {
+  const [mode, setMode] = useState<"manual" | "ai">("manual");
   const [name, setName] = useState("");
   const [prompt, setPrompt] = useState("");
   const [saving, setSaving] = useState(false);
@@ -68,17 +70,43 @@ function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-[var(--shadow-e3)]">
-        <div className="flex items-center justify-between"><h2 className="text-[18px] font-bold">New Agent</h2><button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">✕</button></div>
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Exposure Specialist" className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]" />
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">System prompt</label>
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="You are a... For each finding, explain... in one or two sentences. Never invent numbers." className="mt-1 w-full resize-none rounded-lg border border-[#E5E5E5] px-3 py-2 text-[13px]" />
-        <p className="mt-1 text-[11px] text-[#909090]">The agent runs this prompt against each finding it&apos;s assigned (set assignments in Workflows). Requires an AI key to produce output.</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]">Cancel</button>
-          <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50">{saving ? "Saving…" : "Save agent"}</button>
+      <div className={`gg-fade-up relative z-10 w-full rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-[var(--shadow-e3)] ${mode === "ai" ? "max-w-[920px]" : "max-w-[560px]"}`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[18px] font-bold">New Agent</h2>
+          <button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">✕</button>
         </div>
+
+        {/* Mode toggle: Manual (default) | Generate with AI */}
+        <div className="mt-3 inline-flex rounded-full border border-[#E5E5E5] bg-[#F8F8F8] p-1 text-[12px] font-medium">
+          <button
+            onClick={() => setMode("manual")}
+            className={`h-7 rounded-full px-3 ${mode === "manual" ? "bg-[#0F0F0F] text-white" : "text-[#606060] hover:text-[#0F0F0F]"}`}
+          >
+            Manual
+          </button>
+          <button
+            onClick={() => setMode("ai")}
+            className={`h-7 rounded-full px-3 ${mode === "ai" ? "bg-[#0F0F0F] text-white" : "text-[#606060] hover:text-[#0F0F0F]"}`}
+          >
+            ✨ Generate with AI
+          </button>
+        </div>
+
+        {mode === "manual" ? (
+          <>
+            <label className="mt-4 block text-[12px] font-medium text-[#606060]">Name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Exposure Specialist" className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]" />
+            <label className="mt-4 block text-[12px] font-medium text-[#606060]">System prompt</label>
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="You are a... For each finding, explain... in one or two sentences. Never invent numbers." className="mt-1 w-full resize-none rounded-lg border border-[#E5E5E5] px-3 py-2 text-[13px]" />
+            <p className="mt-1 text-[11px] text-[#909090]">The agent runs this prompt against each finding it&apos;s assigned (set assignments in Workflows). Requires an AI key to produce output.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]">Cancel</button>
+              <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50">{saving ? "Saving…" : "Save agent"}</button>
+            </div>
+          </>
+        ) : (
+          <AgentAIBuilder onCreated={onCreated} onClose={onClose} />
+        )}
       </div>
     </div>
   );
