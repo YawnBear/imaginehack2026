@@ -36,6 +36,7 @@ import type {
   ReviewBody,
   ReviewResponse,
   ThreatReport,
+  WorkflowRunResponse,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -376,6 +377,36 @@ export async function generateThreatReport(findingId: string): Promise<ApiResult
     return ok(await tryFetch<ThreatReport>(`/api/findings/${findingId}/threat-report`, { method: "POST" }));
   } catch (e) {
     return fallback(MOCK_THREATS.find((t) => t.finding_id === findingId) ?? null, e);
+  }
+}
+
+// ---- Workflow preview (SafeCloud Phase 7) ----
+
+export async function runWorkflow(
+  rule_id: string,
+  agent_keys: string[],
+): Promise<ApiResult<WorkflowRunResponse>> {
+  try {
+    return ok(
+      await tryFetch<WorkflowRunResponse>("/api/workflows/run", {
+        method: "POST",
+        body: JSON.stringify({ rule_id, agent_keys }),
+      }),
+    );
+  } catch (e) {
+    return fallback(
+      {
+        summary:
+          agent_keys.length === 0
+            ? "Select one or more agents to generate a combined analysis."
+            : "Offline preview — connect the backend to generate a live merged summary.",
+        agent_outputs: {},
+        ai_generated: false,
+        finding_preview: {},
+        synthetic: true,
+      },
+      e,
+    );
   }
 }
 

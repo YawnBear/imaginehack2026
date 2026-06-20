@@ -66,6 +66,9 @@ export interface Recommendation {
   // True when the agent analysis text was rewritten by the external LLM
   // (hybrid AI layer). False/undefined = deterministic template text.
   ai_generated?: boolean;
+  // One merged paragraph synthesizing every selected agent's analysis.
+  // Empty string when the AI layer is off (or no agents ran).
+  agent_summary?: string;
 }
 
 export interface AuditLog {
@@ -297,4 +300,18 @@ export interface AgentStatus {
   online: boolean;
   last_seen: string | null;
   agent_id: string | null;
+}
+
+// ---- Workflow preview (SafeCloud Phase 7) ----
+export interface WorkflowRunRequest {
+  rule_id: string;
+  agent_keys: string[];
+}
+
+export interface WorkflowRunResponse {
+  summary: string;
+  agent_outputs: Record<string, string>;
+  ai_generated: boolean;
+  finding_preview: Record<string, unknown>;
+  synthetic: boolean;
 }
