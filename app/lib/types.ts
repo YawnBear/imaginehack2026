@@ -111,7 +111,7 @@ export interface EnergySummary {
   current_footprint_kg: number;
   projected_footprint_kg: number;
   estimated_reduction_kg: number;
-  by_resource_type: Record<string, number>;
+  by_operation: Record<string, number>;
   history: EnergyHistoryPoint[];
 }
 

@@ -15,15 +15,18 @@ export default async function EnergyPage() {
   const res = await getEnergySummary();
   const summary = res.data;
 
-  const typeColors: Record<string, string> = {
-    vm: "var(--color-warning)",
-    storage: "var(--color-link)",
-    database: "var(--color-muted)",
-    bucket: "var(--color-danger)",
+  const operationColors: Record<string, string> = {
+    "idle VM": "var(--color-warning)",
+    "Unused Storage": "var(--color-link)",
+    "idle database": "var(--color-muted)",
   };
-  const energyBars: Slice[] = Object.entries(summary.by_resource_type)
+  const energyBars: Slice[] = Object.entries(summary.by_operation)
     .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({ label: k, value: Math.round(v), color: typeColors[k] ?? "var(--color-muted)" }));
+    .map(([k, v]) => ({
+      label: formatOperation(k),
+      value: Math.round(v),
+      color: operationColors[k] ?? "var(--color-muted)",
+    }));
 
   const trend = summary.history.map((point) => Math.round(point.value_kg));
   const trendLabels = summary.history.map((point) => point.label);
@@ -42,7 +45,7 @@ export default async function EnergyPage() {
           summary.history.map((point) => point.timestamp),
         )
       : buildReportTrend([afterFootprint], ["Current"], [now.toISOString()]);
-  const reductionCategories = buildReductionCategories(summary.by_resource_type, totalReduction);
+  const reductionCategories = buildReductionCategories(summary.by_operation, totalReduction);
   const esgScore =
     beforeFootprint > 0
       ? Math.min(100, Math.round(72 + (totalReduction / beforeFootprint) * 100))
@@ -63,7 +66,7 @@ export default async function EnergyPage() {
     <div className="space-y-5">
       <PageHeader
         title="Energy"
-        subtitle="Estimated carbon footprint of the cloud estate, and the reduction unlocked once recommended actions are approved."
+        subtitle="Estimated carbon footprint by energy operation, backed by the seeded energy table."
         right={
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full bg-[var(--color-success-tint)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-success-strong)] sm:flex">
@@ -94,14 +97,13 @@ export default async function EnergyPage() {
           )}
         </div>
         <p className="mt-2 text-[12px] text-muted">
-          History comes from recorded energy data. Projected reduction is calculated from
-          current pending recommendations.
+          History comes from daily seeded energy rows grouped by timestamp.
         </p>
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <SectionTitle>Before / after approved actions</SectionTitle>
+          <SectionTitle>Before / after planned reductions</SectionTitle>
           <div className="mt-5 space-y-4">
             <BeforeAfterBar label="Before" value={beforeFootprint} max={beforeFootprint} color="var(--color-muted)" />
             <BeforeAfterBar label="After (projected)" value={afterFootprint} max={beforeFootprint} color="var(--color-success)" />
@@ -109,16 +111,16 @@ export default async function EnergyPage() {
           <div className="mt-5 flex items-center gap-2 rounded-lg bg-[var(--color-success-tint)] p-3">
             <IconLeaf width={20} height={20} className="text-[var(--color-success)]" />
             <p className="text-[13px] text-ink">
-              <strong>{kg(totalReduction)} CO2e / month</strong> avoided once approved,
+              <strong>{kg(totalReduction)} CO2e / month</strong> planned for reduction,
               {" "}about <strong>{reductionPct}%</strong> of the current estimated footprint.
             </p>
           </div>
         </Card>
 
         <Card>
-          <SectionTitle>Energy impact by resource type</SectionTitle>
+          <SectionTitle>Energy impact by operation</SectionTitle>
           <p className="mb-4 mt-1 text-[12px] text-muted">
-            Current estimated CO2e footprint by resource class (kg / month).
+            Latest estimated CO2e footprint by energy operation (kg / month).
           </p>
           <BarChart data={energyBars} unit=" kg" height={170} />
         </Card>
@@ -141,10 +143,10 @@ export default async function EnergyPage() {
 }
 
 function buildReductionCategories(
-  byResourceType: Record<string, number>,
+  byOperation: Record<string, number>,
   totalReduction: number,
 ): ESGReductionCategory[] {
-  const entries = Object.entries(byResourceType)
+  const entries = Object.entries(byOperation)
     .filter(([, value]) => value > 0)
     .sort(([, a], [, b]) => b - a);
 
@@ -155,7 +157,7 @@ function buildReductionCategories(
   const totalFootprint = entries.reduce((sum, [, value]) => sum + value, 0);
   let allocated = 0;
 
-  return entries.map(([resourceType, value], index) => {
+  return entries.map(([operation, value], index) => {
     const savedKg =
       index === entries.length - 1
         ? Math.max(totalReduction - allocated, 0)
@@ -163,7 +165,7 @@ function buildReductionCategories(
     allocated += savedKg;
 
     return {
-      category: `${formatResourceType(resourceType)} Optimization`,
+      category: `${formatOperation(operation)} Reduction`,
       savedKg,
     };
   });
@@ -181,8 +183,10 @@ function buildReportTrend(
   }));
 }
 
-function formatResourceType(value: string): string {
-  if (value === "vm") return "VM";
+function formatOperation(value: string): string {
+  if (value === "idle VM") return "Idle VM";
+  if (value === "Unused Storage") return "Unused Storage";
+  if (value === "idle database") return "Idle Database";
   return value
     .split(/[_\s-]+/)
     .filter(Boolean)

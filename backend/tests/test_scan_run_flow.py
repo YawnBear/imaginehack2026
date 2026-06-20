@@ -66,12 +66,15 @@ def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypa
         _asset_row(id="asset-ignored", asset_id="custom-1", asset_type="custom service"),
     ]
     cloud_rows = [_cloud_row()]
-    seed_calls = []
     captured = []
 
     store.scan_source_rows = lambda: asset_rows
     store.cloud_event_source_rows = lambda: cloud_rows
-    store.seed_energy_snapshots = lambda: seed_calls.append("called") or 0
+
+    def fail_if_seeded():
+        raise AssertionError("Run scan must not write to public.energy")
+
+    store.seed_energy_snapshots = fail_if_seeded
     _add_workflow(store, "wf-idle", "RULE_IDLE_VM", ["energy"])
     _add_workflow(store, "wf-login", "RULE_FAILED_LOGIN", ["audit"])
 
@@ -98,7 +101,6 @@ def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypa
     assert result.created_findings == 2
     assert result.updated_findings == 0
     assert result.agent_runs == 2
-    assert seed_calls == ["called"]
 
     by_issue = {item["issue_type"]: item for item in captured}
     assert by_issue["idle_vm"]["agent_keys"] == ["energy"]
@@ -122,7 +124,6 @@ def test_run_scan_reprocesses_seen_sources_and_updates_existing_findings(monkeyp
 
     store.scan_source_rows = lambda: asset_rows
     store.cloud_event_source_rows = lambda: cloud_rows
-    store.seed_energy_snapshots = lambda: 0
     _add_workflow(store, "wf-idle", "RULE_IDLE_VM", ["energy"])
     _add_workflow(store, "wf-login", "RULE_FAILED_LOGIN", ["audit"])
 
@@ -151,7 +152,6 @@ def test_run_scan_without_matching_workflows_does_not_run_agents(monkeypatch):
     service = GovernanceService(store)
     store.scan_source_rows = lambda: [_asset_row()]
     store.cloud_event_source_rows = lambda: [_cloud_row()]
-    store.seed_energy_snapshots = lambda: 0
 
     def fail_if_called(*args, **kwargs):
         raise AssertionError("scan-time agents should be routed by workflows only")
@@ -167,41 +167,32 @@ def test_run_scan_without_matching_workflows_does_not_run_agents(monkeypatch):
     assert result.agent_runs == 0
 
 
-def test_energy_summary_uses_history_and_recommendation_reductions():
+def test_energy_summary_uses_operation_history_and_table_totals():
     store = InMemoryStore()
     service = GovernanceService(store)
     timestamp = datetime(2026, 6, 20, tzinfo=UTC)
     store.energy_source_summary = lambda: {
-        "by_resource_type": {"vm": 18.72, "database": 41.82},
+        "by_operation": {"idle VM": 18.72, "idle database": 41.82},
+        "current_footprint_kg": 60.54,
+        "estimated_reduction_kg": 12.5,
+        "projected_footprint_kg": 48.04,
         "history": [{"label": "Jun 20", "timestamp": timestamp, "value_kg": 60.54}],
     }
-    store.recommendations["finding-1"] = Recommendation(
-        recommendation_id="rec-1",
-        finding_id="finding-1",
-        recommended_action="Tune workload",
-        rationale="Lower the active footprint.",
-        risk_level="medium",
-        estimated_monthly_savings=0,
-        estimated_carbon_reduction_kg=12.5,
-        confidence=0.9,
-    )
 
     summary = service.dashboard_energy_summary()
 
+    assert summary.by_operation == {"idle VM": 18.72, "idle database": 41.82}
     assert summary.current_footprint_kg == 60.54
     assert summary.estimated_reduction_kg == 12.5
     assert summary.projected_footprint_kg == 48.04
     assert summary.history[0].value_kg == 60.54
 
 
-def test_energy_summary_prefers_energy_table_reductions_when_available():
+def test_energy_summary_defaults_reductions_to_zero_when_energy_has_none():
     store = InMemoryStore()
     service = GovernanceService(store)
     store.energy_source_summary = lambda: {
-        "by_resource_type": {"vm": 20.0},
-        "current_footprint_kg": 20.0,
-        "estimated_reduction_kg": 3.5,
-        "projected_footprint_kg": 16.5,
+        "by_operation": {"idle VM": 20.0},
         "history": [],
     }
     store.recommendations["finding-1"] = Recommendation(
@@ -218,8 +209,8 @@ def test_energy_summary_prefers_energy_table_reductions_when_available():
     summary = service.dashboard_energy_summary()
 
     assert summary.current_footprint_kg == 20.0
-    assert summary.estimated_reduction_kg == 3.5
-    assert summary.projected_footprint_kg == 16.5
+    assert summary.estimated_reduction_kg == 0
+    assert summary.projected_footprint_kg == 20.0
 
 
 def _add_workflow(store: InMemoryStore, workflow_id: str, rule_id: str, agent_keys: list[str]) -> None:
