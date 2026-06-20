@@ -282,6 +282,29 @@ export interface AgentCreateBody {
   enabled?: boolean;
 }
 
+// ---- AI agent builder (describe in NLP -> generated system prompt) ----
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AgentGenerateBody {
+  messages: AgentChatMessage[];
+  current_name?: string;
+  current_system_prompt?: string;
+}
+
+export interface AgentGenerateResponse {
+  /** Conversational explanation / clarifying question for the chat. */
+  reply: string;
+  /** Suggested agent name (may be "" when only asking a question). */
+  name: string;
+  /** Generated SafeCloud-native system prompt (may be ""). */
+  system_prompt: string;
+  /** false when no AI key is configured on the backend. */
+  ai_enabled: boolean;
+}
+
 // ---- Threats (SafeCloud Phase 3) ----
 export interface TimelineEntry {
   actor: string;

@@ -16,6 +16,8 @@ import {
 import type {
   Agent,
   AgentCreateBody,
+  AgentGenerateBody,
+  AgentGenerateResponse,
   AgentListResponse,
   AgentStatus,
   AuditLog,
@@ -53,9 +55,9 @@ export interface ApiResult<T> {
   error?: string;
 }
 
-async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function tryFetch<T>(path: string, init?: RequestInit, timeoutMs = 5000): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const url = BASE_URL ? `${BASE_URL}${path}` : path;
   try {
     const res = await fetch(url, {
@@ -401,6 +403,36 @@ export async function deleteAgent(id: string): Promise<ApiResult<boolean>> {
     return ok(true);
   } catch (e) {
     return fallback(false, e);
+  }
+}
+
+/**
+ * Conversationally generate a SafeCloud-native agent system prompt from a
+ * natural-language description. Uses a long timeout (LLM round-trip) and falls
+ * back to a graceful "AI unavailable" response when the backend is unreachable.
+ */
+export async function generateAgentDraft(
+  body: AgentGenerateBody,
+): Promise<ApiResult<AgentGenerateResponse>> {
+  try {
+    return ok(
+      await tryFetch<AgentGenerateResponse>(
+        "/api/agents/generate",
+        { method: "POST", body: JSON.stringify(body) },
+        60000,
+      ),
+    );
+  } catch (e) {
+    return fallback(
+      {
+        reply:
+          "Couldn't reach the AI service. Check the backend is running, or write the prompt in Manual mode.",
+        name: "",
+        system_prompt: "",
+        ai_enabled: false,
+      },
+      e,
+    );
   }
 }
 

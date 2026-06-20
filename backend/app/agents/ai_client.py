@@ -41,6 +41,12 @@ _MAX_TOKENS = 600
 _TIMEOUT_SECONDS = 8
 _SUMMARY_MAX_TOKENS = 320
 
+# The conversational agent builder writes a full system prompt plus an
+# explanation, so it needs more room and a longer budget than per-finding
+# analysis. The model (e.g. claude-opus-4-8 via the proxy) can also be slower.
+_DRAFT_MAX_TOKENS = 1500
+_DRAFT_TIMEOUT_SECONDS = 45
+
 
 def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list | None = None) -> dict | None:
     """Return a dict of per-agent analysis text, or ``None`` on any failure.
@@ -290,3 +296,148 @@ def parse_summary(raw: str) -> str | None:
     if text.startswith("```"):
         text = text.strip("`").strip()
     return text or None
+
+
+# ---------------------------------------------------------------------------
+# Conversational agent builder: describe an agent in natural language and get a
+# professional, SafeCloud-native system prompt back. Like the rest of this
+# module it NEVER raises — on any failure it returns ``None`` so the route can
+# degrade gracefully.
+# ---------------------------------------------------------------------------
+
+_BUILDER_SYSTEM_PROMPT = (
+    "You are an expert prompt engineer embedded in SafeCloud, a cloud-governance "
+    "dashboard for a construction-tech company. You help a human author the SYSTEM "
+    "PROMPT for a new analysis agent by chatting with them, like an assistant that "
+    "creates sub-agents.\n\n"
+    "HOW THESE AGENTS RUN (the prompt you write MUST fit this): each agent is given "
+    "ONE governance finding (issue_type, severity, evidence) plus a deterministic "
+    "recommended action, and must return ONE or TWO short, plain-English, "
+    "construction-aware sentences of analysis. The deterministic rule engine supplies "
+    "every dollar and carbon figure, so agents must NEVER invent numbers and must NEVER "
+    "tell anyone to auto-execute a change. Gold-standard existing prompts:\n"
+    '- "You are a cloud security analyst for a construction-tech company. Explain the '
+    'exposure and data-protection risk of this finding in one or two plain sentences. '
+    'Reference the evidence; never invent numbers."\n'
+    '- "You are a cloud cost analyst. Explain the wasted monthly spend and the saving '
+    'opportunity in one or two sentences. Do not invent figures; reference the provided '
+    'estimate only."\n\n'
+    "YOUR JOB: from the user's natural-language description, write a polished, "
+    "role-specific system prompt in exactly that style — a clear persona, what to "
+    "explain for each finding, the one-to-two-sentence limit, and the 'reference the "
+    "evidence / never invent numbers / never auto-execute' guardrails. Also propose a "
+    "short, human-friendly agent name (2-4 words, e.g. 'Idle Compute Optimizer'). "
+    "Explain your choices conversationally and warmly. Only if the request is too vague "
+    "to act on, ask ONE clarifying question instead of guessing wildly.\n\n"
+    "OUTPUT FORMAT: ALWAYS respond with a SINGLE JSON object and nothing else:\n"
+    '{"reply": "<your conversational explanation or clarifying question>", '
+    '"name": "<suggested agent name, or empty string>", '
+    '"system_prompt": "<the system prompt you wrote, or empty string>"}\n'
+    "Leave name and system_prompt as empty strings ONLY when you are purely asking a "
+    "clarifying question and have not drafted anything yet."
+)
+
+
+def generate_subagent_draft(
+    messages: list,
+    current_name: str | None = None,
+    current_system_prompt: str | None = None,
+) -> dict | None:
+    """Return ``{"reply", "name", "system_prompt"}`` or ``None`` on any failure.
+
+    ``messages`` is the running chat history (objects or dicts with ``role`` and
+    ``content``). The current draft, if any, is passed back as context so the
+    model refines it in place rather than starting over. Never raises.
+    """
+    settings = get_settings()
+    if not settings.ai_enabled:
+        return None
+
+    try:
+        base_url = settings.ai_provider_base_url
+        if not base_url.endswith("/"):
+            base_url += "/"
+        url = base_url + _COMPLETIONS_PATH
+
+        chat: list[dict] = [{"role": "system", "content": _BUILDER_SYSTEM_PROMPT}]
+        draft = (current_system_prompt or "").strip()
+        if draft:
+            chat.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "The draft the user is currently looking at:\n"
+                        f"name: {(current_name or '').strip()}\n"
+                        f"system_prompt: {draft}\n"
+                        "Refine THIS draft based on the conversation rather than "
+                        "starting from scratch, unless the user asks for something new."
+                    ),
+                }
+            )
+
+        had_user_turn = False
+        for turn in messages or []:
+            role = _turn_field(turn, "role")
+            content = _turn_field(turn, "content")
+            if role in ("user", "assistant") and content:
+                chat.append({"role": role, "content": str(content)})
+                if role == "user":
+                    had_user_turn = True
+        if not had_user_turn:
+            return None
+
+        body = json.dumps(
+            {
+                "model": settings.ai_model,
+                "messages": chat,
+                "temperature": 0.5,
+                "max_tokens": _DRAFT_MAX_TOKENS,
+            }
+        ).encode("utf-8")
+
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.ai_provider_api_key}",
+            },
+        )
+
+        with urllib.request.urlopen(request, timeout=_DRAFT_TIMEOUT_SECONDS) as response:
+            if response.status != 200:
+                return None
+            raw = response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - defensive: AI is purely additive
+        return None
+
+    return parse_draft(raw)
+
+
+def _turn_field(turn, field: str):
+    if isinstance(turn, dict):
+        return turn.get(field)
+    return getattr(turn, field, None)
+
+
+def parse_draft(raw: str) -> dict | None:
+    """Extract the builder's JSON object, tolerating prose/fences. None on failure."""
+    try:
+        envelope = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    content = _extract_content(envelope)
+    if not content:
+        return None
+    parsed = _loads_json_object(content)
+    if not isinstance(parsed, dict):
+        return None
+    reply = str(parsed.get("reply", "") or "").strip()
+    name = str(parsed.get("name", "") or "").strip()
+    system_prompt = str(parsed.get("system_prompt", "") or "").strip()
+    if not (reply or name or system_prompt):
+        return None
+    return {"reply": reply, "name": name, "system_prompt": system_prompt}
