@@ -1,12 +1,12 @@
 # Product Requirements Document
 
-# GreenGuard Cloud: AI-Assisted Cloud Governance for Security, Cost, and Carbon Optimization
+# Safe Cloud: AI-Assisted Cloud Governance for Security, Cost, and Carbon Optimization
 
 ## 1. Product Overview
 
-GreenGuard Cloud is an AI-assisted cloud governance platform designed to help construction organizations improve cloud security, reduce cloud waste, lower cloud-related carbon footprint, and support better operational decision-making.
+Safe Cloud is an AI-assisted cloud governance platform designed to help construction organizations improve cloud security, reduce cloud waste, lower cloud-related carbon footprint, and support better operational decision-making.
 
-The system assumes that the organization’s cloud provider is already connected to the platform. Instead of manually scanning the entire cloud environment from scratch, GreenGuard Cloud extracts cloud logs, scan events, configuration data, usage metrics, billing data, and resource metadata from the connected cloud provider.
+The system assumes that the organization’s cloud provider is already connected to the platform. Instead of manually scanning the entire cloud environment from scratch, Safe Cloud extracts cloud logs, scan events, configuration data, usage metrics, billing data, and resource metadata from the connected cloud provider.
 
 These extracted events are normalized and checked by a rule engine. The rule engine detects predefined risk and optimization issues such as public cloud buckets, idle virtual machines, unused storage, and unencrypted databases. Once a rule is triggered, a finding is created and passed to a master agent. The master agent assigns the finding to specialized AI agents for analysis, explanation, impact scoring, and recommendation generation.
 
@@ -35,7 +35,7 @@ Therefore, construction organizations need a platform that can continuously proc
 
 ## 3. Product Goals
 
-The goals of GreenGuard Cloud are:
+The goals of Safe Cloud are:
 
 1. Detect security risks from cloud logs and scan events.
 2. Identify unused or inefficient cloud resources.
@@ -83,7 +83,7 @@ The system is designed around the idea that no single team has complete context.
 | Project Managers   | Construction project workflow, reporting schedules, and business impact               | Cloud configuration and technical remediation      |
 | Finance / ESG Team | Cost and sustainability impact                                                        | Technical feasibility of the recommended action    |
 
-Because of this, GreenGuard Cloud must not only detect findings. It must also route findings to the correct reviewers before any action is taken.
+Because of this, Safe Cloud must not only detect findings. It must also route findings to the correct reviewers before any action is taken.
 
 ---
 
@@ -998,4 +998,4 @@ Future versions may include:
 
 ## 26. Summary
 
-GreenGuard Cloud is a cloud governance platform that uses connected cloud provider logs and scan events to detect security, cost, and sustainability issues. The rule engine performs objective detection based on predefined criteria, while AI agents provide explanation, impact analysis, reviewer routing, and recommendations. Human approval is required before any action is taken. The dashboard provides security, cost, energy, and audit visibility, helping construction organizations optimize their cloud environment without disrupting application logic or business workflows.
+Safe Cloud is a cloud governance platform that uses connected cloud provider logs and scan events to detect security, cost, and sustainability issues. The rule engine performs objective detection based on predefined criteria, while AI agents provide explanation, impact analysis, reviewer routing, and recommendations. Human approval is required before any action is taken. The dashboard provides security, cost, energy, and audit visibility, helping construction organizations optimize their cloud environment without disrupting application logic or business workflows.

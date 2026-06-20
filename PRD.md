@@ -1,8 +1,8 @@
-# Product Requirements Document: GreenGuard Cloud MVP
+# Product Requirements Document: Safe Cloud MVP
 
 ## 1. Summary
 
-GreenGuard Cloud is an AI-assisted cloud governance dashboard for construction organizations. It helps teams detect cloud security risks, reduce unused cloud resources, estimate cost savings, estimate carbon impact, and route every recommended action through human approval before remediation.
+Safe Cloud is an AI-assisted cloud governance dashboard for construction organizations. It helps teams detect cloud security risks, reduce unused cloud resources, estimate cost savings, estimate carbon impact, and route every recommended action through human approval before remediation.
 
 This MVP uses mock cloud-provider events first, while keeping the data interface compatible with future AWS, Azure, and GCP connectors. The product pairs a deterministic rule engine with AI-assisted explanation and recommendation generation. AI agents may analyze, prioritize, and recommend actions, but they must not directly delete, stop, encrypt, or modify cloud resources.
 
@@ -33,7 +33,7 @@ The core problems are:
 5. DevOps, security, developers, finance, ESG, and project owners each have only part of the context.
 6. Existing monitoring tools often detect issues but do not provide workflow-aware recommendations, reviewer routing, approval status, or audit trails.
 
-GreenGuard Cloud solves this by turning cloud scan events into explainable findings, assigning reviewer ownership, estimating impact, and requiring approval before any action is taken.
+Safe Cloud solves this by turning cloud scan events into explainable findings, assigning reviewer ownership, estimating impact, and requiring approval before any action is taken.
 
 ## 3. Goals and Non-Goals
 
