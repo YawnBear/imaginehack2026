@@ -31,26 +31,15 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-muted">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
+        <p></p>
         <button onClick={() => setOpen(true)} className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90">+ New Agent</button>
       </div>
-      <AIAgentAssistant agents={agents} />
-      <div className="space-y-3">
-        {agents.map((a) => (
-          <Card key={a.agent_id}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[14px] font-medium text-ink">{a.name}</p>
-                <p className="mt-1 line-clamp-2 text-[12px] text-muted">{a.system_prompt}</p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button onClick={() => toggle(a)} className={`h-7 rounded-full px-3 text-[12px] font-medium ${a.enabled ? "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]" : "bg-surface text-muted"}`}>{a.enabled ? "Enabled" : "Disabled"}</button>
-                <button onClick={() => remove(a)} className="h-7 rounded-full px-3 text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]">Delete</button>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+      <AIAgentAssistant
+          agents={agents}
+          onToggle={toggle}
+          onDelete={remove}
+      />
+
       {open && <AgentWizard onClose={() => setOpen(false)} onCreated={(a) => { setAgents((xs) => [...xs, a]); setOpen(false); toast("Agent created", "success"); router.refresh(); }} />}
     </div>
   );

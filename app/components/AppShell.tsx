@@ -142,20 +142,20 @@ export default function AppShell({
             Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "-"}
           </span>
 
-          {/* Agent online status */}
-          <AgentStatusChip />
+          {/*/!* Agent online status *!/*/}
+          {/*<AgentStatusChip />*/}
 
           <ThemeToggle />
 
-          {/* Help */}
-          <button
-            aria-label="How to use Safe Cloud"
-            onClick={() => setHelpOpen(true)}
-            className="gg-icon-button"
-            title="How to use Safe Cloud"
-          >
-            <IconInfo width={20} height={20} />
-          </button>
+          {/*/!* Help *!/*/}
+          {/*<button*/}
+          {/*  aria-label="How to use Safe Cloud"*/}
+          {/*  onClick={() => setHelpOpen(true)}*/}
+          {/*  className="gg-icon-button"*/}
+          {/*  title="How to use Safe Cloud"*/}
+          {/*>*/}
+          {/*  <IconInfo width={20} height={20} />*/}
+          {/*</button>*/}
 
           {/* Profile / reviewer role */}
           <ProfileMenu onHelp={() => setHelpOpen(true)} />
