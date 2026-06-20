@@ -9,8 +9,10 @@ import type {
   Finding,
   FindingDetail,
   Recommendation,
+  ResponsePolicy,
   Rule,
   RuleTemplate,
+  ThreatReport,
 } from "./types";
 
 const now = new Date("2026-06-20T08:42:00+08:00");
@@ -616,3 +618,35 @@ export const MOCK_AGENT_TEMPLATES: AgentTemplate[] = [
   { template_key: "forensics_analyst", name: "Forensics Analyst", description: "Traces who changed a resource and when.", lens: "forensics", output_key: "forensics", coverage_categories: ["security"], coverage_issue_types: [], tone: "detailed", extra_focus: "" },
   { template_key: "custom", name: "Custom Agent", description: "Start from scratch — pick a lens and coverage.", lens: "exposure", output_key: "custom_agent", coverage_categories: [], coverage_issue_types: [], tone: "concise", extra_focus: "" },
 ];
+
+// ---------------------------------------------------------------------------
+// Threats + Policy (SafeCloud Phase 3)
+// ---------------------------------------------------------------------------
+
+export const MOCK_THREATS: ThreatReport[] = [
+  {
+    report_id: "threat-mock-1", finding_id: "FND-1042", criticality_score: 95,
+    criticality_factors: { severity: 40, internet_exposure: 25, data_sensitivity: 15, production: 15 },
+    summary: "Public Bucket detected on bucket-project-drawings (critical). Criticality 95/100 — driven by severity (+40), internet exposure (+25), data sensitivity (+15), production (+15).",
+    timeline: [
+      { actor: "Document Platform", action: "resource_entered_risky_state", target_resource_id: "bucket-project-drawings", timestamp: "2026-06-20T09:00:00Z", note: "Public Bucket condition present." },
+      { actor: "system-seed", action: "finding_created", target_resource_id: "bucket-project-drawings", timestamp: "2026-06-20T09:05:00Z", note: "" },
+    ],
+    recommended_solution: "Restrict public access after Security and DevOps validate intended exposure.",
+    agent_sections: { security: "Public bucket access is a direct exposure risk." },
+    approval_status: "pending_review", ai_generated: false, generated_at: "2026-06-20T09:05:00Z",
+  },
+  {
+    report_id: "threat-mock-2", finding_id: "FND-1045", criticality_score: 75,
+    criticality_factors: { severity: 40, data_sensitivity: 15, production: 15, blast_radius: 5 },
+    summary: "Unencrypted Database detected on db-project-claims-prod (critical). Criticality 75/100.",
+    timeline: [
+      { actor: "Claims Platform", action: "resource_entered_risky_state", target_resource_id: "db-project-claims-prod", timestamp: "2026-06-20T08:00:00Z", note: "Unencrypted Database condition present." },
+    ],
+    recommended_solution: "Plan encryption or migration during an approved maintenance window.",
+    agent_sections: { security: "Unencrypted databases create data-protection and compliance risk." },
+    approval_status: "pending_review", ai_generated: false, generated_at: "2026-06-20T08:05:00Z",
+  },
+];
+
+export const MOCK_POLICY: ResponsePolicy = { default_mode: "auto", auto_threshold: 75, notify: [] };

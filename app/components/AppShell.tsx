@@ -11,6 +11,7 @@ import {
   IconAudit,
   IconRules,
   IconAgents,
+  IconThreats,
   IconMenu,
   IconInfo,
 } from "./icons";
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/audit", label: "Audit", icon: IconAudit },
   { href: "/rules", label: "Rules", icon: IconRules },
   { href: "/agents", label: "Agents", icon: IconAgents },
+  { href: "/threats", label: "Threats", icon: IconThreats },
 ];
 
 function BrandMark() {

@@ -156,6 +156,14 @@ export const IconAgents = (p: P) => (
   </svg>
 );
 
+export const IconThreats = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" />
+    <path d="M12 8v5" />
+    <path d="M12 16h.01" />
+  </svg>
+);
+
 import type { ResourceType } from "@/app/lib/types";
 export function ResourceIcon({
   type,

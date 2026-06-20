@@ -9,9 +9,11 @@ import {
   MOCK_AGENTS,
   MOCK_AUDIT_LOGS,
   MOCK_FINDINGS,
+  MOCK_POLICY,
   MOCK_RULE_TEMPLATES,
   MOCK_RULES,
   MOCK_SUMMARY,
+  MOCK_THREATS,
   mockFindingDetail,
 } from "./mockData";
 import { buildScanEvents } from "./scanEvents";
@@ -29,6 +31,7 @@ import type {
   FindingDetail,
   FindingsQuery,
   FindingsResponse,
+  ResponsePolicy,
   Rule,
   RuleCreateBody,
   RuleListResponse,
@@ -36,6 +39,8 @@ import type {
   RuleTemplate,
   ReviewBody,
   ReviewResponse,
+  ThreatListResponse,
+  ThreatReport,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -379,6 +384,48 @@ export async function previewAgent(body: {
     return ok(await tryFetch<AgentPreviewResponse>("/api/agents/preview", { method: "POST", body: JSON.stringify(body) }));
   } catch (e) {
     return fallback({ text: "Preview unavailable offline." }, e);
+  }
+}
+
+// ---- Threats + Policy (SafeCloud Phase 3) ----
+
+export async function getThreats(): Promise<ApiResult<ThreatListResponse>> {
+  try {
+    return ok(await tryFetch<ThreatListResponse>("/api/threats"));
+  } catch (e) {
+    return fallback({ items: MOCK_THREATS, total: MOCK_THREATS.length }, e);
+  }
+}
+
+export async function getThreatReport(findingId: string): Promise<ApiResult<ThreatReport | null>> {
+  try {
+    return ok(await tryFetch<ThreatReport>(`/api/findings/${findingId}/threat-report`));
+  } catch (e) {
+    return fallback(MOCK_THREATS.find((t) => t.finding_id === findingId) ?? null, e);
+  }
+}
+
+export async function generateThreatReport(findingId: string): Promise<ApiResult<ThreatReport | null>> {
+  try {
+    return ok(await tryFetch<ThreatReport>(`/api/findings/${findingId}/threat-report`, { method: "POST" }));
+  } catch (e) {
+    return fallback(MOCK_THREATS.find((t) => t.finding_id === findingId) ?? null, e);
+  }
+}
+
+export async function getPolicy(): Promise<ApiResult<ResponsePolicy>> {
+  try {
+    return ok(await tryFetch<ResponsePolicy>("/api/policy"));
+  } catch (e) {
+    return fallback(MOCK_POLICY, e);
+  }
+}
+
+export async function updatePolicy(body: Partial<ResponsePolicy>): Promise<ApiResult<ResponsePolicy>> {
+  try {
+    return ok(await tryFetch<ResponsePolicy>("/api/policy", { method: "PUT", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback({ ...MOCK_POLICY, ...body }, e);
   }
 }
 

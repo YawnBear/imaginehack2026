@@ -305,3 +305,51 @@ export interface AgentCreateBody {
 export interface AgentPreviewResponse {
   text: string;
 }
+
+// ---- Threats + Policy (SafeCloud Phase 3) ----
+export type ResponseMode = "monitor" | "manual" | "auto";
+
+export interface TimelineEntry {
+  actor: string;
+  action: string;
+  target_resource_id: string;
+  timestamp: string;
+  note: string;
+}
+
+export interface ThreatReport {
+  report_id: string;
+  finding_id: string;
+  criticality_score: number;
+  criticality_factors: Record<string, number>;
+  summary: string;
+  timeline: TimelineEntry[];
+  recommended_solution: string;
+  agent_sections: Record<string, string>;
+  approval_status: string;
+  ai_generated: boolean;
+  generated_at: string;
+}
+
+export interface ThreatListResponse {
+  items: ThreatReport[];
+  total: number;
+}
+
+export interface ResponsePolicy {
+  default_mode: ResponseMode;
+  auto_threshold: number;
+  notify: string[];
+}
+
+export interface RemediationCommand {
+  command_id: string;
+  finding_id: string;
+  action_key: string;
+  destructive: boolean;
+  status: string;
+  approved_by: string[];
+  result: string;
+  created_at: string;
+  executed_at: string | null;
+}
