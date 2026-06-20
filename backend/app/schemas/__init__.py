@@ -33,6 +33,16 @@ from app.schemas.rules import (
     RuleTemplate,
     RuleUpdate,
 )
+from app.schemas.threats import (
+    CommandListResponse,
+    RemediationCommand,
+    ResponseMode,
+    ResponsePolicy,
+    ResponsePolicyUpdate,
+    ThreatListResponse,
+    ThreatReport,
+    TimelineEntry,
+)
 
 __all__ = [
     "Agent",
@@ -67,4 +77,12 @@ __all__ = [
     "RulePreviewResponse",
     "RuleTemplate",
     "RuleUpdate",
+    "CommandListResponse",
+    "RemediationCommand",
+    "ResponseMode",
+    "ResponsePolicy",
+    "ResponsePolicyUpdate",
+    "ThreatListResponse",
+    "ThreatReport",
+    "TimelineEntry",
 ]
