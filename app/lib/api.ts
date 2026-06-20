@@ -36,7 +36,10 @@ import type {
   ReviewBody,
   ReviewResponse,
   ThreatReport,
-  WorkflowRunResponse,
+  Workflow,
+  WorkflowCreateBody,
+  WorkflowListResponse,
+  WorkflowRunAllResponse,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -380,33 +383,40 @@ export async function generateThreatReport(findingId: string): Promise<ApiResult
   }
 }
 
-// ---- Workflow preview (SafeCloud Phase 7) ----
+// ---- Workflows (SafeCloud Phase 7b) ----
 
-export async function runWorkflow(
-  rule_id: string,
-  agent_keys: string[],
-): Promise<ApiResult<WorkflowRunResponse>> {
+export async function getWorkflows(): Promise<ApiResult<WorkflowListResponse>> {
   try {
-    return ok(
-      await tryFetch<WorkflowRunResponse>("/api/workflows/run", {
-        method: "POST",
-        body: JSON.stringify({ rule_id, agent_keys }),
-      }),
-    );
+    return ok(await tryFetch<WorkflowListResponse>("/api/workflows"));
   } catch (e) {
-    return fallback(
-      {
-        summary:
-          agent_keys.length === 0
-            ? "Select one or more agents to generate a combined analysis."
-            : "Offline preview — connect the backend to generate a live merged summary.",
-        agent_outputs: {},
-        ai_generated: false,
-        finding_preview: {},
-        synthetic: true,
-      },
-      e,
-    );
+    return fallback({ items: [], total: 0 }, e);
+  }
+}
+
+export async function createWorkflow(
+  body: WorkflowCreateBody,
+): Promise<ApiResult<Workflow | null>> {
+  try {
+    return ok(await tryFetch<Workflow>("/api/workflows", { method: "POST", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback(null, e);
+  }
+}
+
+export async function deleteWorkflow(id: string): Promise<ApiResult<boolean>> {
+  try {
+    await tryFetch<unknown>(`/api/workflows/${id}`, { method: "DELETE" });
+    return ok(true);
+  } catch (e) {
+    return fallback(false, e);
+  }
+}
+
+export async function runAllWorkflows(): Promise<ApiResult<WorkflowRunAllResponse>> {
+  try {
+    return ok(await tryFetch<WorkflowRunAllResponse>("/api/workflows/run-all", { method: "POST" }));
+  } catch (e) {
+    return fallback({ scanned_findings: 0, workflows: [] }, e);
   }
 }
 

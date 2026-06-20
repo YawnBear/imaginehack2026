@@ -302,16 +302,36 @@ export interface AgentStatus {
   agent_id: string | null;
 }
 
-// ---- Workflow preview (SafeCloud Phase 7) ----
-export interface WorkflowRunRequest {
+// ---- Workflows (SafeCloud Phase 7b) ----
+export interface WorkflowRun {
+  ran_at: string | null;
+  finding_count: number;
+  summary: string;
+  agent_outputs: Record<string, string>;
+  ai_generated: boolean;
+}
+
+export interface Workflow {
+  workflow_id: string;
+  name: string;
+  rule_id: string;
+  agent_keys: string[];
+  created_at: string;
+  last_run: WorkflowRun | null;
+}
+
+export interface WorkflowCreateBody {
+  name: string;
   rule_id: string;
   agent_keys: string[];
 }
 
-export interface WorkflowRunResponse {
-  summary: string;
-  agent_outputs: Record<string, string>;
-  ai_generated: boolean;
-  finding_preview: Record<string, unknown>;
-  synthetic: boolean;
+export interface WorkflowListResponse {
+  items: Workflow[];
+  total: number;
+}
+
+export interface WorkflowRunAllResponse {
+  scanned_findings: number;
+  workflows: Workflow[];
 }

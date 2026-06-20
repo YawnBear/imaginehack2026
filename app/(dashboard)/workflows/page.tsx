@@ -1,20 +1,26 @@
-import { getRules, getAgents } from "@/app/lib/api";
+import { getWorkflows, getRules, getAgents } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { MockBanner } from "@/app/components/ui";
-import WorkflowBuilder from "./WorkflowBuilder";
+import WorkflowsManager from "./WorkflowsManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkflowsPage() {
-  const [rulesRes, agentsRes] = await Promise.all([getRules(), getAgents()]);
+  const [wfRes, rulesRes, agentsRes] = await Promise.all([getWorkflows(), getRules(), getAgents()]);
   return (
     <div className="space-y-5">
       <PageHeader
         title="Workflows"
-        subtitle="Pick a rule, choose the agents it triggers, and run it to see one merged summary of all their analysis."
+        subtitle="Create a workflow from a rule and its agents, then press Run all to scan the logs and get one merged summary per workflow."
       />
-      {(rulesRes.mock || agentsRes.mock) && <MockBanner reason={rulesRes.error ?? agentsRes.error} />}
-      <WorkflowBuilder rules={rulesRes.data.items} agents={agentsRes.data.items} />
+      {(wfRes.mock || rulesRes.mock || agentsRes.mock) && (
+        <MockBanner reason={wfRes.error ?? rulesRes.error ?? agentsRes.error} />
+      )}
+      <WorkflowsManager
+        workflows={wfRes.data.items}
+        rules={rulesRes.data.items}
+        agents={agentsRes.data.items}
+      />
     </div>
   );
 }
