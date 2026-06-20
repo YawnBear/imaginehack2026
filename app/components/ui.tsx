@@ -2,20 +2,24 @@
 import type { ReactNode } from "react";
 import {
   SEVERITY_COLOR,
+  SEVERITY_TEXT,
   SEVERITY_LABEL,
   STATUS_COLOR,
+  STATUS_TEXT,
   STATUS_LABEL,
   RISK_COLOR,
+  RISK_TEXT,
 } from "@/app/lib/format";
 import type { FindingStatus, RiskLevel, Severity } from "@/app/lib/types";
 import { IconAlert, IconInfo } from "./icons";
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
-  const color = SEVERITY_COLOR[severity];
+  const color = SEVERITY_COLOR[severity]; // accent (dot + tint)
+  const text = SEVERITY_TEXT[severity]; // AA-darkened label
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium tracking-label"
-      style={{ background: `${color}14`, color }}
+      style={{ background: `${color}14`, color: text }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
       {SEVERITY_LABEL[severity]}
@@ -24,11 +28,12 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
 }
 
 export function StatusBadge({ status }: { status: FindingStatus }) {
-  const color = STATUS_COLOR[status] ?? "#606060";
+  const color = STATUS_COLOR[status] ?? "#606060"; // accent (tint)
+  const text = STATUS_TEXT[status] ?? "#606060"; // AA-darkened label
   return (
     <span
       className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium"
-      style={{ background: `${color}14`, color }}
+      style={{ background: `${color}14`, color: text }}
     >
       {STATUS_LABEL[status] ?? status}
     </span>
@@ -36,11 +41,12 @@ export function StatusBadge({ status }: { status: FindingStatus }) {
 }
 
 export function RiskBadge({ level }: { level: RiskLevel | string }) {
-  const color = RISK_COLOR[level] ?? "#606060";
+  const color = RISK_COLOR[level] ?? "#606060"; // accent (tint)
+  const text = RISK_TEXT[level] ?? "#606060"; // AA-darkened label
   return (
     <span
       className="inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium capitalize"
-      style={{ background: `${color}14`, color }}
+      style={{ background: `${color}14`, color: text }}
     >
       {level} risk
     </span>

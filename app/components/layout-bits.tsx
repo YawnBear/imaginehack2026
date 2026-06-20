@@ -25,14 +25,23 @@ export function MetricCard({
   value,
   sub,
   accent = "#0F0F0F",
+  accentText,
   icon,
 }: {
   label: string;
   value: string;
   sub?: string;
+  /** Brand/accent color for the icon tile + tint (non-text). */
   accent?: string;
+  /**
+   * Color for the metric NUMBER (text). Defaults to `accent`; pass a darker
+   * shade for amber/red accents so the number hits WCAG AA on white while the
+   * icon tile keeps the brand hue.
+   */
+  accentText?: string;
   icon?: ReactNode;
 }) {
+  const valueColor = accentText ?? accent;
   return (
     <div className="rounded-xl border border-[#E5E5E5] bg-white p-4">
       <div className="flex items-center justify-between">
@@ -48,7 +57,7 @@ export function MetricCard({
           </span>
         )}
       </div>
-      <p className="mt-2 text-[28px] font-bold leading-none tabular-nums" style={{ color: accent }}>
+      <p className="mt-2 text-[28px] font-bold leading-none tabular-nums" style={{ color: valueColor }}>
         {value}
       </p>
       {sub && <p className="mt-1.5 text-[12px] text-[#606060]">{sub}</p>}
