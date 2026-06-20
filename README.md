@@ -1,533 +1,226 @@
-# CloudOps Guardian
+# SafeCloud
 
-SafeCloud hackathon project for finding wasteful cloud resources, estimating carbon impact, and turning raw cloud signals into clear sustainability recommendations.
+## Secure & Energy-Aware Cloud Operations Platform
 
-## Problem Statement
+SafeCloud is an AI-powered cloud operations platform that continuously monitors cloud environments for security vulnerabilities, resource inefficiencies, and carbon emissions. The platform combines rule-based analysis, customizable AI agents, and human-in-the-loop approvals to provide secure, sustainable, and explainable cloud optimization.
 
-Cloud platforms make it easy to provision infrastructure, but much harder to see what is being wasted.
+---
 
-- Idle VMs, unused storage, and unnecessary traffic quietly increase operational cost.
-- Wasteful cloud usage also increases estimated carbon emissions.
-- Existing tooling can be complex, provider-specific, or focused on raw metrics instead of actionable next steps.
+# Project Overview
 
-## Our Solution
+Modern cloud environments are becoming increasingly complex. Organizations must simultaneously balance:
 
-CloudOps Guardian, built as the SafeCloud project, is a cloud governance dashboard that turns ingested cloud operation signals into visible sustainability insights.
+* Security and compliance
+* Cloud operational costs
+* Energy efficiency and carbon reduction
+* System availability and reliability
 
-- It ingests cloud activity logs, scanned asset data, and local snapshot data when those sources are provided.
-- A deterministic rule engine detects waste and risk patterns such as idle compute, unused storage, public buckets, and unencrypted databases.
-- A carbon and savings estimator attaches directional impact numbers to findings.
-- An optional AI recommendation layer rewrites findings into clear, user-friendly guidance for human reviewers.
-- A Next.js dashboard visualizes findings, estimated emissions, recommendations, workflows, and audit history.
+These objectives often conflict with one another. Increasing security may increase costs, while reducing costs may affect performance or operational resilience.
 
-The system is designed for hackathon safety: local runs start with no seeded data and do not automatically execute cloud changes.
+SafeCloud addresses this challenge by providing a unified platform that continuously scans cloud resources, evaluates findings through specialized AI agents, and recommends optimized actions while maintaining human oversight.
 
-## Key Features
+---
 
-- Event ingestion from API payloads, PostgreSQL source tables, or `watch/infra-snapshot.json`.
-- Rule-based detection engine with editable rules and templates.
-- Idle VM detection using low CPU and low network activity thresholds.
-- Unused storage detection using unattached volumes and no read/write activity.
-- Network traffic signals are captured for VM analysis; direct high-traffic emission rules are planned/demo-mode.
-- Carbon emission and reduction estimates for sustainability prioritization.
-- AI-powered recommendation text and specialist agent summaries, with deterministic fallback.
-- Dashboard for overview, threats, energy, workflows, rules, agents, and audit logs.
-- Empty local defaults so users control exactly what data enters the system.
+# Key Features
 
-## Tech Stack
+## Continuous Vulnerability Detection & Smart Remediation
 
-### Frontend
+SafeCloud continuously monitors cloud resources for security and operational risks, including:
 
-- Next.js `16.2.9` with App Router.
-- React `19.2.4` and React DOM `19.2.4`.
-- TypeScript `5`.
-- Tailwind CSS `4` through `@tailwindcss/postcss`.
-- ESLint `9` with `eslint-config-next`.
-- Custom React/SVG charts and dashboard components.
-- `next/font` using Roboto and Roboto Mono.
+* Publicly accessible cloud storage
+* Unencrypted databases
+* Idle virtual machines
+* Unused storage resources
+* Resource misconfigurations
 
-### Backend
+Detected issues are analyzed and prioritized before recommendations are generated.
 
-- FastAPI `>=0.115,<1.0`.
-- Uvicorn `>=0.30,<1.0` ASGI server.
-- Pydantic Settings `>=2.4,<3.0` for environment configuration.
-- python-dotenv `>=1.0,<2.0` for local `.env` loading.
-- SQLAlchemy `>=2.0,<3.0` with psycopg `>=3.2,<4.0`.
-- Alembic `>=1.13,<2.0` scaffold for future migrations.
-- pytest `>=8.0,<9.0` and httpx `>=0.27,<1.0` for backend tests.
+---
 
-### Data and Storage
+## Carbon Footprint Tracking & ESG Reporting
 
-- Default local mode: in-memory backend store.
-- Optional PostgreSQL-compatible database through `DATABASE_URL`.
-- PostgreSQL app tables are namespaced as `sc_*`.
-- Optional read-only source tables: `cloud_events`, `scanned_asset_data`, and `energy`.
-- The code comments mention Supabase-compatible connection behavior, but the repo does not use a Supabase client library.
+The platform utilizes cloud carbon emission data to:
 
-### AI Provider
+* Monitor carbon footprint trends
+* Track environmental impact
+* Estimate carbon savings from optimization actions
+* Generate ESG-ready sustainability reports
 
-- OpenAI-compatible chat completions client implemented with Python stdlib `urllib.request`.
-- Configurable through `AI_PROVIDER_API_KEY`, `AI_PROVIDER_BASE_URL`, and `AI_MODEL`.
-- The included example points to GrafiLab-compatible settings.
-- AI is optional. If the key is blank or still a placeholder, the backend falls back to deterministic recommendations.
+Users can export monthly ESG reports containing:
 
-### Deployment
+* Carbon footprint trends
+* Emission reduction statistics
+* Optimization achievements
+* Sustainability metrics
 
-- Frontend: standard Next.js app, suitable for Vercel.
-- Backend: FastAPI service with Render settings documented in `backend/README.md`.
-- No `vercel.json`, `render.yaml`, Dockerfile, or docker-compose file is currently committed.
+---
 
-## Repository Layout
+## Customizable AI Agents for Cloud Operations
 
-```text
-.
-|-- app/                         # Next.js dashboard
-|   |-- (dashboard)/              # Dashboard routes: overview, energy, rules, agents, etc.
-|   |-- components/               # UI, charts, findings, exports, assistant components
-|   `-- lib/                      # Typed API client, fallback data, formatting, types
-|-- backend/
-|   |-- app/
-|   |   |-- api/                  # FastAPI routes
-|   |   |-- agent/                # Pure snapshot-to-event scanner logic
-|   |   |-- agents/               # AI client and recommendation builders
-|   |   |-- rules/                # Rule engine, operators, and templates
-|   |   |-- schemas/              # Pydantic API/domain schemas
-|   |   `-- services/             # Governance, stores, scan sources, workflows
-|   |-- scripts/                  # Optional DB setup/check scripts
-|   |-- tests/                    # Backend test suite
-|   `-- main.py                   # FastAPI entrypoint wrapper
-|-- watch/                        # Local scanner snapshot and reset script
-|-- public/                       # Static assets
-|-- safecloud-agent.py            # Standalone local scanner client
-`-- README.md
-```
+SafeCloud employs a multi-agent architecture consisting of:
 
-## System Architecture
+* Security Agent
+* Energy Agent
+* Cost Optimization Agent
+* Risk Assessment Agent
+
+Each agent analyzes findings from its own domain and contributes weighted recommendations to support decision-making.
+
+---
+
+## Human-Approved Automated Actions & Audit Trail
+
+To ensure accountability and governance, all recommended actions require human approval before execution.
+
+The platform maintains:
+
+* Approval history
+* Action logs
+* Recommendation evidence
+* Audit trails
+
+This human-in-the-loop approach provides transparency and reduces operational risks.
+
+---
+
+# Architecture Overview
 
 ```text
-Cloud activity logs      Scanned asset rows       Local snapshot file
-cloud_events table       scanned_asset_data       watch/infra-snapshot.json
-        |                        |                         |
-        |                        |                         |
-        +----------+-------------+-------------+-----------+
-                   |                           |
-                   v                           v
-          FastAPI ingestion APIs        safecloud-agent.py
-          /api/scan/run                 /api/agent/events
-                   |                           |
-                   +-------------+-------------+
-                                 |
-                                 v
-                       Governance Service
-                                 |
-        +------------------------+------------------------+
-        |                        |                        |
-        v                        v                        v
-   Rule Engine          Recommendation Engine       Carbon/Energy Summary
-   rules/operators      savings + CO2e estimates    energy table or events
-        |                        |                        |
-        +------------------------+------------------------+
-                                 |
-                                 v
-                  Optional AI Recommendation Service
-                  OpenAI-compatible chat completions
-                                 |
-                                 v
-          In-memory store or PostgreSQL sc_* tables
-                                 |
-                                 v
-                         Next.js Dashboard
+Cloud Resources
+        ↓
+Data Collection Layer
+        ↓
+Hybrid Scanning Engine
+(Rule Engine + AI Analysis)
+        ↓
+Audit Validation Layer
+        ↓
+Master Agent
+        ↓
+Specialized AI Agents
+        ↓
+Recommendations
+        ↓
+Human Approval
+        ↓
+Action Execution & Audit Trail
 ```
 
-### Main Components
-
-- Frontend dashboard: Next.js routes for overview, threats, energy, workflows, rules, agents, audit logs, and search.
-- Backend API: FastAPI app serving findings, dashboard summaries, energy summaries, rules, agents, workflows, audit logs, scanner endpoints, and source-table readers.
-- Local scanner helpers: `watch/generator.py` and `safecloud-agent.py`.
-- Rule engine: evaluates configured rules against normalized `CloudEvent` objects.
-- Carbon estimation engine: estimates savings and CO2e reductions from findings and reads `energy` table summaries when available.
-- AI recommendation service: optional LLM layer for clearer recommendation text and agent summaries.
-- Database/storage: in-memory by default, PostgreSQL-compatible storage when `DATABASE_URL` is configured.
+---
 
-## Workflow
+# Team Members
 
-1. Cloud logs, scanned assets, or local snapshot resources are provided.
-2. The backend receives events through `/api/events/ingest`, `/api/scan/run`, or `/api/agent/events`.
-3. Scanner/source adapters normalize rows into the shared `CloudEvent` schema.
-4. The rule engine checks each event for abnormal, risky, or wasteful resources.
-5. Matching rules create or update findings.
-6. The recommendation builder estimates savings and carbon reduction where applicable.
-7. Optional AI agents rewrite the analysis text into plain-English recommendations.
-8. Findings, recommendations, workflow runs, and audit entries are stored.
-9. The frontend dashboard displays waste, emissions, status, and recommended actions.
-10. Users review findings and can approve, reject, defer, or request more information.
+* Ashley Chan Li Ling
+* Eugine Lee
+* Lau Zhe Hann
+* Loo Tan Yu Xian
+* Tan Yi Jie
 
-## Rule Engine Logic
+---
 
-Rules are data-driven. Each rule includes:
+# Technologies Used
 
-- `source_type`: `asset_scan` or `cloud_event`.
-- `resource_type`: for example `vm`, `storage`, `bucket`, `database`, `identity`, `network`, or `audit`.
-- `conditions`: dot-path checks such as `metrics.avg_cpu_percent_7d <= 10`.
-- `severity_base`: starting severity.
-- `escalate_in_prod`: raises severity by one level for production resources.
-- `rule_confidence`: confidence assigned by the deterministic engine.
-- `required_reviewers`: roles that must approve a finding.
-- `evidence_fields`: fields copied into the finding evidence.
+## Frontend
 
-Important built-in rules include:
+* TypeScript
+* React
+* Tailwind CSS
 
-- Public bucket: `config.public_access == true`.
-- Idle VM: `metrics.avg_cpu_percent_7d <= 10`, `metrics.network_in_mb_7d <= 100`, and `metrics.network_out_mb_7d <= 100`.
-- Unused storage: `config.attached == false`, `metrics.read_ops_30d == 0`, and `metrics.write_ops_30d == 0`.
-- Unencrypted database: `config.encrypted == false`.
-- Failed login: failed `ConsoleLogin` cloud event.
-- IAM policy change: successful high-risk IAM actions such as `AttachRolePolicy`, `PutRolePolicy`, `CreatePolicy`, or `CreateAccessKey`.
-- Firewall ingress change: successful `AuthorizeSecurityGroupIngress`.
-- Bucket policy change: successful `PutBucketPolicy`.
-- Audit logging change: actions such as `StopLogging`, `DeleteTrail`, or `UpdateTrail`.
-- Database change: successful database create, modify, or delete events.
+## Backend
 
-Supported condition operators include `==`, `!=`, `<`, `<=`, `>`, `>=`, `in`, `not_in`, `exists`, and `contains`.
+* Python
+* FastAPI
 
-## Carbon Estimation
+## Artificial Intelligence
 
-Carbon numbers are hackathon estimates intended for prioritization, not billing-grade measurements.
+* Gemini
 
-The current recommendation model uses these formulas for resource cleanup findings:
+## Database
 
-```text
-Idle VM estimated monthly savings = monthly_usd * 0.80
-Idle VM estimated carbon reduction = estimated_monthly_savings * 0.35
+* PostgreSQL
+* Supabase
 
-Unused storage estimated monthly savings = monthly_usd * 0.70
-Unused storage estimated carbon reduction = estimated_monthly_savings * 0.20
-```
+## Deployment
 
-The Energy dashboard can also read a PostgreSQL `energy` table with:
+* Vercel
+* Render
 
-- `current_footprint_kg`
-- `estimated_reduction_kg`
-- `projected_footprint_kg`
-- `emission`
-- `operation`
-- `time`
+---
 
-The UI describes the intended estimation model as:
+# Challenge & Approach
 
-```text
-kWh x grid carbon-intensity
-```
+## Why We Chose This Challenge
 
-with Cloud Carbon Footprint-style coefficients. Local database setup creates the `energy` table empty; recorded measurements populate the time-series view.
+Cloud operations today require organizations to balance multiple competing objectives:
 
-## AI Recommendation
+* Security
+* Cost optimization
+* Energy efficiency
+* Sustainability
 
-AI is optional and additive. The deterministic rule engine remains the source of truth.
+These priorities often contradict one another.
 
-The backend AI client:
+For example:
 
-- Calls an OpenAI-compatible `chat/completions` endpoint.
-- Uses `AI_PROVIDER_BASE_URL` plus the `chat/completions` path.
-- Sends `AI_MODEL` as the model name.
-- Uses `AI_PROVIDER_API_KEY` as the bearer token.
-- Never changes severity, savings, carbon numbers, reviewers, or execution safety.
-- Returns `None` on failure so deterministic fallback text is used.
+* Increasing security controls may increase operational costs.
+* Reducing infrastructure costs may impact performance.
+* Improving system availability may increase energy consumption.
+* Lowering carbon emissions may require architectural changes.
 
-Environment variables used by the AI layer:
+Existing tools often focus on only one area, forcing teams to make decisions without understanding the broader impact.
 
-```env
-AI_PROVIDER_API_KEY=your-ai-provider-key
-AI_PROVIDER_BASE_URL=https://console-api.grafilab.ai/api/
-AI_MODEL=grafilab-chat
-```
+Our team chose this challenge because we believe cloud operations should not optimize for a single objective. Instead, organizations need an intelligent system that evaluates security, sustainability, cost, and operational risk simultaneously.
 
-The AI turns detected issues into clear sustainability and governance recommendations, such as why a VM is wasteful, what approval is needed, and what a safe next action could be.
+SafeCloud was designed to bridge these competing priorities through AI-driven analysis, explainable recommendations, and human-centered decision making.
 
-## Installation
+---
 
-### 1. Clone the repository
+# ESG Impact
 
-```bash
-git clone <repo-url>
-cd imaginehack2026
-```
+SafeCloud contributes to Environmental, Social, and Governance (ESG) objectives through:
 
-### 2. Install frontend dependencies
+## Environmental
 
-```bash
-npm install
-```
+* Carbon footprint monitoring
+* Energy efficiency improvements
+* Resource optimization
+* Carbon reduction tracking
 
-### 3. Configure frontend environment
+## Social
 
-Create `.env.local` in the repo root:
+* Improved operational reliability
+* Reduced manual auditing effort
+* Better infrastructure visibility
 
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=false
-API_PROXY_TARGET=http://127.0.0.1:8000
-```
+## Governance
 
-`NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true` allows empty fallback responses if the backend is unavailable. No bundled sample findings, rules, agents, audit logs, or threats are shipped.
+* Continuous compliance monitoring
+* Human approval workflows
+* Audit trails
+* Explainable AI recommendations
 
-### 4. Install backend dependencies
+---
 
-```bash
-cd backend
-python -m venv .venv
-```
+# Future Improvements
 
-On Windows PowerShell:
+* Multi-cloud support (AWS, Azure, GCP)
+* Carbon-aware workload scheduling
+* Automated remediation workflows
+* Compliance framework support
+* Predictive cloud optimization
+* Construction-specific workload optimization
+* Advanced ESG reporting and analytics
 
-```powershell
-.\.venv\Scripts\activate
-```
+---
 
-On macOS/Linux:
+# Our Vision
 
-```bash
-source .venv/bin/activate
-```
+SafeCloud aims to help organizations operate cloud environments that are:
 
-Then install the backend packages:
+* Secure
+* Energy-efficient
+* Sustainable
+* Explainable
+* Governed
 
-```bash
-pip install -r requirements.txt
-```
-
-For tests, also install:
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-### 5. Configure backend environment
-
-From the repo root, copy the backend example file:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-On Windows PowerShell:
-
-```powershell
-Copy-Item backend\.env.example backend\.env
-```
-
-Leave `DATABASE_URL` blank for the in-memory store, or set it to a PostgreSQL-compatible URL. Fresh in-memory runs start empty; create rules, agents, workflows, and events through the UI/API or connect a database that already contains your SafeCloud configuration.
-
-### 6. Run the backend
-
-From the `backend` directory:
-
-```bash
-uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-API docs will be available at:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Health check:
-
-```text
-http://127.0.0.1:8000/healthz
-```
-
-### 7. Run the frontend
-
-From the repo root:
-
-```bash
-npm run dev
-```
-
-Open:
-
-```text
-http://localhost:3000
-```
-
-### 8. Optional: run scanner/mock helpers
-
-Reset the local snapshot storyline:
-
-```bash
-python watch/generator.py
-```
-
-Run one scanner cycle against the backend:
-
-```bash
-python safecloud-agent.py
-```
-
-Run scanner loop every 5 seconds:
-
-```bash
-python safecloud-agent.py --loop 5
-```
-
-### 9. Optional: database setup scripts
-
-If you are using PostgreSQL and the `backend/scripts` files are present in your checkout:
-
-```bash
-cd backend
-python scripts/create_tables.py
-python scripts/check_db.py
-```
-
-These scripts read `DATABASE_URL` from the process environment, `backend/.env`, `.env.local`, or `.env`.
-
-## Environment Variables
-
-Use placeholder values only. Do not commit real secrets.
-
-### Frontend `.env.local`
-
-```env
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=false
-API_PROXY_TARGET=http://127.0.0.1:8000
-```
-
-### Backend `backend/.env`
-
-```env
-AI_PROVIDER_API_KEY=your-ai-provider-key
-AI_PROVIDER_BASE_URL=https://console-api.grafilab.ai/api/
-AI_MODEL=grafilab-chat
-
-DATABASE_URL=
-FRONTEND_ORIGIN=http://localhost:3000
-LOCAL_FRONTEND_ORIGIN=http://localhost:3000
-```
-
-### Optional scanner environment
-
-```env
-SAFECLOUD_API=http://127.0.0.1:8000
-SAFECLOUD_AGENT_TOKEN=safecloud-demo-agent-token
-SAFECLOUD_SNAPSHOT=watch/infra-snapshot.json
-```
-
-Notes:
-
-- `DATABASE_URL` blank means in-memory mode.
-- `AI_PROVIDER_API_KEY` blank or placeholder means AI is disabled and deterministic fallback text is used.
-- `FRONTEND_ORIGIN` and `LOCAL_FRONTEND_ORIGIN` control backend CORS origins.
-- `API_PROXY_TARGET` controls Next.js rewrites for `/api/*` and `/healthz`.
-
-## Demo Guide
-
-### Local backend run
-
-1. Start the backend:
-
-   ```bash
-   cd backend
-   uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-   ```
-
-2. Start the frontend:
-
-   ```bash
-   npm run dev
-   ```
-
-3. Reset the local scanner snapshot:
-
-   ```bash
-   python watch/generator.py
-   ```
-
-4. Run the scanner:
-
-   ```bash
-   python safecloud-agent.py
-   ```
-
-5. In the dashboard, click Run scan or refresh the overview.
-6. Add rules/events through the UI or API, then highlight detected waste such as idle VMs and unused storage.
-7. Open a finding to show evidence, recommendation, estimated savings, estimated carbon reduction, reviewers, and audit history.
-8. Show that AI can improve explanation text when configured, while deterministic rules own the numbers.
-9. Explain the estimated carbon reduction as a directional planning metric, not a certified emissions report.
-
-If a brand-new in-memory backend shows no live findings, create detection rules and ingest events first. This is expected because the backend treats rule configuration and source data as editable application state.
-
-### What to tell judges
-
-- "We turn invisible cloud waste into visible cost and sustainability signals."
-- "Local runs start empty, so it is safe to use without cloud credentials."
-- "Rules detect the issue; AI explains it; humans approve the next action."
-- "The architecture can later plug into real AWS, GCP, or Azure APIs."
-
-## Useful API Endpoints
-
-```text
-GET  /healthz
-POST /api/events/ingest
-POST /api/scan/run
-GET  /api/dashboard/summary
-GET  /api/energy/summary
-GET  /api/findings
-GET  /api/findings/{finding_id}
-PATCH /api/findings/{finding_id}/review
-GET  /api/rules
-POST /api/rules
-GET  /api/rules/templates
-POST /api/rules/preview
-GET  /api/agents
-POST /api/agents/generate
-GET  /api/workflows
-POST /api/workflows/run-all
-GET  /api/audit-logs
-GET  /api/cloud-events
-GET  /api/scanned-assets
-```
-
-## Testing and Quality Checks
-
-Frontend lint and design token check:
-
-```bash
-npm run lint
-```
-
-Backend tests:
-
-```bash
-cd backend
-pytest
-```
-
-The backend test suite forces `DATABASE_URL=""` so tests do not touch a real database.
-
-## Selling Points
-
-- Turns invisible cloud waste into visible sustainability insights.
-- Works without real AWS access by accepting local or database-provided source rows.
-- Combines deterministic rule detection, carbon estimation, and optional AI explanation.
-- Produces actionable recommendations instead of raw metrics only.
-- Keeps safety boundaries clear: AI explains, rules decide, humans approve.
-- Easy to demo locally and extend toward real cloud provider APIs later.
-
-## Future Improvements
-
-- Real AWS, GCP, and Azure integrations.
-- More accurate regional carbon intensity and provider-specific emissions modeling.
-- Automated remediation with approval gates and rollback plans.
-- Historical trend tracking for waste, spend, emissions, and remediation outcomes.
-- Cost-saving estimation based on live instance/storage pricing.
-- Team notifications through Slack, Teams, email, or ticketing tools.
-- More network traffic rules for high-egress emissions and anomaly detection.
-- Production-ready database migrations and deployment manifests.
-
-## Team / Hackathon Note
-
-This project was built for a short hackathon competition. Local runs start empty so judges and developers can explore the workflow without connecting real cloud accounts or exposing secrets.
+By combining AI-powered insights with human decision-making, SafeCloud enables organizations to optimize cloud operations responsibly while supporting both business objectives and ESG goals.
