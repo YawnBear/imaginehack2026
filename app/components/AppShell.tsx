@@ -21,6 +21,7 @@ import { useToast } from "@/app/lib/toast";
 import GlobalSearch from "./GlobalSearch";
 import ProfileMenu from "./ProfileMenu";
 import HelpModal from "./HelpModal";
+import AgentStatusChip from "./AgentStatusChip";
 
 const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
@@ -135,6 +136,9 @@ export default function AppShell({
           <span className="hidden items-center gap-1.5 text-[12px] text-[#606060] lg:flex">
             Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "—"}
           </span>
+
+          {/* Agent online status */}
+          <AgentStatusChip />
 
           {/* Help */}
           <button

@@ -22,6 +22,7 @@ import type {
   AgentCreateBody,
   AgentListResponse,
   AgentPreviewResponse,
+  AgentStatus,
   AgentTemplate,
   AuditLog,
   AuditLogsResponse,
@@ -426,6 +427,16 @@ export async function updatePolicy(body: Partial<ResponsePolicy>): Promise<ApiRe
     return ok(await tryFetch<ResponsePolicy>("/api/policy", { method: "PUT", body: JSON.stringify(body) }));
   } catch (e) {
     return fallback({ ...MOCK_POLICY, ...body }, e);
+  }
+}
+
+// ---- Agent online status (SafeCloud Phase 4) ----
+
+export async function getAgentStatus(): Promise<ApiResult<AgentStatus>> {
+  try {
+    return ok(await tryFetch<AgentStatus>("/api/agent/status"));
+  } catch (e) {
+    return fallback({ online: false, last_seen: null, agent_id: null }, e);
   }
 }
 

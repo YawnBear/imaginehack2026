@@ -353,3 +353,10 @@ export interface RemediationCommand {
   created_at: string;
   executed_at: string | null;
 }
+
+// ---- Agent online status (SafeCloud Phase 4) ----
+export interface AgentStatus {
+  online: boolean;
+  last_seen: string | null;
+  agent_id: string | null;
+}
