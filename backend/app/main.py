@@ -6,6 +6,7 @@ from app.api.agents_routes import router as agents_router
 from app.api.routes import router as api_router
 from app.api.rules_routes import router as rules_router
 from app.api.threats_routes import router as threats_router
+from app.api.workflows_routes import router as workflows_router
 from app.core.config import get_settings
 from app.services.dependencies import get_governance_service
 from app.services.seed import demo_events
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(agents_router)
     app.include_router(threats_router)
     app.include_router(agent_router)
+    app.include_router(workflows_router)
     return app
 
 

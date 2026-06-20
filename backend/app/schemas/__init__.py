@@ -41,6 +41,10 @@ from app.schemas.threats import (
     ThreatReport,
     TimelineEntry,
 )
+from app.schemas.workflows import (
+    WorkflowRunRequest,
+    WorkflowRunResponse,
+)
 
 __all__ = [
     "Activity",
@@ -79,4 +83,6 @@ __all__ = [
     "RuleUpdate",
     "ThreatReport",
     "TimelineEntry",
+    "WorkflowRunRequest",
+    "WorkflowRunResponse",
 ]
