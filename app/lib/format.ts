@@ -47,12 +47,23 @@ export function formatTime(isoStr: string): string {
   }
 }
 
-// severity -> color (per Red Broadcast severity map)
+// severity -> color (per Red Broadcast severity map).
+// These are the NON-TEXT accent colors (dots, fills, icon tiles) — brand
+// red #FF0000 and amber #FB8C00 stay here for visual accents.
 export const SEVERITY_COLOR: Record<Severity, string> = {
   critical: "#FF0000",
   high: "#FB8C00",
   medium: "#065FD4",
   low: "#606060",
+};
+
+// severity -> TEXT color (WCAG AA, ≥4.5:1 on the tinted badge background).
+// Darkened from SEVERITY_COLOR so badge LABELS read; fills keep the brand hues.
+export const SEVERITY_TEXT: Record<Severity, string> = {
+  critical: "#C20016", // 5.55:1 on #ffebeb (was #FF0000 = 3.49:1)
+  high: "#8A5200", // 5.69:1 on its tint (was #FB8C00 = 2.37:1 on white)
+  medium: "#065FD4", // 5.18:1 — already passing
+  low: "#606060", // 5.67:1 — already passing
 };
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
@@ -63,8 +74,20 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
 };
 
 // Keyed off the EXACT backend status enum strings.
+// NON-TEXT accent colors (dots/fills) — brand amber stays here.
 export const STATUS_COLOR: Record<string, string> = {
   pending_review: "#FB8C00",
+  approved: "#2BA640",
+  rejected: "#606060",
+  deferred: "#606060",
+  needs_more_information: "#065FD4",
+  action_completed: "#2BA640",
+};
+
+// status -> TEXT color (WCAG AA on the tinted badge background).
+// Only amber needed darkening; the rest already pass.
+export const STATUS_TEXT: Record<string, string> = {
+  pending_review: "#8A5200", // was #FB8C00 (2.37:1) -> 5.69:1 on its tint
   approved: "#2BA640",
   rejected: "#606060",
   deferred: "#606060",
@@ -88,6 +111,15 @@ export const RISK_COLOR: Record<string, string> = {
   medium: "#FB8C00",
   high: "#FF0000",
   critical: "#FF0000",
+};
+
+// risk -> TEXT color (WCAG AA on the tinted badge background).
+// Brand red/amber stay in RISK_COLOR for dots/fills; text is darkened.
+export const RISK_TEXT: Record<string, string> = {
+  low: "#2BA640",
+  medium: "#8A5200", // was #FB8C00 (2.37:1) -> 5.69:1 on its tint
+  high: "#C20016", // was #FF0000 (3.49:1) -> 5.50:1 on its tint
+  critical: "#C20016",
 };
 
 export const CATEGORY_LABEL: Record<Category, string> = {

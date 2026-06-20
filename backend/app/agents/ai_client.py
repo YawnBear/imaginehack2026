@@ -36,8 +36,10 @@ from app.core.config import get_settings
 # OpenAI-compatible suffix.
 _COMPLETIONS_PATH = "chat/completions"
 
-# Hard cap so a misbehaving model can't run up cost or latency.
-_MAX_TOKENS = 600
+# Hard cap so a misbehaving model can't run up cost or latency. The response
+# now also carries a tailored action + rationale + numbered remediation steps,
+# so the cap is a little higher than the analysis-only original.
+_MAX_TOKENS = 900
 _TIMEOUT_SECONDS = 8
 
 # Agent keys that are meaningful per issue type. The model is asked to fill
@@ -49,14 +51,29 @@ _RELEVANT_AGENTS: dict[str, list[str]] = {
     "unencrypted_database": ["security", "workflow", "audit"],
 }
 _ALL_AGENTS = ["security", "cost", "energy", "workflow", "audit"]
+# Extra free-form key allowed inside ``agent_outputs``: concrete numbered
+# remediation steps (rendered last in the modal). Not an "agent" — it's the
+# concluding "how to fix it" block.
+_REMEDIATION_KEY = "remediation"
+_AGENT_OUTPUT_KEYS = _ALL_AGENTS + [_REMEDIATION_KEY]
 
 
 def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | None:
-    """Return a dict of per-agent analysis text, or ``None`` on any failure.
+    """Return the AI-enriched recommendation parts, or ``None`` on any failure.
 
-    AI rewrites only the analysis *text*. The deterministic numbers
-    (savings/carbon/risk/required reviewers) come from the rules and are never
-    touched here. Never raises.
+    The returned dict may contain:
+
+    * ``recommended_action`` (str) — a specific, finding-tailored fix derived
+      from the evidence (safety-first / reversible-first).
+    * ``rationale`` (str) — a short why, referencing the evidence.
+    * ``agent_outputs`` (dict) — per-agent analysis text (clamped to the known
+      agent keys) PLUS a ``remediation`` key with concrete numbered steps.
+
+    AI rewrites only the recommendation *text* and the fix narrative. The
+    deterministic numbers (savings/carbon/risk/severity/required reviewers/
+    confidence) come from the rules and are never touched here. The fix is a
+    recommendation that still requires human approval and is never auto-
+    executed. Never raises.
     """
     settings = get_settings()
     if not settings.ai_enabled:
@@ -77,11 +94,19 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | No
                         "role": "system",
                         "content": (
                             "You are a cloud governance assistant for a "
-                            "construction-tech company. You write short, "
-                            "practical, construction-aware analysis for human "
-                            "reviewers. You never invent numbers and you never "
-                            "tell anyone to auto-execute changes. Respond with "
-                            "a single JSON object only."
+                            "construction-tech company. You turn a detected "
+                            "issue into a concrete, finding-specific FIX for "
+                            "human reviewers: a tailored recommended action, a "
+                            "short rationale, per-agent analysis, and numbered "
+                            "remediation steps. The fix must be safe and "
+                            "reversible (e.g. snapshot before stop, signed URL "
+                            "instead of public access, encrypt in a maintenance "
+                            "window). You NEVER invent or change cost, carbon, "
+                            "severity, or approval numbers — those are fixed by "
+                            "the rules; reference them, do not compute new ones. "
+                            "Every fix REQUIRES human approval and is never "
+                            "auto-executed. Never claim an action was already "
+                            "performed. Respond with a single JSON object only."
                         ),
                     },
                     {"role": "user", "content": prompt},
@@ -127,26 +152,87 @@ def _build_prompt(finding: Any, base_recommendation: Any) -> str:
     except (TypeError, ValueError):
         evidence_text = str(evidence)
 
+    rationale = getattr(base_recommendation, "rationale", "")
+    monthly_savings = getattr(base_recommendation, "estimated_monthly_savings", 0)
+    carbon = getattr(base_recommendation, "estimated_carbon_reduction_kg", 0)
+    required_reviewers = getattr(finding, "required_reviewers", []) or []
+
     return (
-        "A deterministic rule engine detected a cloud governance issue.\n"
+        "A deterministic rule engine detected a cloud governance issue and "
+        "produced a baseline recommendation. Improve it into a concrete, "
+        "finding-specific FIX.\n\n"
         f"issue_type: {issue_type}\n"
         f"severity: {severity}\n"
         f"rule_id: {rule_id}\n"
         f"evidence: {evidence_text}\n"
-        f"deterministic_recommended_action: {recommended_action}\n\n"
-        "Write a concise, construction-aware analysis for the human reviewers. "
-        "Return ONLY a JSON object whose keys are a subset of "
-        f"{agents} (use only the ones that are relevant to this issue). "
-        "Each value is one or two plain-English sentences of analysis from that "
-        "perspective. Do NOT include dollar amounts, carbon figures, or "
-        "approval counts (those are provided separately). Do NOT instruct "
-        "anyone to execute the change automatically — a human approves it. "
-        "Example shape: {\"security\": \"...\", \"workflow\": \"...\"}"
+        f"required_reviewers: {list(required_reviewers)}\n"
+        "FIXED numbers from the rules (DO NOT change or recompute — reference "
+        "only):\n"
+        f"  estimated_monthly_savings_usd: {monthly_savings}\n"
+        f"  estimated_carbon_reduction_kg: {carbon}\n"
+        f"baseline_recommended_action: {recommended_action}\n"
+        f"baseline_rationale: {rationale}\n\n"
+        "Return ONLY a single JSON object with these keys:\n"
+        '  "recommended_action": one or two plain sentences — a specific, '
+        "actionable, SAFE and REVERSIBLE fix derived from THIS finding's "
+        "evidence (e.g. snapshot before stopping a VM, replace public access "
+        "with a signed URL, schedule encryption in a maintenance window). It "
+        "must require human approval and must never be auto-executed.\n"
+        '  "rationale": one short sentence explaining why, referencing the '
+        "evidence.\n"
+        '  "agent_outputs": a JSON object whose keys are a subset of '
+        f"{agents} (only the ones relevant to this issue), each value one or "
+        "two plain-English sentences of construction-aware analysis from that "
+        'perspective, PLUS a "remediation" key whose value is concrete, '
+        "NUMBERED, console/CLI-level steps (safety-first, reversible-first, "
+        "construction-aware) for how a human would carry out the fix after "
+        "approval. Write the steps as a single string with newline-separated "
+        '"1. ...\\n2. ..." lines.\n\n'
+        "HARD RULES: Do NOT invent or change any dollar, carbon, severity, or "
+        "approval-count numbers — they are fixed above; reference them, do not "
+        "compute new ones. The fix MUST be safe/reversible and MUST require "
+        "human approval. NEVER claim the action was already executed. No "
+        "markdown formatting. Example shape: {\"recommended_action\": \"...\", "
+        '"rationale": "...", "agent_outputs": {"security": "...", '
+        '"remediation": "1. ...\\n2. ..."}}'
     )
 
 
+def _coerce_text(value: Any) -> str:
+    """Coerce an LLM value to a clean string (joins lists, strips whitespace)."""
+    if isinstance(value, (list, tuple)):
+        return " ".join(str(item).strip() for item in value if str(item).strip())
+    return str(value).strip()
+
+
+def _clean_agent_outputs(value: Any) -> dict[str, str]:
+    """Clamp an ``agent_outputs`` mapping to known keys, coercing to strings.
+
+    Known keys are the five agents plus the free-form ``remediation`` key
+    (numbered steps). Everything else is dropped. Values are coerced to
+    non-empty strings.
+    """
+    cleaned: dict[str, str] = {}
+    if not isinstance(value, dict):
+        return cleaned
+    for key, raw_value in value.items():
+        agent = str(key).strip().lower()
+        if agent not in _AGENT_OUTPUT_KEYS:
+            continue
+        text = _coerce_text(raw_value)
+        if text:
+            cleaned[agent] = text
+    return cleaned
+
+
 def _parse_response(raw: str, finding: Any) -> dict | None:
-    """Robustly extract the per-agent dict from the LLM response."""
+    """Robustly extract the enriched recommendation parts from the response.
+
+    Returns a dict that may contain ``recommended_action`` (str),
+    ``rationale`` (str) and ``agent_outputs`` (dict clamped to the known agent
+    keys + ``remediation``). Tolerates both the new envelope shape and the
+    legacy flat per-agent shape. Returns ``None`` if nothing usable is found.
+    """
     try:
         envelope = json.loads(raw)
     except (TypeError, ValueError):
@@ -160,20 +246,33 @@ def _parse_response(raw: str, finding: Any) -> dict | None:
     if not isinstance(parsed, dict) or not parsed:
         return None
 
-    # Clamp to known agent keys and coerce values to clean strings.
-    cleaned: dict[str, str] = {}
-    for key, value in parsed.items():
-        agent = str(key).strip().lower()
-        if agent not in _ALL_AGENTS:
-            continue
-        if isinstance(value, (list, tuple)):
-            text = " ".join(str(item).strip() for item in value if str(item).strip())
-        else:
-            text = str(value).strip()
-        if text:
-            cleaned[agent] = text
+    result: dict[str, Any] = {}
 
-    return cleaned or None
+    action = _coerce_text(parsed.get("recommended_action", ""))
+    if action:
+        result["recommended_action"] = action
+
+    rationale = _coerce_text(parsed.get("rationale", ""))
+    if rationale:
+        result["rationale"] = rationale
+
+    if "agent_outputs" in parsed:
+        # New envelope shape: {recommended_action, rationale, agent_outputs}.
+        agent_outputs = _clean_agent_outputs(parsed.get("agent_outputs"))
+    else:
+        # Legacy / fallback shape: the object IS the per-agent map. Ignore the
+        # action/rationale keys we may have already pulled out above.
+        legacy = {
+            k: v
+            for k, v in parsed.items()
+            if str(k).strip().lower() not in {"recommended_action", "rationale"}
+        }
+        agent_outputs = _clean_agent_outputs(legacy)
+
+    if agent_outputs:
+        result["agent_outputs"] = agent_outputs
+
+    return result or None
 
 
 def _extract_content(envelope: Any) -> str | None:

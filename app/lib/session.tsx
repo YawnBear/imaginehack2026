@@ -47,6 +47,7 @@ export const ROLE_OWNS: Record<ReviewerRole, string> = {
 
 const DEFAULT_ROLE: ReviewerRole = "security";
 const STORAGE_KEY = "greenguard.reviewer_role";
+const AUTO_APPROVE_KEY = "greenguard.auto_approve";
 const DEMO_USER = "Demo Reviewer";
 
 interface SessionValue {
@@ -55,6 +56,11 @@ interface SessionValue {
   reviewerId: string;
   user: string;
   setRole: (role: ReviewerRole) => void;
+  // Autonomy toggle. When ON, the approval modal records an `approved`
+  // decision for EVERY required reviewer in one action (it still only RECORDS
+  // approval — nothing is ever executed). Persisted in localStorage.
+  autoApprove: boolean;
+  setAutoApprove: (on: boolean) => void;
   reset: () => void;
 }
 
@@ -62,6 +68,7 @@ const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<ReviewerRole>(DEFAULT_ROLE);
+  const [autoApprove, setAutoApproveState] = useState<boolean>(false);
 
   // Hydrate from localStorage after mount (avoids SSR/client mismatch).
   useEffect(() => {
@@ -69,6 +76,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved && (REVIEWER_ROLES as readonly string[]).includes(saved)) {
         setRoleState(saved as ReviewerRole);
+      }
+      if (window.localStorage.getItem(AUTO_APPROVE_KEY) === "true") {
+        setAutoApproveState(true);
       }
     } catch {
       /* localStorage unavailable — fall back to default */
@@ -84,10 +94,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setAutoApprove = useCallback((on: boolean) => {
+    setAutoApproveState(on);
+    try {
+      window.localStorage.setItem(AUTO_APPROVE_KEY, on ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setRoleState(DEFAULT_ROLE);
+    setAutoApproveState(false);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(AUTO_APPROVE_KEY);
     } catch {
       /* ignore */
     }
@@ -100,6 +121,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     reviewerId: `demo-${role}`,
     user: DEMO_USER,
     setRole,
+    autoApprove,
+    setAutoApprove,
     reset,
   };
 

@@ -279,14 +279,19 @@ class GovernanceService:
         finding: Finding,
         recommendation: Recommendation | None,
     ) -> None:
-        """Lazily rewrite the analysis TEXT via the LLM, once per finding.
+        """Lazily generate the AI FIX + analysis via the LLM, once per finding.
 
-        Hybrid safety: the rule engine remains the source of truth. Only the
-        per-agent ``agent_outputs`` text is replaced/extended. The deterministic
-        numbers (savings/carbon/risk/required reviewers/confidence) are never
-        touched. On any AI failure the deterministic template text is kept and
-        ``ai_generated`` stays False. Result is cached on the stored
-        recommendation so generation happens at most once per finding.
+        Hybrid safety: the rule engine remains the source of truth. The AI may
+        provide a tailored ``recommended_action`` and ``rationale`` (the
+        deterministic template stays the fallback) and replace/extend the
+        per-agent ``agent_outputs`` text (including a ``remediation`` block of
+        numbered steps). The deterministic numbers and routing — ``risk_level``,
+        ``estimated_monthly_savings``, ``estimated_carbon_reduction_kg``,
+        ``required_reviewers``, ``confidence``, ``severity`` and
+        ``safe_to_execute`` — are NEVER touched here. On any AI failure the
+        deterministic template text is kept and ``ai_generated`` stays False.
+        Result is cached on the stored recommendation so generation happens at
+        most once per finding.
         """
         if recommendation is None:
             return
@@ -295,13 +300,27 @@ class GovernanceService:
         if not get_settings().ai_enabled:
             return
 
-        ai_outputs = generate_agent_analysis(finding, recommendation)
-        if not ai_outputs:
+        ai_result = generate_agent_analysis(finding, recommendation)
+        if not ai_result:
             return  # disabled/timeout/unparseable -> keep template text
 
-        merged = dict(recommendation.agent_outputs)
-        merged.update(ai_outputs)
-        recommendation.agent_outputs = merged
+        # The AI fix is a recommendation only — still requires human approval
+        # and is never auto-executed. We only overwrite the free-form TEXT
+        # fields; numbers, routing and safe_to_execute remain rule-derived.
+        ai_action = ai_result.get("recommended_action")
+        if isinstance(ai_action, str) and ai_action.strip():
+            recommendation.recommended_action = ai_action.strip()
+
+        ai_rationale = ai_result.get("rationale")
+        if isinstance(ai_rationale, str) and ai_rationale.strip():
+            recommendation.rationale = ai_rationale.strip()
+
+        ai_outputs = ai_result.get("agent_outputs")
+        if isinstance(ai_outputs, dict) and ai_outputs:
+            merged = dict(recommendation.agent_outputs)
+            merged.update(ai_outputs)
+            recommendation.agent_outputs = merged
+
         recommendation.ai_generated = True
         # Cache back so it's only generated once per finding.
         self.store.recommendations[finding.finding_id] = recommendation

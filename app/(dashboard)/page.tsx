@@ -82,6 +82,7 @@ export default async function OverviewPage() {
             value={String(s.critical_findings)}
             sub="needs immediate review"
             accent="#FF0000"
+            accentText="#C20016"
             icon={<IconSecurity width={16} height={16} />}
           />
           <MetricCard
@@ -89,6 +90,7 @@ export default async function OverviewPage() {
             value={String(s.pending_approvals)}
             sub="awaiting human sign-off"
             accent="#FB8C00"
+            accentText="#8A5200"
             icon={<IconClock width={16} height={16} />}
           />
           <MetricCard

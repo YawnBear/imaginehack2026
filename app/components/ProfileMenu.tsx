@@ -13,7 +13,8 @@ import { useToast } from "@/app/lib/toast";
 import { IconCheck } from "./icons";
 
 export default function ProfileMenu({ onHelp }: { onHelp: () => void }) {
-  const { role, roleLabel, user, setRole, reset } = useSession();
+  const { role, roleLabel, user, setRole, autoApprove, setAutoApprove, reset } =
+    useSession();
   const { toast } = useToast();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -89,6 +90,46 @@ export default function ProfileMenu({ onHelp }: { onHelp: () => void }) {
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* autonomy: auto-approve toggle */}
+          <div className="border-t border-[#E5E5E5] p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-[#0F0F0F]">
+                  Auto-approve (agent autonomy)
+                </p>
+                <p className="mt-0.5 text-[11px] leading-snug text-[#606060]">
+                  {autoApprove
+                    ? "ON — approving records sign-off for ALL required reviewers at once. Still only records approval; nothing is executed."
+                    : "OFF — approve manually as each required role."}
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={autoApprove}
+                aria-label="Toggle auto-approve autonomy"
+                onClick={() => {
+                  const next = !autoApprove;
+                  setAutoApprove(next);
+                  toast(
+                    next
+                      ? "Auto-approve ON — records all reviewers' sign-off; nothing is executed"
+                      : "Auto-approve OFF — manual per-role approval",
+                    "info",
+                  );
+                }}
+                className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  autoApprove ? "bg-[#2BA640]" : "bg-[#D0D0D0]"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+                    autoApprove ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </button>
             </div>
           </div>
 

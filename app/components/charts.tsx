@@ -12,12 +12,15 @@ export function DonutChart({
   thickness = 22,
   centerLabel,
   centerSub,
+  label = "Findings by category",
 }: {
   data: Slice[];
   size?: number;
   thickness?: number;
   centerLabel?: string;
   centerSub?: string;
+  /** Accessible name for the chart (e.g. "Findings by category" / "by severity"). */
+  label?: string;
 }) {
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   const r = (size - thickness) / 2;
@@ -37,7 +40,8 @@ export function DonutChart({
 
   return (
     <div className="flex items-center gap-5">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={label}>
+        <title>{label}</title>
         <circle cx={c} cy={c} r={r} fill="none" stroke="#F2F2F2" strokeWidth={thickness} />
         {segments.map(({ d, len, offset }) => (
           <circle
