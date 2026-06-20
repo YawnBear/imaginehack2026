@@ -324,7 +324,7 @@ def parse_summary(raw: str) -> str | None:
 
 _BUILDER_SYSTEM_PROMPT = (
     "You are an expert prompt engineer embedded in SafeCloud, a cloud-governance "
-    "dashboard for a construction-tech company. You help a human author the SYSTEM "
+    "You help a human author the SYSTEM "
     "PROMPT for a new analysis agent by chatting with them, like an assistant that "
     "creates sub-agents.\n\n"
     "HOW THESE AGENTS RUN (the prompt you write MUST fit this): each agent is given "
