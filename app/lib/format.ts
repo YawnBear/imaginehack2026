@@ -1,6 +1,6 @@
 // Formatting helpers + severity/status presentation maps.
 
-import type { Category, Finding, FindingStatus, RiskLevel, Severity } from "./types";
+import type { Category, Finding, FindingStatus, Severity } from "./types";
 
 // Currency: the backend computes all savings in USD and some agent_outputs
 // strings embed a literal "$". We display USD with a "$" prefix so the live
@@ -49,10 +49,10 @@ export function formatTime(isoStr: string): string {
 
 // severity -> color (per Red Broadcast severity map)
 export const SEVERITY_COLOR: Record<Severity, string> = {
-  critical: "#FF0000",
-  high: "#FB8C00",
-  medium: "#065FD4",
-  low: "#606060",
+  critical: "var(--color-danger)",
+  high: "var(--color-warning)",
+  medium: "var(--color-link)",
+  low: "var(--color-muted)",
 };
 
 export const SEVERITY_LABEL: Record<Severity, string> = {
@@ -64,12 +64,12 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
 
 // Keyed off the EXACT backend status enum strings.
 export const STATUS_COLOR: Record<string, string> = {
-  pending_review: "#FB8C00",
-  approved: "#2BA640",
-  rejected: "#606060",
-  deferred: "#606060",
-  needs_more_information: "#065FD4",
-  action_completed: "#2BA640",
+  pending_review: "var(--color-warning)",
+  approved: "var(--color-success)",
+  rejected: "var(--color-muted)",
+  deferred: "var(--color-muted)",
+  needs_more_information: "var(--color-link)",
+  action_completed: "var(--color-success)",
 };
 
 export const STATUS_LABEL: Record<FindingStatus, string> = {
@@ -84,10 +84,10 @@ export const STATUS_LABEL: Record<FindingStatus, string> = {
 // Backend may emit "critical" for risk_level (mirrors severity on some rules),
 // so accept any string and fall back to grey.
 export const RISK_COLOR: Record<string, string> = {
-  low: "#2BA640",
-  medium: "#FB8C00",
-  high: "#FF0000",
-  critical: "#FF0000",
+  low: "var(--color-success)",
+  medium: "var(--color-warning)",
+  high: "var(--color-danger)",
+  critical: "var(--color-danger)",
 };
 
 export const CATEGORY_LABEL: Record<Category, string> = {
@@ -115,11 +115,11 @@ export function issueLabel(issueType: string): string {
 }
 
 export const CATEGORY_COLOR: Record<Category, string> = {
-  security: "#FF0000",
-  cost: "#065FD4",
-  energy: "#2BA640",
-  workflow: "#FB8C00",
-  audit: "#606060",
+  security: "var(--color-danger)",
+  cost: "var(--color-link)",
+  energy: "var(--color-success)",
+  workflow: "var(--color-warning)",
+  audit: "var(--color-muted)",
 };
 
 // One canonical matcher used by BOTH the top-bar suggestions dropdown and the

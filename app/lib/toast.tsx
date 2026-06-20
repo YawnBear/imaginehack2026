@@ -27,9 +27,9 @@ interface ToastValue {
 const ToastContext = createContext<ToastValue | null>(null);
 
 const KIND_COLOR: Record<ToastKind, string> = {
-  info: "#065FD4",
-  success: "#2BA640",
-  error: "#FF0000",
+  info: "var(--color-link)",
+  success: "var(--color-success)",
+  error: "var(--color-danger)",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="gg-fade-up pointer-events-auto flex max-w-[90vw] items-center gap-2.5 rounded-full bg-[#0F0F0F] px-4 py-2.5 text-[13px] font-medium text-white shadow-[var(--shadow-e2)]"
+            className="gg-fade-up pointer-events-auto flex max-w-[90vw] items-center gap-2.5 rounded-full bg-action px-4 py-2.5 text-[13px] font-medium text-on-action shadow-[var(--shadow-e2)]"
           >
             <span
               className="h-2 w-2 shrink-0 rounded-full"

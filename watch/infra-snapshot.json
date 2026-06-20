@@ -1,0 +1,7 @@
+{
+  "resources": [
+    {"event_id": "agent-bucket-001", "provider": "agent", "account_id": "client-account", "resource_id": "bucket-project-drawings", "resource_name": "Project Drawings Bucket", "resource_type": "bucket", "environment": "production", "project_id": "proj-urban-tower", "owner_team": "Document Platform", "config": {"public_access": true}, "metrics": {}, "cost": {}},
+    {"event_id": "agent-vm-001", "provider": "agent", "account_id": "client-account", "resource_id": "vm-render-worker-07", "resource_name": "Render Worker 07", "resource_type": "vm", "environment": "staging", "owner_team": "Site Reporting", "config": {"application_id": "site-reporting-api"}, "metrics": {"avg_cpu_percent_7d": 3.2, "network_in_mb_7d": 42, "network_out_mb_7d": 39}, "cost": {"monthly_usd": 96}},
+    {"event_id": "agent-db-001", "provider": "agent", "account_id": "client-account", "resource_id": "db-project-claims-prod", "resource_name": "Project Claims Database", "resource_type": "database", "environment": "production", "owner_team": "Claims Platform", "config": {"encrypted": false, "engine": "postgres", "application_id": "claims-system"}, "metrics": {}, "cost": {}}
+  ]
+}

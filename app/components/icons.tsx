@@ -138,6 +138,40 @@ export const IconInfo = (p: P) => (
   </svg>
 );
 
+export const IconRules = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 3H5a2 2 0 0 0-2 2v4" />
+    <path d="M15 3h4a2 2 0 0 1 2 2v4" />
+    <path d="M9 21H5a2 2 0 0 1-2-2v-4" />
+    <path d="M15 21h4a2 2 0 0 0 2-2v-4" />
+    <path d="M9 9h6v6H9z" />
+  </svg>
+);
+
+export const IconAgents = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="8" r="3.2" />
+    <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+    <path d="M19 7l1.5-1.5M5 7L3.5 5.5" />
+  </svg>
+);
+
+export const IconThreats = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" />
+    <path d="M12 8v5" />
+    <path d="M12 16h.01" />
+  </svg>
+);
+
+export const IconWorkflows = (p: P) => (
+  <svg {...base(p)}>
+    <rect x="3" y="3" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+    <path d="M9 6h6a3 3 0 0 1 3 3v6" />
+  </svg>
+);
+
 import type { ResourceType } from "@/app/lib/types";
 export function ResourceIcon({
   type,

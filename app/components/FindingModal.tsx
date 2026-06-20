@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getFinding, reviewFinding } from "@/app/lib/api";
+import { getFinding, reviewFinding, getThreatReport } from "@/app/lib/api";
 import type { FindingDetail, FindingStatus, ReviewDecision } from "@/app/lib/types";
+import type { ThreatReport } from "@/app/lib/types";
 import { usd, kg, CATEGORY_COLOR, issueLabel } from "@/app/lib/format";
-import { useSession, ROLE_LABEL, type ReviewerRole } from "@/app/lib/session";
+import { useSession, roleLabel, type ReviewerRole } from "@/app/lib/session";
 import { useToast } from "@/app/lib/toast";
 import {
   SeverityBadge,
@@ -46,6 +47,7 @@ export default function FindingModal({
   const { role, reviewerId } = useSession();
   const { toast } = useToast();
   const [detail, setDetail] = useState<FindingDetail | null>(null);
+  const [report, setReport] = useState<ThreatReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -70,6 +72,14 @@ export default function FindingModal({
     return () => {
       active = false;
     };
+  }, [findingId]);
+
+  useEffect(() => {
+    let active = true;
+    getThreatReport(findingId)
+      .then((r) => active && setReport(r.data))
+      .catch(() => active && setReport(null));
+    return () => { active = false; };
   }, [findingId]);
 
   useEffect(() => {
@@ -106,14 +116,14 @@ export default function FindingModal({
     if (decision === "approved") {
       toast(
         remaining.length > 0
-          ? `Approved as ${ROLE_LABEL[role]} · still needs: ${remaining
-              .map((r) => ROLE_LABEL[r as ReviewerRole] ?? r)
+          ? `Approved as ${roleLabel(role)} · still needs: ${remaining
+              .map((r) => roleLabel(r as ReviewerRole))
               .join(", ")}`
-          : `Approved as ${ROLE_LABEL[role]} · all required reviewers signed off`,
+          : `Approved as ${roleLabel(role)} · all required reviewers signed off`,
         "success",
       );
     } else {
-      toast(`Recorded "${decision.replace(/_/g, " ")}" as ${ROLE_LABEL[role]}`, "info");
+      toast(`Recorded "${decision.replace(/_/g, " ")}" as ${roleLabel(role)}`, "info");
     }
 
     // Refresh the dashboard server components so counts/statuses update live.
@@ -127,9 +137,9 @@ export default function FindingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative my-auto w-full max-w-[760px] rounded-lg bg-white shadow-[var(--shadow-e3)]">
+      <div className="gg-fade-up relative my-auto w-full max-w-[760px] rounded-lg bg-canvas shadow-[var(--shadow-e3)]">
         {/* header */}
-        <div className="flex items-start gap-3 border-b border-[#E5E5E5] p-5">
+        <div className="flex items-start gap-3 border-b border-border p-5">
           {finding && (
             <span
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
@@ -146,23 +156,23 @@ export default function FindingModal({
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <SeverityBadge severity={finding.severity} />
                   <StatusBadge status={decisionResult?.status ?? finding.status} />
-                  <span className="text-[11px] font-medium tracking-label text-[#606060]">
+                  <span className="text-[11px] font-medium tracking-label text-muted">
                     {finding.finding_id} · {finding.rule_id}
                   </span>
                 </div>
-                <h2 className="text-[18px] font-bold leading-snug text-[#0F0F0F]">
+                <h2 className="text-[18px] font-bold leading-snug text-ink">
                   {finding.title ?? issueLabel(finding.issue_type)}
                 </h2>
-                <p className="mt-0.5 font-mono text-[12px] text-[#606060]">{finding.resource_id}</p>
+                <p className="mt-0.5 font-mono text-[12px] text-muted">{finding.resource_id}</p>
               </>
             ) : (
-              <h2 className="text-[16px] font-medium text-[#FF0000]">Couldn’t load finding</h2>
+              <h2 className="text-[16px] font-medium text-[var(--color-danger)]">Couldn’t load finding</h2>
             )}
           </div>
           <button
             aria-label="Close"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[#606060] hover:bg-[#F2F2F2]"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-surface"
           >
             <IconClose width={18} height={18} />
           </button>
@@ -171,7 +181,7 @@ export default function FindingModal({
         {/* body */}
         <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5">
           {error && !finding ? (
-            <p className="rounded-lg bg-[#FF00000A] p-4 text-[13px] text-[#0F0F0F]">
+            <p className="rounded-lg bg-[var(--color-danger-tint)] p-4 text-[13px] text-ink">
               {error}
             </p>
           ) : loading || !finding ? (
@@ -184,25 +194,64 @@ export default function FindingModal({
             <>
               <SafetyBanner />
 
+              {report && (
+                <section className="rounded-lg border border-border p-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-bold text-on-accent"
+                      style={{ background: report.criticality_score >= 80 ? "var(--color-danger)" : report.criticality_score >= 60 ? "var(--color-warning)" : "var(--color-link)" }}
+                    >
+                      {report.criticality_score}
+                    </span>
+                    <h3 className="text-[12px] font-medium tracking-label text-muted">
+                      WHY THIS TRIGGERED · criticality {report.criticality_score}/100
+                    </h3>
+                  </div>
+                  <p className="mt-2 text-[13px] leading-relaxed text-ink">{report.summary}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {Object.entries(report.criticality_factors).map(([k, v]) => (
+                      <span key={k} className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-ink">
+                        {k.replace(/_/g, " ")} +{v}
+                      </span>
+                    ))}
+                  </div>
+                  {report.timeline.length > 0 && (
+                    <>
+                      <h4 className="mt-4 text-[12px] font-medium tracking-label text-muted">TIMELINE</h4>
+                      <ol className="mt-2 space-y-2 border-l border-border pl-4">
+                        {report.timeline.map((e, i) => (
+                          <li key={i} className="relative text-[13px]">
+                            <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-[var(--color-link)]" />
+                            <span className="font-medium text-ink">{e.action.replace(/_/g, " ")}</span>
+                            <span className="text-muted"> · {e.actor}</span>
+                            {e.note && <span className="block text-[12px] text-muted">{e.note}</span>}
+                          </li>
+                        ))}
+                      </ol>
+                    </>
+                  )}
+                </section>
+              )}
+
               {finding.explanation && (
-                <p className="text-[14px] leading-relaxed text-[#0F0F0F]">
+                <p className="text-[14px] leading-relaxed text-ink">
                   {finding.explanation}
                 </p>
               )}
 
               {/* Evidence + confidence */}
               <div className="grid gap-4 md:grid-cols-2">
-                <section className="rounded-lg border border-[#E5E5E5] p-4">
-                  <h3 className="mb-2 text-[12px] font-medium tracking-label text-[#606060]">
+                <section className="rounded-lg border border-border p-4">
+                  <h3 className="mb-2 text-[12px] font-medium tracking-label text-muted">
                     EVIDENCE
                   </h3>
                   <dl className="space-y-1.5 text-[13px]">
                     {Object.entries(finding.evidence).map(([k, v]) => (
                       <div key={k} className="flex gap-2">
-                        <dt className="shrink-0 capitalize text-[#606060]">
+                        <dt className="shrink-0 capitalize text-muted">
                           {k.replace(/_/g, " ")}
                         </dt>
-                        <dd className="ml-auto text-right font-medium text-[#0F0F0F]">
+                        <dd className="ml-auto text-right font-medium text-ink">
                           {Array.isArray(v) ? v.join(", ") : String(v)}
                         </dd>
                       </div>
@@ -210,15 +259,15 @@ export default function FindingModal({
                   </dl>
                 </section>
 
-                <section className="rounded-lg border border-[#E5E5E5] p-4">
-                  <h3 className="mb-3 text-[12px] font-medium tracking-label text-[#606060]">
+                <section className="rounded-lg border border-border p-4">
+                  <h3 className="mb-3 text-[12px] font-medium tracking-label text-muted">
                     CONFIDENCE
                   </h3>
                   <div className="space-y-3">
-                    <ConfidenceBar label="Rule confidence" value={finding.rule_confidence} color="#606060" />
-                    <ConfidenceBar label="AI confidence" value={finding.ai_confidence} color="#065FD4" />
+                    <ConfidenceBar label="Rule confidence" value={finding.rule_confidence} color="var(--color-muted)" />
+                    <ConfidenceBar label="AI confidence" value={finding.ai_confidence} color="var(--color-link)" />
                   </div>
-                  <p className="mt-3 text-[11px] text-[#606060]">
+                  <p className="mt-3 text-[11px] text-muted">
                     Rule and AI confidence are shown separately so reviewers can weigh the
                     deterministic rule against the AI’s judgment.
                   </p>
@@ -227,57 +276,72 @@ export default function FindingModal({
 
               {/* Recommendation */}
               {rec && (
-                <section className="rounded-lg border border-[#E5E5E5] p-4">
+                <section className="rounded-lg border border-border p-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h3 className="text-[12px] font-medium tracking-label text-[#606060]">
+                    <h3 className="text-[12px] font-medium tracking-label text-muted">
                       RECOMMENDED ACTION
                     </h3>
                     <RiskBadge level={rec.risk_level} />
                     <span
                       className="ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium"
                       style={{
-                        background: rec.safe_to_execute ? "#2BA64014" : "#FB8C0014",
-                        color: rec.safe_to_execute ? "#2BA640" : "#FB8C00",
+                        background: rec.safe_to_execute ? "var(--color-success-soft)" : "var(--color-warning-soft)",
+                        color: rec.safe_to_execute ? "var(--color-success)" : "var(--color-warning)",
                       }}
                     >
                       {rec.safe_to_execute ? "Cleared to execute" : "Awaiting approval"}
                     </span>
                   </div>
-                  <p className="text-[14px] font-medium text-[#0F0F0F]">{rec.recommended_action}</p>
-                  <p className="mt-1.5 text-[13px] leading-relaxed text-[#606060]">{rec.rationale}</p>
+                  <p className="text-[14px] font-medium text-ink">{rec.recommended_action}</p>
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{rec.rationale}</p>
 
                   {(rec.estimated_monthly_savings > 0 || rec.estimated_carbon_reduction_kg > 0) && (
                     <div className="mt-3 grid grid-cols-2 gap-3">
-                      <div className="flex items-center gap-2 rounded-lg bg-[#065FD40A] p-3">
-                        <IconCost width={20} height={20} className="text-[#065FD4]" />
+                      <div className="flex items-center gap-2 rounded-lg bg-[var(--color-link-tint)] p-3">
+                        <IconCost width={20} height={20} className="text-[var(--color-link)]" />
                         <div>
-                          <p className="text-[16px] font-bold text-[#0F0F0F]">
+                          <p className="text-[16px] font-bold text-ink">
                             {usd(rec.estimated_monthly_savings)}
                           </p>
-                          <p className="text-[11px] text-[#606060]">est. saving / month</p>
+                          <p className="text-[11px] text-muted">est. saving / month</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 rounded-lg bg-[#2BA6400A] p-3">
-                        <IconLeaf width={20} height={20} className="text-[#2BA640]" />
+                      <div className="flex items-center gap-2 rounded-lg bg-[var(--color-success-tint)] p-3">
+                        <IconLeaf width={20} height={20} className="text-[var(--color-success)]" />
                         <div>
-                          <p className="text-[16px] font-bold text-[#0F0F0F]">
+                          <p className="text-[16px] font-bold text-ink">
                             {kg(rec.estimated_carbon_reduction_kg)}
                           </p>
-                          <p className="text-[11px] text-[#606060]">est. CO₂e avoided / month</p>
+                          <p className="text-[11px] text-muted">est. CO₂e avoided / month</p>
                         </div>
                       </div>
                     </div>
                   )}
 
+                  {/* Workflow summary — one merged paragraph across all agents */}
+                  {rec.agent_summary && (
+                    <div className="mt-4 rounded-lg border border-[var(--color-link-border)] bg-[var(--color-link-tint)] p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <h4 className="text-[12px] font-medium tracking-label text-muted">WORKFLOW SUMMARY</h4>
+                        {rec.ai_generated && (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: "var(--color-link-soft)", color: "var(--color-link)" }}>
+                            ✨ AI-generated
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[13px] leading-relaxed text-ink">{rec.agent_summary}</p>
+                    </div>
+                  )}
+
                   {/* Agent outputs */}
                   <div className="mb-2 mt-4 flex items-center gap-2">
-                    <h4 className="text-[12px] font-medium tracking-label text-[#606060]">
+                    <h4 className="text-[12px] font-medium tracking-label text-muted">
                       AGENT ANALYSIS
                     </h4>
                     {rec.ai_generated && (
                       <span
                         className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                        style={{ background: "#065FD414", color: "#065FD4" }}
+                        style={{ background: "var(--color-link-soft)", color: "var(--color-link)" }}
                         title="Analysis text generated by the AI layer; numbers and detection remain rule-based."
                       >
                         ✨ AI-generated
@@ -288,16 +352,16 @@ export default function FindingModal({
                     {orderedAgents(rec.agent_outputs).map((agent) => {
                       const color =
                         CATEGORY_COLOR[agent.toLowerCase() as keyof typeof CATEGORY_COLOR] ??
-                        "#606060";
+                        "var(--color-muted)";
                       return (
-                        <div key={agent} className="flex gap-3 rounded-lg bg-[#F8F8F8] p-3">
+                        <div key={agent} className="flex gap-3 rounded-lg bg-surface-subtle p-3">
                           <span
                             className="mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-[11px] font-medium capitalize"
                             style={{ background: `${color}1a`, color }}
                           >
                             {agent}
                           </span>
-                          <p className="text-[13px] leading-relaxed text-[#0F0F0F]">
+                          <p className="text-[13px] leading-relaxed text-ink">
                             {rec.agent_outputs[agent]}
                           </p>
                         </div>
@@ -309,16 +373,16 @@ export default function FindingModal({
 
               {/* Required reviewers */}
               <section>
-                <h3 className="mb-2 text-[12px] font-medium tracking-label text-[#606060]">
+                <h3 className="mb-2 text-[12px] font-medium tracking-label text-muted">
                   REQUIRED REVIEWERS
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {finding.required_reviewers.map((r) => (
                     <span
                       key={r}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-[#F2F2F2] px-3 py-1 text-[12px] font-medium text-[#0F0F0F]"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-[12px] font-medium text-ink"
                     >
-                      <span className="h-4 w-4 rounded-full bg-[#065FD4] text-[8px] leading-4 text-center text-white">
+                      <span className="h-4 w-4 rounded-full bg-[var(--color-link)] text-[8px] leading-4 text-center text-on-accent">
                         {r[0]}
                       </span>
                       {r}
@@ -334,15 +398,15 @@ export default function FindingModal({
 
         {/* approval action row */}
         {detail && (
-          <div className="border-t border-[#E5E5E5] p-5">
+          <div className="border-t border-border p-5">
             {decided ? (
-              <div className="space-y-2 rounded-lg bg-[#2BA6400D] p-3 text-[13px] text-[#1d7a2e]">
+              <div className="space-y-2 rounded-lg bg-[var(--color-success-tint)] p-3 text-[13px] text-[var(--color-success-strong)]">
                 <div className="flex items-center gap-2">
-                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#2BA640" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                   <span>
-                    Decision recorded as <strong>{ROLE_LABEL[role]}</strong>:{" "}
+                    Decision recorded as <strong>{roleLabel(role)}</strong>:{" "}
                     <strong className="capitalize">{decided.replace(/_/g, " ")}</strong>.
                     {" "}New status:{" "}
                     <span className="capitalize">
@@ -357,7 +421,7 @@ export default function FindingModal({
                       Still needs:{" "}
                       <strong>
                         {decisionResult.remaining
-                          .map((r) => ROLE_LABEL[r as ReviewerRole] ?? r)
+                          .map((r) => roleLabel(r as ReviewerRole))
                           .join(", ")}
                       </strong>
                       . Switch role in the profile menu and approve as each to clear it —
@@ -366,7 +430,7 @@ export default function FindingModal({
                   ) : (
                     <p className="pl-7 text-[12px]">
                       All required reviewers have approved. Cleared for remediation by a
-                      human — GreenGuard does not execute it.
+                      human — Safe Cloud does not execute it.
                     </p>
                   ))}
                 {decided !== "approved" && (
@@ -377,14 +441,14 @@ export default function FindingModal({
                     setDecided(null);
                     setDecisionResult(null);
                   }}
-                  className="ml-7 mt-1 text-[12px] font-medium text-[#065FD4] hover:underline"
+                  className="ml-7 mt-1 text-[12px] font-medium text-[var(--color-link)] hover:underline"
                 >
                   Record another decision
                 </button>
               </div>
             ) : (
               <>
-                <label className="mb-1 block text-[12px] font-medium tracking-label text-[#606060]">
+                <label className="mb-1 block text-[12px] font-medium tracking-label text-muted">
                   REVIEWER REASON
                 </label>
                 <textarea
@@ -392,16 +456,16 @@ export default function FindingModal({
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
                   placeholder="Add context for this decision (recommended)…"
-                  className="mb-3 w-full resize-none rounded-lg border border-[#E5E5E5] bg-[#F8F8F8] px-3 py-2 text-[13px] text-[#0F0F0F] placeholder:text-[#909090] focus:border-[#0F0F0F] focus:bg-white focus:outline-none"
+                  className="mb-3 w-full resize-none rounded-lg border border-border bg-surface-subtle px-3 py-2 text-[13px] text-ink placeholder:text-subtle focus:border-ink focus:bg-canvas focus:outline-none"
                 />
                 <div className="flex flex-wrap gap-2">
                   {DECISIONS.map((d) => {
                     const cls =
                       d.kind === "primary"
-                        ? "bg-[#0F0F0F] text-white hover:bg-black"
+                        ? "bg-action text-on-action hover:opacity-90"
                         : d.kind === "danger"
-                          ? "border border-[#E5E5E5] text-[#FF0000] hover:bg-[#FF00000A]"
-                          : "border border-[#E5E5E5] text-[#0F0F0F] hover:bg-[#F2F2F2]";
+                          ? "border border-border text-[var(--color-danger)] hover:bg-[var(--color-danger-tint)]"
+                          : "border border-border text-ink hover:bg-surface";
                     return (
                       <button
                         key={d.key}
@@ -414,8 +478,8 @@ export default function FindingModal({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[11px] text-[#606060]">
-                  GreenGuard does not execute the action — it only records your decision and
+                <p className="mt-2 text-[11px] text-muted">
+                  Safe Cloud does not execute the action — it only records your decision and
                   notifies the remaining reviewers.
                 </p>
               </>

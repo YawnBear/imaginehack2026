@@ -50,6 +50,10 @@ __pycache__/
 # misc lockfiles / agent artifacts
 bun.lock
 /.agent-context/
+backend/scripts/*
+backend/test-output/*
+.vscode/settings.json
+.claude/skills/
 backend/test-output/rule_engine_flow_report.json
 backend/scripts/test_rule_engine_flow.py
 backend/scripts/seed_safecloud_mock_data.sql
