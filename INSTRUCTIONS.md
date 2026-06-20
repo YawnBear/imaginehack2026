@@ -33,15 +33,22 @@
 | **M1** | Product / UX | `PRD.md`, `plan.md`, `questions.md`, `/docs/**`, demo script, wireframes | code under `app/**`, `backend/**` |
 | **M2** (Eugine) | **Frontend** | `app/**` (all routes, components, lib, `globals.css`, `layout.tsx`), `app/lib/types.ts`, `app/lib/api.ts`, `app/lib/mockData.ts` | `backend/**`, `PRD.md`, `plan.md` |
 | **M3** | Backend / API | `backend/app/api/**`, `backend/app/services/{store,governance,dependencies}.py`, `backend/app/db/**`, `backend/main.py`, `backend/app/core/config.py`, Alembic migrations | `app/**`, `backend/app/rules/**`, `backend/app/agents/**`, `backend/app/services/seed.py` |
-| **M4** | AI / Rules | `backend/app/rules/**`, `backend/app/agents/**`, `backend/app/services/seed.py` (mock events) | `app/**`, `backend/app/api/**`, persistence/services |
+| **M4** | AI / Rules | `backend/app/rules/**`, `backend/app/agents/**` (incl. `ai_client.py` — the GrafiLab LLM client), `backend/app/services/seed.py` (mock events). **🤖 Coding the AI? READ `ARCHITECTURE.md §12` FIRST — it's the full implementation guide.** | `app/**`, `backend/app/api/**`, persistence/services |
 | **M5** | QA / DevOps / Integration | `render.yaml`/Render config, `vercel.json`, `.env.example` files, CI workflow, integration tests, the **Deploy** section of `README.md` | feature source in `app/**` and `backend/app/**` (report bugs to the owner; don't rewrite) |
 
 ### Shared / contract-surface files (touch ONLY by coordination)
-These define the seam between frontend and backend. A change here ripples to two people:
-- `backend/app/schemas/**` (Pydantic DTOs) ⇄ `app/lib/types.ts` + `app/lib/api.ts` (TS types + client)
+These define the seam between two people. A change here ripples — sync in the same PR:
+- **REST/data contract:** `backend/app/schemas/**` (Pydantic DTOs, **M3**) ⇄ `app/lib/types.ts` +
+  `app/lib/api.ts` (TS types + client, **M2**). M3 owns the schemas, M2 owns the TS types.
+- **AI enrichment hook:** `backend/app/services/governance.py` is **M3's file**, but its
+  `_maybe_enrich_recommendation()` *calls* **M4's** `ai_client.py`. If M4 changes the
+  `generate_agent_analysis()` signature or return shape, M4 + M3 sync together. M4 edits
+  `ai_client.py`; M3 edits the hook in `governance.py`.
+- **`ai_generated` flag** spans three owners: the field in `backend/app/schemas/findings.py` (M3),
+  the type in `app/lib/types.ts` (M2), and the "✨ AI-generated" badge in
+  `app/components/FindingModal.tsx` (M2). Keep the name + meaning identical across all three.
 
-Rule: **M3 owns the backend schemas, M2 owns the TS types.** If the contract changes, the two of
-you sync in the same PR. Nobody else edits these.
+Nobody outside these owners edits these files.
 
 ---
 
@@ -74,6 +81,11 @@ git push -u origin feat/<your-name>
    `GovernanceService`. M4 changes detection/recommendation logic; M3 changes how it's stored/served.
 3. **Seed data** = M4 owns `seed.py`. M5 relies on it for a stable demo + can hit `POST /api/demo/seed`.
 4. **Deploy** = M5 wires Vercel + Render and the env vars; M2/M3 just keep their start commands intact.
+5. **AI layer (hybrid)** = **M4** owns `ai_client.py` (the GrafiLab call); M3 owns the lazy-enrich
+   hook in `governance.py` that invokes it. The rule engine stays the source of truth — the LLM only
+   rewrites `agent_outputs` text, never detection or the $/carbon numbers. Full guide + the exact
+   API request shape = **`ARCHITECTURE.md §12`**. The real `AI_PROVIDER_API_KEY` lives ONLY in the
+   Render dashboard (M5); `*.env.example` carries placeholders only — **never commit a real key.**
 
 ---
 
@@ -94,11 +106,17 @@ You are working in a shared 5-person hackathon repo. Before editing:
 
 ---
 
-## Current state (as of branch setup)
+## Current state (on branch `Eugine`)
 
-- **Backend** (M3/M4 territory): already built — 4-rule engine, 5-agent recommendation layer,
-  approval workflow, audit trail, in-memory store, auto-seeds 4 findings. Runs via `uv` + uvicorn.
-- **Frontend** (M2/Eugine): dashboard built — Overview/Security/Cost/Energy/Audit panels, filters,
-  finding-detail/approval modal, "Red Broadcast" design system, live carbon counter, mock-data
-  fallback. Wired to the contract above.
-- **Repo:** `github.com/YawnBear/imaginehack2026`. Deploy = Vercel (frontend) + Render (backend).
+- **Backend** (M3/M4): 4-rule engine, recommendation layer, approval workflow (multi-reviewer),
+  audit trail, in-memory store, auto-seeds 4 findings. **+ Hybrid AI layer** (`ai_client.py` +
+  lazy enrich in `governance.py`) — **disabled by default** via placeholder key; with a real
+  `AI_PROVIDER_API_KEY` it rewrites `agent_outputs` text live (see `ARCHITECTURE.md §12`). Runs via
+  `uv` + uvicorn.
+- **Frontend** (M2/Eugine): full app — Overview/Security/Cost/Energy/Audit panels, chip filters,
+  finding-detail/approval modal, "Red Broadcast" design, live carbon counter, **global search
+  (`/search`), profile + 6-role reviewer switcher, "Run scan", audit export, in-app help modal**,
+  mock-data fallback. Same-origin API via `next.config.ts` proxy (`API_PROXY_TARGET`).
+- **Repo:** `github.com/YawnBear/imaginehack2026`, working branch **`Eugine`**. Deploy = Vercel
+  (frontend) + Render (backend); runbook in `ARCHITECTURE.md §10`. Real secrets only in the host
+  dashboards — `.env*` is gitignored, only `*.env.example` placeholders are committed.
