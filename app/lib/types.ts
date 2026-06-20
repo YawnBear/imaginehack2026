@@ -55,7 +55,7 @@ export interface Finding {
   ai_confidence: number; // 0-1
   required_reviewers: string[];
   owner_team?: string | null;
-  // The backend does not send title/explanation; mock data may. Optional.
+  // The backend does not send title/explanation. Optional for imported data.
   title?: string;
   explanation?: string;
   created_at: string;

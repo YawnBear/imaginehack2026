@@ -29,7 +29,6 @@ from app.schemas import (
 )
 from app.services.cloud_event_sources import build_cloud_events_from_rows
 from app.services.scan_sources import build_scan_events_from_asset_rows
-from app.services.seed import demo_events
 from app.services.store import InMemoryStore
 
 _INACTIVE = {"rejected", "action_completed"}
@@ -161,9 +160,6 @@ class GovernanceService:
             source_records=source_records or SourceRecordCounts(),
         )
 
-    def ingest_events_from_seed(self) -> EventIngestResponse:
-        return self.ingest_events(demo_events(), actor_id="system-seed")
-
     def run_scan_from_database_sources(self) -> EventIngestResponse:
         asset_rows_loader = getattr(self.store, "scan_source_rows", None)
         if callable(asset_rows_loader):
@@ -172,7 +168,7 @@ class GovernanceService:
         else:
             scanned_asset_rows = []
             loader = getattr(self.store, "scan_source_events", None)
-            asset_events = loader() if callable(loader) else demo_events()
+            asset_events = loader() if callable(loader) else []
 
         cloud_rows_loader = getattr(self.store, "cloud_event_source_rows", None)
         cloud_event_rows = cloud_rows_loader() if callable(cloud_rows_loader) else []

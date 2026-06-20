@@ -12,20 +12,19 @@ Cloud platforms make it easy to provision infrastructure, but much harder to see
 
 ## Our Solution
 
-CloudOps Guardian, built as the SafeCloud project, is a demo-friendly cloud governance dashboard that turns mock cloud operations into visible sustainability insights.
+CloudOps Guardian, built as the SafeCloud project, is a cloud governance dashboard that turns ingested cloud operation signals into visible sustainability insights.
 
-- It ingests mock AWS-like cloud activity logs, scanned asset data, and local snapshot data.
+- It ingests cloud activity logs, scanned asset data, and local snapshot data when those sources are provided.
 - A deterministic rule engine detects waste and risk patterns such as idle compute, unused storage, public buckets, and unencrypted databases.
 - A carbon and savings estimator attaches directional impact numbers to findings.
 - An optional AI recommendation layer rewrites findings into clear, user-friendly guidance for human reviewers.
 - A Next.js dashboard visualizes findings, estimated emissions, recommendations, workflows, and audit history.
 
-The system is designed for hackathon safety: it works without real AWS access and does not automatically execute cloud changes.
+The system is designed for hackathon safety: local runs start with no seeded data and do not automatically execute cloud changes.
 
 ## Key Features
 
-- Mock AWS-like cloud activity logs from seeded database rows.
-- Asset scanner mock data through `scanned_asset_data` and `watch/infra-snapshot.json`.
+- Event ingestion from API payloads, PostgreSQL source tables, or `watch/infra-snapshot.json`.
 - Rule-based detection engine with editable rules and templates.
 - Idle VM detection using low CPU and low network activity thresholds.
 - Unused storage detection using unattached volumes and no read/write activity.
@@ -33,7 +32,7 @@ The system is designed for hackathon safety: it works without real AWS access an
 - Carbon emission and reduction estimates for sustainability prioritization.
 - AI-powered recommendation text and specialist agent summaries, with deterministic fallback.
 - Dashboard for overview, threats, energy, workflows, rules, agents, and audit logs.
-- Hackathon-friendly mock mode through bundled frontend sample data and optional backend seed data.
+- Empty local defaults so users control exactly what data enters the system.
 
 ## Tech Stack
 
@@ -85,19 +84,19 @@ The system is designed for hackathon safety: it works without real AWS access an
 |-- app/                         # Next.js dashboard
 |   |-- (dashboard)/              # Dashboard routes: overview, energy, rules, agents, etc.
 |   |-- components/               # UI, charts, findings, exports, assistant components
-|   `-- lib/                      # Typed API client, mock data, formatting, types
+|   `-- lib/                      # Typed API client, fallback data, formatting, types
 |-- backend/
 |   |-- app/
 |   |   |-- api/                  # FastAPI routes
 |   |   |-- agent/                # Pure snapshot-to-event scanner logic
-|   |   |-- agents/               # AI client, recommendation builders, seed agents
-|   |   |-- rules/                # Rule engine, operators, templates, seed rules
+|   |   |-- agents/               # AI client and recommendation builders
+|   |   |-- rules/                # Rule engine, operators, and templates
 |   |   |-- schemas/              # Pydantic API/domain schemas
 |   |   `-- services/             # Governance, stores, scan sources, workflows
-|   |-- scripts/                  # Optional DB setup and mock data seed scripts
+|   |-- scripts/                  # Optional DB setup/check scripts
 |   |-- tests/                    # Backend test suite
 |   `-- main.py                   # FastAPI entrypoint wrapper
-|-- watch/                        # Local mock scanner snapshot and reset script
+|-- watch/                        # Local scanner snapshot and reset script
 |-- public/                       # Static assets
 |-- safecloud-agent.py            # Standalone local scanner client
 `-- README.md
@@ -106,7 +105,7 @@ The system is designed for hackathon safety: it works without real AWS access an
 ## System Architecture
 
 ```text
-Mock AWS-like logs       Scanned asset rows       Local snapshot file
+Cloud activity logs      Scanned asset rows       Local snapshot file
 cloud_events table       scanned_asset_data       watch/infra-snapshot.json
         |                        |                         |
         |                        |                         |
@@ -144,7 +143,7 @@ cloud_events table       scanned_asset_data       watch/infra-snapshot.json
 
 - Frontend dashboard: Next.js routes for overview, threats, energy, workflows, rules, agents, audit logs, and search.
 - Backend API: FastAPI app serving findings, dashboard summaries, energy summaries, rules, agents, workflows, audit logs, scanner endpoints, and source-table readers.
-- Mock log generator/scanner: database seed scripts, `watch/generator.py`, and `safecloud-agent.py`.
+- Local scanner helpers: `watch/generator.py` and `safecloud-agent.py`.
 - Rule engine: evaluates configured rules against normalized `CloudEvent` objects.
 - Carbon estimation engine: estimates savings and CO2e reductions from findings and reads `energy` table summaries when available.
 - AI recommendation service: optional LLM layer for clearer recommendation text and agent summaries.
@@ -152,7 +151,7 @@ cloud_events table       scanned_asset_data       watch/infra-snapshot.json
 
 ## Workflow
 
-1. Mock cloud logs, scanned assets, or local snapshot resources are generated.
+1. Cloud logs, scanned assets, or local snapshot resources are provided.
 2. The backend receives events through `/api/events/ingest`, `/api/scan/run`, or `/api/agent/events`.
 3. Scanner/source adapters normalize rows into the shared `CloudEvent` schema.
 4. The rule engine checks each event for abnormal, risky, or wasteful resources.
@@ -220,7 +219,7 @@ The UI describes the intended estimation model as:
 kWh x grid carbon-intensity
 ```
 
-with Cloud Carbon Footprint-style coefficients. In demo mode, the seeded `energy` table provides daily operation-level history for `idle VM`, `Unused Storage`, and `idle database`.
+with Cloud Carbon Footprint-style coefficients. Local database setup creates the `energy` table empty; recorded measurements populate the time-series view.
 
 ## AI Recommendation
 
@@ -266,11 +265,11 @@ Create `.env.local` in the repo root:
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true
+NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=false
 API_PROXY_TARGET=http://127.0.0.1:8000
 ```
 
-`NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true` lets the dashboard show bundled demo data if the backend is unavailable or empty.
+`NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true` allows empty fallback responses if the backend is unavailable. No bundled sample findings, rules, agents, audit logs, or threats are shipped.
 
 ### 4. Install backend dependencies
 
@@ -317,13 +316,7 @@ On Windows PowerShell:
 Copy-Item backend\.env.example backend\.env
 ```
 
-Leave `DATABASE_URL` blank for the in-memory demo store, or set it to a PostgreSQL-compatible URL.
-
-Fresh in-memory note: `SEED_DATA_ENABLED=true` seeds demo events on backend startup,
-while rules, agents, and workflows are managed state. For guaranteed judge-facing
-data with zero setup, keep `NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true`; for a live
-backend demo, create rules through the Rules UI/API or use a PostgreSQL database
-that already contains the SafeCloud configuration.
+Leave `DATABASE_URL` blank for the in-memory store, or set it to a PostgreSQL-compatible URL. Fresh in-memory runs start empty; create rules, agents, workflows, and events through the UI/API or connect a database that already contains your SafeCloud configuration.
 
 ### 6. Run the backend
 
@@ -379,14 +372,13 @@ Run scanner loop every 5 seconds:
 python safecloud-agent.py --loop 5
 ```
 
-### 9. Optional: database setup and seed scripts
+### 9. Optional: database setup scripts
 
 If you are using PostgreSQL and the `backend/scripts` files are present in your checkout:
 
 ```bash
 cd backend
 python scripts/create_tables.py
-python scripts/seed_safecloud_mock_data.py
 python scripts/check_db.py
 ```
 
@@ -400,7 +392,7 @@ Use placeholder values only. Do not commit real secrets.
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true
+NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=false
 API_PROXY_TARGET=http://127.0.0.1:8000
 ```
 
@@ -414,7 +406,6 @@ AI_MODEL=grafilab-chat
 DATABASE_URL=
 FRONTEND_ORIGIN=http://localhost:3000
 LOCAL_FRONTEND_ORIGIN=http://localhost:3000
-SEED_DATA_ENABLED=true
 ```
 
 ### Optional scanner environment
@@ -434,15 +425,7 @@ Notes:
 
 ## Demo Guide
 
-### Fastest judge demo
-
-1. Set `NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true` in `.env.local`.
-2. Run the frontend with `npm run dev`.
-3. Open `http://localhost:3000`.
-4. Show the dashboard summary, findings table, Energy page, Rules page, Agents page, and Audit log.
-5. Explain that the bundled demo data represents realistic cloud waste and risk scenarios without requiring real AWS access.
-
-### Backend-powered demo
+### Local backend run
 
 1. Start the backend:
 
@@ -457,7 +440,7 @@ Notes:
    npm run dev
    ```
 
-3. Generate or reset local scanner data:
+3. Reset the local scanner snapshot:
 
    ```bash
    python watch/generator.py
@@ -470,19 +453,17 @@ Notes:
    ```
 
 5. In the dashboard, click Run scan or refresh the overview.
-6. Highlight detected waste such as idle VMs and unused storage.
+6. Add rules/events through the UI or API, then highlight detected waste such as idle VMs and unused storage.
 7. Open a finding to show evidence, recommendation, estimated savings, estimated carbon reduction, reviewers, and audit history.
 8. Show that AI can improve explanation text when configured, while deterministic rules own the numbers.
 9. Explain the estimated carbon reduction as a directional planning metric, not a certified emissions report.
 
-If a brand-new in-memory backend shows no live findings, switch to the fastest
-judge demo or create detection rules first. This is expected because the current
-backend treats rule configuration as editable application state.
+If a brand-new in-memory backend shows no live findings, create detection rules and ingest events first. This is expected because the backend treats rule configuration and source data as editable application state.
 
 ### What to tell judges
 
 - "We turn invisible cloud waste into visible cost and sustainability signals."
-- "The demo uses realistic mock logs and scanned asset rows, so it is safe to run without cloud credentials."
+- "Local runs start empty, so it is safe to use without cloud credentials."
 - "Rules detect the issue; AI explains it; humans approve the next action."
 - "The architecture can later plug into real AWS, GCP, or Azure APIs."
 
@@ -492,7 +473,6 @@ backend treats rule configuration as editable application state.
 GET  /healthz
 POST /api/events/ingest
 POST /api/scan/run
-POST /api/demo/seed
 GET  /api/dashboard/summary
 GET  /api/energy/summary
 GET  /api/findings
@@ -531,7 +511,7 @@ The backend test suite forces `DATABASE_URL=""` so tests do not touch a real dat
 ## Selling Points
 
 - Turns invisible cloud waste into visible sustainability insights.
-- Works without real AWS access using realistic mock logs, scanned assets, and snapshots.
+- Works without real AWS access by accepting local or database-provided source rows.
 - Combines deterministic rule detection, carbon estimation, and optional AI explanation.
 - Produces actionable recommendations instead of raw metrics only.
 - Keeps safety boundaries clear: AI explains, rules decide, humans approve.
@@ -550,4 +530,4 @@ The backend test suite forces `DATABASE_URL=""` so tests do not touch a real dat
 
 ## Team / Hackathon Note
 
-This project was built for a short hackathon competition. It uses mock data to simulate real cloud operations safely, so judges and developers can explore the full workflow without connecting real cloud accounts or exposing secrets.
+This project was built for a short hackathon competition. Local runs start empty so judges and developers can explore the workflow without connecting real cloud accounts or exposing secrets.

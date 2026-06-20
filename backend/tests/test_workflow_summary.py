@@ -15,10 +15,9 @@ import app.services.workflows_service as workflows_service
 from app.agents.summary import stitch_summary
 from app.agents.ai_client import generate_workflow_summary, parse_summary
 from app.main import create_app
-from app.schemas import WorkflowCreate, WorkflowRun, WorkflowUpdate
+from app.schemas import Rule, RuleCondition, WorkflowCreate, WorkflowRun, WorkflowUpdate
 from app.services import dependencies
 from app.services.governance import GovernanceService
-from app.services.seed import seed_builtin_configuration
 from app.services.store import InMemoryStore
 from app.services.workflows_service import WorkflowService
 
@@ -93,16 +92,15 @@ def test_generate_workflow_summary_none_when_no_outputs(monkeypatch):
 # --------------------------------------------------------------------------- #
 # CRUD via TestClient
 # --------------------------------------------------------------------------- #
-def _client(*, seed_rules: bool = False) -> TestClient:
-    if seed_rules:
-        seed_builtin_configuration(dependencies._store, agents=False, workflows=False)
+def _client() -> TestClient:
     return TestClient(create_app())
 
 
 def test_create_lists_and_deletes_workflow(monkeypatch):
     # _scan never reads the real file / hits the network in CRUD tests.
     monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
-    client = _client(seed_rules=True)
+    client = _client()
+    _add_rule("RULE_PUBLIC_BUCKET")
 
     created = client.post(
         "/api/workflows",
@@ -148,7 +146,9 @@ def test_create_unknown_rule_400(monkeypatch):
 
 def test_update_workflow_route_roundtrip(monkeypatch):
     monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
-    client = _client(seed_rules=True)
+    client = _client()
+    _add_rule("RULE_PUBLIC_BUCKET")
+    _add_rule("RULE_IDLE_VM", resource_type="vm", issue_type="idle_vm", category="cost")
     created = client.post(
         "/api/workflows",
         json={"name": "Bucket review", "rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
@@ -180,7 +180,8 @@ def test_update_missing_workflow_404(monkeypatch):
 
 def test_update_unknown_rule_400(monkeypatch):
     monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
-    client = _client(seed_rules=True)
+    client = _client()
+    _add_rule("RULE_PUBLIC_BUCKET")
     created = client.post(
         "/api/workflows",
         json={"name": "Bucket review", "rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
@@ -338,4 +339,22 @@ def _finding(rule_id="R1", finding_id="f1"):
         resource_type="bucket", issue_type="public_bucket", category="security",
         severity="critical", status="pending_review", rule_id=rule_id, rule_confidence=0.9,
         created_at=datetime.now(UTC), updated_at=datetime.now(UTC),
+    )
+
+
+def _add_rule(
+    rule_id: str,
+    *,
+    resource_type: str = "bucket",
+    issue_type: str = "public_bucket",
+    category: str = "security",
+) -> None:
+    dependencies._store.rules[rule_id] = Rule(
+        rule_id=rule_id,
+        name=rule_id,
+        resource_type=resource_type,
+        issue_type=issue_type,
+        category=category,
+        conditions=[RuleCondition(field="config.public_access", operator="==", value=True)],
+        created_at=datetime.now(UTC),
     )

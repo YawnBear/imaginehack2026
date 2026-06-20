@@ -147,15 +147,14 @@ export function ErrorState({ message }: { message: string }) {
   );
 }
 
-// Banner shown when running on bundled mock data.
+// Banner shown when live data is unavailable and empty fallback data is enabled.
 export function MockBanner({ reason }: { reason?: string }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-[var(--color-warning-border)] bg-[var(--color-warning-tint)] px-3 py-2 text-[12px] text-[var(--color-warning-strong)]">
       <IconInfo width={15} height={15} className="shrink-0 text-[var(--color-warning)]" />
       <span>
-        <strong>Demo mode</strong> — showing bundled sample data
+        <strong>Offline mode</strong> - live backend data is unavailable
         {reason ? ` (backend unreachable: ${reason})` : " (no backend configured)"}.
-        Every panel is fully interactive.
       </span>
     </div>
   );

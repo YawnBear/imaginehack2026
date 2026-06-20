@@ -1,7 +1,7 @@
 // Typed REST client for the GreenGuard Cloud backend.
 //
-// Live mode surfaces backend/API failures. Bundled mock data is available only
-// when NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true.
+// Live mode surfaces backend/API failures. Empty fallback responses are
+// available only when NEXT_PUBLIC_ENABLE_MOCK_FALLBACK=true.
 
 import {
   MOCK_AGENTS,
@@ -53,9 +53,9 @@ const REQUEST_TIMEOUT_MS = 15000;
 
 export interface ApiResult<T> {
   data: T;
-  /** true when this response came from the bundled mock fallback. */
+  /** true when this response came from the fallback path. */
   mock: boolean;
-  /** populated when a live request failed and we fell back to mock. */
+  /** populated when a live request failed and we fell back. */
   error?: string;
 }
 
@@ -221,7 +221,7 @@ export async function reviewFinding(
       }),
     );
   } catch (e) {
-    // In mock mode we simulate a successful local decision.
+    // In offline mode we simulate a successful local decision.
     return fallback(
       {
         finding_id: id,
@@ -310,7 +310,7 @@ export async function createRule(body: RuleCreateBody): Promise<ApiResult<Rule>>
       await tryFetch<Rule>("/api/rules", { method: "POST", body: JSON.stringify(body) }),
     );
   } catch (e) {
-    // Mock mode: echo a fake created rule so the UI can optimistically render.
+    // Offline mode: echo a temporary created rule so the UI can optimistically render.
     return fallback(
       {
         ...body,

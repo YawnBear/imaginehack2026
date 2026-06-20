@@ -1,9 +1,8 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from app.schemas import Recommendation, Workflow
+from app.schemas import Agent, Recommendation, Rule, RuleCondition, Workflow
 from app.services.governance import GovernanceService
-from app.services.seed import seed_builtin_configuration
 from app.services.store import InMemoryStore
 
 
@@ -61,7 +60,7 @@ def _cloud_row(**overrides):
 
 def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypatch):
     store = InMemoryStore()
-    seed_builtin_configuration(store, workflows=False)
+    _add_scan_config(store)
     service = GovernanceService(store)
     asset_rows = [
         _asset_row(),
@@ -119,7 +118,7 @@ def test_run_scan_reads_assets_and_cloud_events_and_passes_full_context(monkeypa
 
 def test_run_scan_reprocesses_seen_sources_and_updates_existing_findings(monkeypatch):
     store = InMemoryStore()
-    seed_builtin_configuration(store, workflows=False)
+    _add_scan_config(store)
     service = GovernanceService(store)
     asset_rows = [_asset_row()]
     cloud_rows = [_cloud_row()]
@@ -152,7 +151,7 @@ def test_run_scan_reprocesses_seen_sources_and_updates_existing_findings(monkeyp
 
 def test_run_scan_without_matching_workflows_does_not_run_agents(monkeypatch):
     store = InMemoryStore()
-    seed_builtin_configuration(store, agents=False, workflows=False)
+    _add_scan_config(store, agents=False)
     service = GovernanceService(store)
     store.scan_source_rows = lambda: [_asset_row()]
     store.cloud_event_source_rows = lambda: [_cloud_row()]
@@ -224,4 +223,47 @@ def _add_workflow(store: InMemoryStore, workflow_id: str, rule_id: str, agent_ke
         rule_id=rule_id,
         agent_keys=agent_keys,
         created_at=datetime(2026, 6, 20, tzinfo=UTC),
+    )
+
+
+def _add_scan_config(store: InMemoryStore, *, agents: bool = True) -> None:
+    now = datetime(2026, 6, 20, tzinfo=UTC)
+    store.rules["RULE_IDLE_VM"] = Rule(
+        rule_id="RULE_IDLE_VM",
+        name="Idle VM",
+        resource_type="vm",
+        issue_type="idle_vm",
+        category="cost",
+        conditions=[RuleCondition(field="metrics.avg_cpu_percent_7d", operator="<=", value=10)],
+        evidence_fields=["cost.monthly_usd"],
+        created_at=now,
+    )
+    store.rules["RULE_FAILED_LOGIN"] = Rule(
+        rule_id="RULE_FAILED_LOGIN",
+        name="Failed Console Login",
+        source_type="cloud_event",
+        resource_type="identity",
+        issue_type="failed_login",
+        category="security",
+        conditions=[
+            RuleCondition(field="config.action", operator="==", value="ConsoleLogin"),
+            RuleCondition(field="config.status", operator="!=", value="Success"),
+        ],
+        created_at=now,
+    )
+    if not agents:
+        return
+    store.agents["energy"] = Agent(
+        agent_id="agent-energy",
+        name="Energy",
+        system_prompt="Analyze energy impact.",
+        output_key="energy",
+        created_at=now,
+    )
+    store.agents["audit"] = Agent(
+        agent_id="agent-audit",
+        name="Audit",
+        system_prompt="Analyze audit impact.",
+        output_key="audit",
+        created_at=now,
     )

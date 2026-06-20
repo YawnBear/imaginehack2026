@@ -2,9 +2,7 @@ from datetime import UTC, datetime
 
 from app.agents.router import select_agents_for_finding
 from app.rules.engine import evaluate_event
-from app.rules.seed_rules import builtin_rules
-from app.schemas import Finding
-from app.agents.seed_agents import builtin_agents
+from app.schemas import Agent, Finding, Rule, RuleCondition
 from app.services.cloud_event_sources import cloud_event_row_to_event
 
 
@@ -30,7 +28,7 @@ def _row(**overrides):
 
 def _issue_for(row) -> str | None:
     event = cloud_event_row_to_event(row)
-    matches = evaluate_event(event, builtin_rules())
+    matches = evaluate_event(event, _event_rules())
     return matches[0].issue_type if matches else None
 
 
@@ -66,8 +64,9 @@ def test_benign_inventory_event_is_ignored_by_event_rules():
 
 def test_event_rule_agent_keys_select_matching_agents():
     event = cloud_event_row_to_event(_row(action="AuthorizeSecurityGroupIngress", status="Success"))
-    match = evaluate_event(event, builtin_rules())[0]
-    rule = next(rule for rule in builtin_rules() if rule.rule_id == match.rule_id)
+    rules = _event_rules()
+    match = evaluate_event(event, rules)[0]
+    rule = next(rule for rule in rules if rule.rule_id == match.rule_id)
     finding = Finding(
         finding_id="f1",
         source_event_id=event.event_id,
@@ -85,6 +84,104 @@ def test_event_rule_agent_keys_select_matching_agents():
         updated_at=datetime.now(UTC),
     )
 
-    selected = select_agents_for_finding(finding, builtin_agents(), rule)
+    selected = select_agents_for_finding(finding, _agents(), rule)
 
     assert [agent.output_key for agent in selected] == ["security", "workflow", "audit"]
+
+
+def _event_rules() -> list[Rule]:
+    now = datetime.now(UTC)
+    return [
+        Rule(
+            rule_id="RULE_FAILED_LOGIN",
+            name="Failed Console Login",
+            source_type="cloud_event",
+            resource_type="identity",
+            conditions=[
+                RuleCondition(field="config.action", operator="==", value="ConsoleLogin"),
+                RuleCondition(field="config.status", operator="!=", value="Success"),
+            ],
+            severity_base="high",
+            category="security",
+            issue_type="failed_login",
+            created_at=now,
+        ),
+        Rule(
+            rule_id="RULE_IAM_CHANGE",
+            name="IAM Policy Change",
+            source_type="cloud_event",
+            resource_type="identity",
+            conditions=[
+                RuleCondition(field="config.action", operator="in", value=["AttachRolePolicy"]),
+                RuleCondition(field="config.status", operator="==", value="Success"),
+            ],
+            severity_base="high",
+            category="security",
+            issue_type="iam_policy_change",
+            created_at=now,
+        ),
+        Rule(
+            rule_id="RULE_FIREWALL_INGRESS_CHANGE",
+            name="Firewall Ingress Change",
+            source_type="cloud_event",
+            resource_type="network",
+            conditions=[
+                RuleCondition(field="config.action", operator="==", value="AuthorizeSecurityGroupIngress"),
+                RuleCondition(field="config.status", operator="==", value="Success"),
+            ],
+            severity_base="high",
+            category="security",
+            issue_type="firewall_ingress_change",
+            agent_keys=["security", "workflow", "audit"],
+            created_at=now,
+        ),
+        Rule(
+            rule_id="RULE_BUCKET_POLICY_CHANGE",
+            name="Bucket Policy Change",
+            source_type="cloud_event",
+            resource_type="bucket",
+            conditions=[
+                RuleCondition(field="config.action", operator="==", value="PutBucketPolicy"),
+                RuleCondition(field="config.status", operator="==", value="Success"),
+            ],
+            severity_base="high",
+            category="security",
+            issue_type="bucket_policy_change",
+            created_at=now,
+        ),
+        Rule(
+            rule_id="RULE_AUDIT_LOGGING_CHANGE",
+            name="Audit Logging Change",
+            source_type="cloud_event",
+            resource_type="audit",
+            conditions=[
+                RuleCondition(field="config.action", operator="in", value=["StopLogging"]),
+            ],
+            severity_base="critical",
+            category="security",
+            issue_type="audit_logging_change",
+            created_at=now,
+        ),
+        Rule(
+            rule_id="RULE_DATABASE_CHANGE",
+            name="Database Change",
+            source_type="cloud_event",
+            resource_type="database",
+            conditions=[
+                RuleCondition(field="config.action", operator="in", value=["ModifyDBInstance"]),
+                RuleCondition(field="config.status", operator="==", value="Success"),
+            ],
+            severity_base="medium",
+            category="security",
+            issue_type="database_change",
+            created_at=now,
+        ),
+    ]
+
+
+def _agents() -> list[Agent]:
+    now = datetime.now(UTC)
+    return [
+        Agent(agent_id=f"agent-{key}", name=key.title(), system_prompt=f"Analyze {key}.", output_key=key, created_at=now)
+        for key in ("security", "workflow", "audit")
+    ]

@@ -11,7 +11,6 @@ class Settings(BaseSettings):
     app_name: str = "GreenGuard Cloud API"
     frontend_origin: str | None = None
     local_frontend_origin: str = "http://localhost:3000"
-    seed_data_enabled: bool = True
     database_url: str | None = None
     ai_provider_api_key: str | None = None
     ai_provider_base_url: str = "https://console-api.grafilab.ai/api/"

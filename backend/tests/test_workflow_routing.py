@@ -1,8 +1,7 @@
 from datetime import UTC, datetime
 
 from app.agents.router import select_agents_for_finding
-from app.agents.seed_agents import builtin_agents
-from app.schemas import Finding, Rule, RuleCondition
+from app.schemas import Agent, Finding, Rule, RuleCondition
 
 
 def _finding():
@@ -20,9 +19,17 @@ def _rule(agent_keys):
 
 
 def test_rule_agent_keys_select_those_agents():
-    picked = select_agents_for_finding(_finding(), builtin_agents(), _rule(["security", "audit"]))
+    picked = select_agents_for_finding(_finding(), _agents(), _rule(["security", "audit"]))
     assert {a.output_key for a in picked} == {"security", "audit"}
 
 
 def test_empty_agent_keys_selects_none():
-    assert select_agents_for_finding(_finding(), builtin_agents(), _rule([])) == []
+    assert select_agents_for_finding(_finding(), _agents(), _rule([])) == []
+
+
+def _agents():
+    now = datetime.now(UTC)
+    return [
+        Agent(agent_id=f"agent-{key}", name=key.title(), system_prompt=f"Analyze {key}.", output_key=key, created_at=now)
+        for key in ("security", "audit")
+    ]

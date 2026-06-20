@@ -9,8 +9,6 @@ from app.api.rules_routes import router as rules_router
 from app.api.threats_routes import router as threats_router
 from app.api.workflows_routes import router as workflows_router
 from app.core.config import get_settings
-from app.services.dependencies import get_governance_service
-from app.services.seed import demo_events
 
 
 def create_app() -> FastAPI:
@@ -30,13 +28,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    @app.on_event("startup")
-    def seed_demo_data() -> None:
-        if settings.seed_data_enabled:
-            service = get_governance_service()
-            if not service.has_events:
-                service.ingest_events(demo_events(), actor_id="system-seed")
 
     app.include_router(api_router)
     app.include_router(rules_router)

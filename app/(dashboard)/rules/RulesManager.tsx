@@ -9,7 +9,7 @@ import type {
   RuleCondition,
 } from "@/app/lib/types";
 import { createRule, deleteRule, previewRule, updateRule } from "@/app/lib/api";
-import { Card, SeverityBadge, Pill } from "@/app/components/ui";
+import { Card, Pill } from "@/app/components/ui";
 import { useToast } from "@/app/lib/toast";
 
 const OPERATORS: ConditionOperator[] = [
@@ -90,7 +90,6 @@ export default function RulesManager({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-[14px] font-medium text-ink">{rule.name}</span>
-                  <SeverityBadge severity={rule.severity_base} />
                   <Pill>{rule.resource_type ?? "any"}</Pill>
                   {rule.remediation_destructive && <Pill>destructive</Pill>}
                 </div>

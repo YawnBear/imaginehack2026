@@ -26,7 +26,7 @@ def _rec() -> Recommendation:
 
 def _audit() -> list[AuditLog]:
     return [AuditLog(audit_id="a1", entity_type="finding", entity_id="f1", action="finding_created",
-                     actor_id="system-seed", created_at=datetime.now(UTC))]
+                     actor_id="rule-engine", created_at=datetime.now(UTC))]
 
 
 def test_report_has_score_solution_and_timeline():

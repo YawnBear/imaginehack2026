@@ -102,7 +102,7 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   audit: "Audit",
 };
 
-// issue_type (backend snake_case) -> human label. Covers the 4 seeded types;
+// issue_type (backend snake_case) -> human label. Covers common built-in types;
 // falls back to a title-cased version of any unknown value.
 export const ISSUE_TYPE_LABEL: Record<string, string> = {
   public_bucket: "Public storage bucket",
@@ -140,7 +140,7 @@ export const AGENT_ROLE_BLURB: Record<string, string> = {
 // One canonical matcher used by BOTH the top-bar suggestions dropdown and the
 // /search results page, so they always agree. Matches across resource_name,
 // resource_id, project_id, owner_team, issue_type, finding_id, category,
-// severity — plus title/explanation when present (mock data).
+// severity - plus title/explanation when present.
 export function findingMatchesQuery(f: Finding, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return false;

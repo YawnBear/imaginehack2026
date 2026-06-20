@@ -1,16 +1,15 @@
 from pathlib import Path
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
+from app.schemas import Finding
 from app.services import dependencies
-from app.services.seed import seed_builtin_configuration
 
 
-def _client(*, seed_builtins: bool = False) -> TestClient:
-    if seed_builtins:
-        seed_builtin_configuration(dependencies._store, agents=False, workflows=False)
+def _client() -> TestClient:
     client = TestClient(create_app())
     client.__enter__()
     return client
@@ -26,13 +25,28 @@ def test_settings_loads_repo_and_backend_env_files():
 
 
 def test_findings_support_backend_q_filter():
-    client = _client(seed_builtins=True)
+    client = _client()
+    dependencies._store.findings["finding-claims"] = Finding(
+        finding_id="finding-claims",
+        source_event_id="event-claims",
+        resource_id="database-claims",
+        resource_type="database",
+        issue_type="unencrypted_database",
+        category="security",
+        severity="high",
+        status="pending_review",
+        rule_id="rule-claims",
+        evidence={"project_id": "claims"},
+        rule_confidence=0.9,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
     res = client.get("/api/findings?q=claims")
 
     assert res.status_code == 200
     body = res.json()
     assert body["total"] == 1
-    assert body["items"][0]["resource_id"] == "db-project-claims-prod"
+    assert body["items"][0]["resource_id"] == "database-claims"
 
 
 def test_scan_run_endpoint_returns_ingest_response():

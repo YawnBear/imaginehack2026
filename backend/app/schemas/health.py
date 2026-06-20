@@ -4,4 +4,4 @@ from pydantic import BaseModel
 class HealthResponse(BaseModel):
     status: str
     database: str
-    seeded: bool
+    has_events: bool

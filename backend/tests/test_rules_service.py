@@ -1,14 +1,25 @@
-from app.schemas import RuleCondition, RuleCreate, RuleUpdate
+from datetime import UTC, datetime
+
+from app.schemas import CloudEvent, RuleCondition, RuleCreate, RuleUpdate
 from app.services.rules_service import RuleService
-from app.services.seed import seed_builtin_configuration
 from app.services.store import InMemoryStore
 
 
-def _service(*, seed_builtins: bool = False) -> RuleService:
-    store = InMemoryStore()
-    if seed_builtins:
-        seed_builtin_configuration(store, agents=False, workflows=False)
-    return RuleService(store)
+def _service() -> RuleService:
+    return RuleService(InMemoryStore())
+
+
+def _create_bucket_rule(svc: RuleService):
+    return svc.create_rule(
+        RuleCreate(
+            name="Public Bucket",
+            resource_type="bucket",
+            issue_type="public_bucket",
+            category="security",
+            conditions=[RuleCondition(field="config.public_access", operator="==", value=True)],
+        ),
+        actor_id="tester",
+    )
 
 
 def test_list_starts_empty():
@@ -16,9 +27,12 @@ def test_list_starts_empty():
     assert res.total == 0
 
 
-def test_list_includes_explicit_builtins():
-    res = _service(seed_builtins=True).list_rules()
-    assert res.total == 10
+def test_seed_configuration_is_noop():
+    from app.services.seed import seed_builtin_configuration
+
+    store = InMemoryStore()
+    seed_builtin_configuration(store)
+    assert RuleService(store).list_rules().total == 0
 
 
 def test_templates_nonempty():
@@ -45,16 +59,18 @@ def test_create_then_get():
 
 
 def test_update_rule():
-    svc = _service(seed_builtins=True)
-    updated = svc.update_rule("RULE_PUBLIC_BUCKET", RuleUpdate(enabled=False), actor_id="tester")
+    svc = _service()
+    created = _create_bucket_rule(svc)
+    updated = svc.update_rule(created.rule_id, RuleUpdate(enabled=False), actor_id="tester")
     assert updated is not None
     assert updated.enabled is False
 
 
 def test_delete_rule():
-    svc = _service(seed_builtins=True)
-    assert svc.delete_rule("RULE_IDLE_VM", actor_id="tester") is True
-    assert svc.get_rule("RULE_IDLE_VM") is None
+    svc = _service()
+    created = _create_bucket_rule(svc)
+    assert svc.delete_rule(created.rule_id, actor_id="tester") is True
+    assert svc.get_rule(created.rule_id) is None
     assert svc.delete_rule("does-not-exist", actor_id="tester") is False
 
 
@@ -64,12 +80,18 @@ def test_clashes_passthrough():
 
 def test_preview_counts_matches():
     svc = _service()
-    # store starts with no events; ingest the demo set so preview has data
-    from app.services.seed import demo_events
-    svc.store.events = {e.event_id: e for e in demo_events()}
+    event = CloudEvent(
+        event_id="event-1",
+        account_id="acct-1",
+        resource_id="bucket-1",
+        resource_type="bucket",
+        timestamp=datetime.now(UTC),
+        config={"public_access": True},
+    )
+    svc.store.events = {event.event_id: event}
     result = svc.preview(
         resource_type="bucket",
         conditions=[RuleCondition(field="config.public_access", operator="==", value=True)],
     )
     assert result.match_count == 1
-    assert "bucket-project-drawings" in result.matched_resource_ids
+    assert "bucket-1" in result.matched_resource_ids

@@ -62,7 +62,7 @@ export default async function EnergyPage() {
     <div className="space-y-5">
       <PageHeader
         title="Energy"
-        subtitle="Estimated carbon footprint by energy operation, backed by the seeded energy table."
+        subtitle="Estimated carbon footprint by energy operation, backed by recorded energy measurements."
         right={
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-1.5 rounded-full bg-[var(--color-success-tint)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-success-strong)] sm:flex">
@@ -93,7 +93,7 @@ export default async function EnergyPage() {
           )}
         </div>
         <p className="mt-2 text-[12px] text-muted">
-          History comes from daily seeded energy rows grouped by timestamp.
+          History comes from daily energy rows grouped by timestamp.
         </p>
       </Card>
 

@@ -38,7 +38,8 @@ def test_preview():
         },
     )
     assert res.status_code == 200
-    assert res.json()["match_count"] >= 1  # seed data has the public bucket
+    assert res.json()["match_count"] == 0
+    assert res.json()["matched_resource_ids"] == []
 
 
 def test_create_update_delete_roundtrip():

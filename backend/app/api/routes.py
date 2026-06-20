@@ -26,7 +26,7 @@ def healthz(service: GovernanceService = Depends(get_governance_service)) -> Hea
     return HealthResponse(
         status="ok",
         database="postgres" if get_settings().database_url else "in_memory",
-        seeded=service.has_events,
+        has_events=service.has_events,
     )
 
 
@@ -137,9 +137,3 @@ def list_audit_logs(
         page_size=page_size,
     )
 
-
-@router.post("/api/demo/seed", response_model=EventIngestResponse, tags=["demo"])
-def seed_demo_events(
-    service: GovernanceService = Depends(get_governance_service),
-) -> EventIngestResponse:
-    return service.ingest_events_from_seed()

@@ -46,5 +46,5 @@ def rules_service(store: InMemoryStore) -> RuleService:
 
 @pytest.fixture
 def client() -> TestClient:
-    """Full app with its own singleton store (seeded on startup)."""
+    """Full app with its own singleton store."""
     return TestClient(create_app())

@@ -20,10 +20,7 @@ def test_energy_table_schema_matches_dashboard_contract():
         assert column in SQL
 
 
-def test_energy_seed_window_and_operation_constraint_are_fixed():
-    assert "date '2026-06-01'" in SQL
-    assert "date '2026-06-21'" in SQL
+def test_energy_table_is_created_empty():
+    assert "insert into public.energy" not in SQL.lower()
+    assert "generate_series" not in SQL.lower()
     assert "operation in ('idle VM', 'Unused Storage', 'idle database')" in SQL
-    assert "('idle VM', 118.0::double precision, 0.28::double precision)" in SQL
-    assert "('Unused Storage', 34.0::double precision, 0.14::double precision)" in SQL
-    assert "('idle database', 72.0::double precision, 0.20::double precision)" in SQL

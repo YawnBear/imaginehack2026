@@ -38,4 +38,4 @@ Start Command: uvicorn main:app --host 0.0.0.0 --port $PORT
 
 Copy `.env.example` to `.env` for local development.
 
-The backend currently uses an in-memory store. Demo events can be seeded at startup, but rules, agents, and workflows are created explicitly. Render Postgres and Alembic are scaffolded as the next persistence step.
+The backend currently uses an in-memory store by default. Events, rules, agents, and workflows are created explicitly through the API or UI. Render Postgres and Alembic are scaffolded as the next persistence step.
