@@ -1,163 +1,120 @@
-# SafeCloud — Workflow Summary (rule → agents → one merged output)
+# SafeCloud — Workflows as saved entities (create → list → Run all → summarize)
 
-> Design spec. Status: **approved 2026-06-20**. Builds on Phase 6 (grid-only routing). Adds a
-> **synthesized summary** that merges every selected agent's analysis into one cohesive paragraph,
-> shown both on each finding and previewable live from a redesigned Workflows page.
+> Design spec. Status: **approved 2026-06-20 (revamp)**. Supersedes the earlier "builder + /run preview"
+> take. A **Workflow** is now a first-class, persisted entity (name + rule + agents). The page is a
+> list of workflow cards created via a modal; one global **Run all** button re-scans the logs and
+> fills every card with a merged summary of its agents.
 
 ---
 
 ## 1. Summary
 
-Today a rule triggers a set of agents (its `agent_keys`); each agent produces a *separate* blurb
-(LLM rewrites text only — numbers stay rule-based) and the finding modal renders them as separate
-"AGENT ANALYSIS" cards. The Workflows page is a bare rules × agents checkbox grid.
+A **Workflow** = `{ name, rule, agents[] }`, saved server-side (Postgres `sc_workflows` + in-memory).
+The Workflows page:
 
-This feature adds **one merged summary of all the selected agents together**:
+- **`+ Create workflow`** button → modal asking **name + which rule + which agents** → **Save** (no
+  per-card run). The saved workflow appears as a **card** in the list.
+- One big **Run all** button (top-right). Pressing it pings the backend, which **re-scans the logs**
+  (`watch/infra-snapshot.json` → rule engine → findings), then for **each** workflow runs its agents
+  over its rule's findings and **synthesizes one merged summary**. Each card fills in with its own
+  summary (+ expandable agent outputs). Results **persist** (survive reload and backend restart).
 
-- A new **summarizer** step runs after the per-agent blurbs and merges them (plus the finding
-  context) into a single cohesive paragraph via a dedicated LLM call, with a deterministic stitch
-  fallback when AI is off or fails.
-- The summary is stored on each finding's recommendation (`agent_summary`) and shown in the finding
-  modal as a **WORKFLOW SUMMARY** block *above* the existing per-agent cards.
-- The **Workflows page becomes a builder**: pick one rule → check the agents it triggers → **Run ▶**
-  to preview the merged summary live (against a real or synthetic finding), with a compact read-only
-  mappings table below showing every rule → its agents.
+Reused from the prior build (kept): the **summarizer** (`generate_workflow_summary` + deterministic
+`stitch_summary`), the `agent_summary` field + **WORKFLOW SUMMARY** block in the finding modal, and the
+typed `sc_*` Postgres store. This feature is **decoupled** from the live per-finding analysis — creating
+a workflow does not change `rule.agent_keys` routing.
 
-The safety invariant is unchanged: **rules own detection and all numbers; both LLM calls only
-produce/merge explanation text, clamped and non-raising.** The page preview persists nothing.
+Safety invariant unchanged: **rules own detection + all numbers; the LLM only writes/merges text.**
 
 ---
 
-## 2. Locked decisions (from the brainstorming grill)
+## 2. Locked decisions (from the grill)
 
 | # | Decision | Choice |
 | --- | --- | --- |
-| 1 | Where the merged summary lives | **On findings + page preview.** Real field on every recommendation (shown in the finding modal) AND a live Run button on the Workflows page. |
-| 2 | Workflows page layout | **Builder + mappings table.** Focused single-rule builder card on top; compact read-only rule→agents table below. |
-| 3 | How the summary is generated | **Dedicated summarizer call.** A second short LLM call merges all per-agent blurbs + finding into one paragraph. Deterministic stitch fallback when AI off/fails. |
-| 4 | Run preview target | Newest **real** finding for that rule if one exists, else a **synthetic** representative finding built from the rule. Read-only — persists nothing, always returns 200. |
-| 5 | Agent selection in builder | Toggling an agent **saves immediately** to `rule.agent_keys` (reuses `updateRule`, keeps the real routing + mappings table live). Run previews the current saved selection. |
+| 1 | Workflow is… | a **saved entity** `{workflow_id, name, rule_id, agent_keys[], created_at, last_run?}`. Multiple per rule allowed. |
+| 2 | Create UX | **`+ Create workflow` → modal** (name + rule `<select>` + agent checkboxes) → Save. No per-card run button. |
+| 3 | Run | a single **Run all** button (top-right) runs **every** workflow. |
+| 4 | Run-all output | shown **on each workflow card** (its own merged summary + expandable agent outputs). |
+| 5 | Scan source | Run all **re-scans `watch/infra-snapshot.json`** server-side (snapshot → rule engine → findings), then per-workflow agents + summary. |
+| 6 | Persistence | both the **workflow definitions** and their **last-run results** persist (Postgres `sc_workflows` + in-memory); Run all overwrites each `last_run`. |
+| 7 | Coupling | **decoupled** from the live findings pipeline; keep the existing finding-modal WORKFLOW SUMMARY block as-is. |
+| 8 | DB | **keep** the typed `sc_*` tables; add `sc_workflows`. |
 
 ---
 
 ## 3. Architecture
 
 ```
-                            ┌──────────── existing ────────────┐
-ingest → rule engine → Finding → build_recommendation (numbers) │
-                                                                 │  (lazy, once per finding)
-finding detail fetch ──► _maybe_enrich_recommendation ───────────┘
-        1) generate_agent_analysis  → per-agent blurbs (existing)
-        2) generate_workflow_summary → ONE merged paragraph  ◄── NEW
-           (fallback: stitch_summary)
-        → recommendation.agent_summary  (cached)
+Create:  modal {name, rule, agents} ─POST /api/workflows─► store.workflows[id]  (persisted card)
 
-Workflows page (builder) ──► POST /api/workflows/run {rule_id, agent_keys}  ◄── NEW
-        builds representative finding (real-or-synthetic)
-        → generate_agent_analysis(selected) → generate_workflow_summary
-        → {summary, agent_outputs, ai_generated, finding_preview}   (NOT persisted)
+Run all (POST /api/workflows/run-all):
+  1) SCAN: read watch/infra-snapshot.json → snapshot_to_events → governance.ingest_events
+           → rule engine (evaluate_event) upserts findings   (dedup by stable event_id)
+  2) for each workflow W (rule R, agents A…):
+        findings_R = active findings where rule_id == R
+        rep        = newest(findings_R)            # representative resource
+        outputs    = generate_agent_analysis(rep, build_recommendation(rep), A)   # text only
+        summary    = generate_workflow_summary(rep, outputs) or stitch_summary(outputs)
+        W.last_run = {ran_at, finding_count=len(findings_R), summary, agent_outputs, ai_generated}
+        persist W
+  3) return {scanned_findings, workflows:[W…]}     # cards re-render with last_run
 ```
 
-Two planes of the same logic: the lazy enrichment path writes `agent_summary` onto stored
-recommendations; the `/run` path computes the same thing on demand for an arbitrary
-(rule, agent_keys) pair without touching the store.
+Both the workflow row and its `last_run` are stored, so a reload/restart still shows the cards with
+their latest summaries. Run all is idempotent on the snapshot (stable `event_id` → findings update,
+not duplicate).
 
 ---
 
 ## 4. Components
 
 ### Backend
-
-1. **`schemas/findings.py`** — add `agent_summary: str = ""` to `Recommendation`. (Backward
-   compatible default; no migration — store is in-memory/Postgres JSON.)
-2. **`agents/ai_client.py`** — new `generate_workflow_summary(finding, agent_outputs) -> str | None`.
-   A single OpenAI-compatible `chat/completions` call mirroring `generate_agent_analysis`'s transport
-   (stdlib `urllib`, 8s timeout, bounded `max_tokens`, **never raises** — returns `None` on any
-   failure). System prompt: *merge these per-agent analyses into one short paragraph for a human
-   reviewer; reference only what the agents said; invent no numbers; never tell anyone to
-   auto-execute.* Returns plain text from `choices[0].message.content` (reuse `_extract_content`).
-3. **`agents/recommendations.py`** (or a small helper module) — `stitch_summary(agent_outputs: dict)
-   -> str`: deterministic merge used when AI is off / returns `None` / there are no outputs. Joins
-   the per-agent blurbs in `AGENT_ORDER` with connective phrasing; empty dict → "" .
-4. **`services/governance.py::_maybe_enrich_recommendation`** — after merging the per-agent
-   `ai_outputs`, set `recommendation.agent_summary = generate_workflow_summary(...) or
-   stitch_summary(recommendation.agent_outputs)`. Stays inside the existing `ai_generated` once-only
-   gate. Numbers untouched. (When AI is disabled the method returns early as today → `agent_summary`
-   stays "" → modal hides the block.)
-5. **`schemas/workflows.py`** (new) — `WorkflowRunRequest{rule_id: str, agent_keys: list[str]}` and
-   `WorkflowRunResponse{summary: str, agent_outputs: dict[str,str], ai_generated: bool,
-   finding_preview: dict, synthetic: bool}`. Export from `schemas/__init__.py`.
-6. **`services/workflows_service.py`** (new) — `WorkflowService(store)` with
-   `run(rule_id, agent_keys) -> WorkflowRunResponse`:
-   - 404 (via `None`) if the rule doesn't exist.
-   - representative finding = newest stored finding with that `rule_id`, else
-     `_synthetic_finding(rule)` built from the rule's `issue_type/category/severity_base/
-     resource_type` + placeholder evidence.
-   - `rec = build_recommendation(finding)`; `selected = [enabled agents whose output_key ∈
-     agent_keys]`; `ai_outputs = generate_agent_analysis(finding, rec, selected)` (may be `None`);
-     `outputs = ai_outputs or {}`; `summary = generate_workflow_summary(finding, outputs) or
-     stitch_summary(outputs)`. Always returns 200-able data.
-7. **`api/workflows_routes.py`** (new) — `POST /api/workflows/run`; register in `main.py`
-   (`include_router(workflows_router)`). 404 when rule missing.
+1. **`schemas/workflows.py`** (REWRITE) — `WorkflowRun{ran_at, finding_count, summary, agent_outputs, ai_generated}`, `Workflow{workflow_id, name, rule_id, agent_keys[], created_at, last_run?}`, `WorkflowCreate{name, rule_id, agent_keys[]}`, `WorkflowListResponse`, `WorkflowRunAllResponse{scanned_findings, workflows[]}`. Update `schemas/__init__.py` exports (drop the old `WorkflowRunRequest/Response`).
+2. **`services/store.py`** — add `self.workflows: dict[str, Workflow] = {}` to `InMemoryStore`.
+3. **`services/pg_store.py`** — add `sc_workflows` table (`workflow_id` pk, `name`, `rule_id`, `agent_keys` jsonb, `created_at`, `last_run` jsonb) + `self.workflows = TableDict(..., "workflow_id", Workflow)`; import `Workflow`.
+4. **`services/workflows_service.py`** (REWRITE) — `WorkflowService(store, governance)` with `list()`, `create(payload)`, `delete(id)`, and `run_all()`:
+   - `_scan()` reads `watch/infra-snapshot.json` (path resolved from repo root; missing file → 0, no crash), `snapshot_to_events`, `governance.ingest_events([CloudEvent(**e)…], actor_id="workflow-run")`, returns `created_findings`.
+   - `_run_one(wf)` selects active findings for `wf.rule_id`; empty → a "no matching resources" `WorkflowRun`; else newest finding → `generate_agent_analysis` (enabled agents whose `output_key ∈ wf.agent_keys`) → summary via summarizer-or-stitch. Never raises.
+5. **`api/workflows_routes.py`** (REWRITE) — `GET /api/workflows` (list), `POST /api/workflows` (create; 400 if `rule_id` unknown), `DELETE /api/workflows/{id}` (404 if absent), `POST /api/workflows/run-all`.
+6. **`services/dependencies.py`** — `WorkflowService(_store, _governance_service)`.
 
 ### Frontend
-
-8. **`app/lib/types.ts`** — `agent_summary?: string` on `Recommendation`; add `WorkflowRunRequest` /
-   `WorkflowRunResponse` interfaces.
-9. **`app/lib/api.ts`** — `runWorkflow(rule_id, agent_keys): Promise<ApiResult<WorkflowRunResponse>>`
-   posting `/api/workflows/run`, mock fallback returns an offline stub summary.
-10. **`app/(dashboard)/workflows/WorkflowBuilder.tsx`** (new) — client component:
-    - rule `<select>` (from `rules`), agent checkbox chips (from `agents`); toggling persists via
-      `updateRule(rule_id, { agent_keys })` (same instant-save as today) and updates local state.
-    - **Run ▶** → `runWorkflow(rule_id, selectedKeys)`; renders the returned `summary` in a
-      highlighted card with the ✨ AI/offline badge, plus a collapsible list of the per-agent
-      `agent_outputs`. Loading + empty-selection states.
-    - Below: read-only **mappings table** — every rule → comma-joined agent names (empty = "no
-      agents").
-11. **`app/(dashboard)/workflows/page.tsx`** — render `<WorkflowBuilder rules agents />`; updated
-    subtitle. The old `WorkflowsGrid.tsx` is removed (its instant-save toggle logic moves into the
-    builder).
-12. **`app/components/FindingModal.tsx`** — inside the Recommendation `<section>`, above the
-    "AGENT ANALYSIS" cards, render a **WORKFLOW SUMMARY** block when `rec.agent_summary` is non-empty,
-    reusing the existing `rec.ai_generated` ✨ badge.
+7. **`app/lib/types.ts`** — drop old `WorkflowRunRequest/Response`; add `WorkflowRun`, `Workflow`, `WorkflowCreateBody`, `WorkflowListResponse`, `WorkflowRunAllResponse`. Keep `agent_summary?` on `Recommendation`.
+8. **`app/lib/api.ts`** — drop `runWorkflow`; add `getWorkflows()`, `createWorkflow(body)`, `deleteWorkflow(id)`, `runAllWorkflows()` (mock fallbacks).
+9. **`app/(dashboard)/workflows/WorkflowsManager.tsx`** (NEW; delete `WorkflowBuilder.tsx`) — client component:
+   - top bar: title + **`+ Create workflow`** + **`Run all ▶`** (spinner while running; toast with `scanned_findings`).
+   - grid of **workflow cards**: name, rule name, agent chips; `last_run` summary block (✨ AI/offline badge, `finding_count`, relative `ran_at`) or "Not run yet"; a delete (✕) control.
+   - **Create modal**: name text input, rule `<select>` (from `rules`), agent checkbox chips (from `agents`), Save/Cancel. Save → `createWorkflow` → prepend card.
+10. **`app/(dashboard)/workflows/page.tsx`** — server component fetches `getWorkflows`, `getRules`, `getAgents`; renders `<WorkflowsManager workflows rules agents />`; updated subtitle; keep `MockBanner`.
+11. **`app/components/FindingModal.tsx`** — unchanged (the WORKFLOW SUMMARY block stays).
 
 ---
 
-## 5. Data flow
+## 5. Persistence (the part that was asked about)
 
-- **Real finding:** ingest → finding → (lazy, on detail fetch) enrich → per-agent outputs +
-  `agent_summary` cached once → modal shows WORKFLOW SUMMARY then per-agent cards.
-- **Page preview:** builder Run → `POST /api/workflows/run` → live per-agent + summarizer over the
-  chosen agents against a representative finding → summary rendered inline; **nothing persisted.**
+Two things persist, both in the `sc_*` Postgres tables (and the in-memory store for tests/no-DB):
+- **Workflow definitions** (`sc_workflows`): name, rule, agents — written on modal Save; this is why cards survive a reload. Deleted only via the ✕ control.
+- **Last-run results** (the `last_run` JSONB column on the same row): `ran_at`, `finding_count`, `summary`, `agent_outputs`, `ai_generated` — written by Run all, **overwritten** each run. This is why a card still shows its summary after a reload/restart rather than going blank.
 
 ---
 
 ## 6. Error handling & safety
 
-- Both `generate_agent_analysis` and `generate_workflow_summary` return `None` on any failure →
-  deterministic fallbacks; neither raises.
-- `/api/workflows/run` always returns 200 with *some* summary (AI or stitched); only a missing rule
-  is a 404. Empty agent selection → empty `agent_outputs` and a stitched summary noting no agents
-  were selected.
-- No numbers are produced or altered by either LLM call; detection stays 100% rule-driven.
-- The preview path never writes to the store (no finding/recommendation/audit rows created).
+- `_scan()` tolerates a missing/unreadable snapshot (returns 0); `generate_agent_analysis`/`generate_workflow_summary` never raise → deterministic fallbacks. `run_all` always returns 200.
+- A workflow whose rule matches nothing → honest "No matching resources found in the latest scan."
+- No numbers produced/mutated by the LLM; detection stays 100% rule-driven. `sc_*` tables never touch the teammate's tables.
 
 ---
 
 ## 7. Testing
 
-**Backend pytest (keep the 84 green; add):**
-- `stitch_summary`: empty → ""; multi-agent → ordered, mentions each agent.
-- `generate_workflow_summary`: parses plain-text content; returns `None` on bad/empty body (monkeypatched transport); never raises.
-- enrichment: with AI stubbed, `recommendation.agent_summary` is set and cached once; with AI off, stays "".
-- `WorkflowService.run`: real-finding path and synthetic-finding path both return a summary; missing rule → `None`; AI-off path returns stitched summary; never 500.
-- route: `POST /api/workflows/run` 200 happy path + 404 missing rule.
+Backend pytest (keep the suite green; **rewrite** the old single-`run` tests, **keep** the summarizer/stitch unit tests). AI is ON in the test env → every test touching `run_all`/agents MUST monkeypatch `generate_agent_analysis` + `generate_workflow_summary` (network-free, fast):
+- CRUD: create → list → delete; create with unknown rule → 400.
+- `run_all`: with `_scan` and AI stubbed → each workflow gets a `last_run` (summary + finding_count) and is persisted to `store.workflows`; rule with no findings → "no matching resources" summary; never 500.
+- route: `GET/POST/DELETE /api/workflows` + `POST /api/workflows/run-all`.
 
-**Frontend:** clean `next build` + lint. Manual: builder Run renders a summary; toggling agents persists; finding modal shows WORKFLOW SUMMARY above per-agent cards.
-
----
+Frontend: clean `node ./node_modules/next/dist/bin/next build`. Manual: create a workflow via modal → card appears; Run all → cards fill with summaries; reload → cards + summaries persist.
 
 ## 8. Out of scope
-
-Threat-report `agent_sections` (unchanged), per-agent card styling overhaul, persisting preview runs,
-streaming the summary, multi-rule batch runs.
+Editing a workflow in place (delete + recreate for now), per-workflow run buttons, scheduling/auto-run, streaming summaries, aggregating multiple findings per rule into one narrative (uses the newest representative finding + a count).
