@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.agents.ai_client import generate_agent_analysis
+from app.agents.ai_client import generate_agent_analysis, generate_workflow_summary
 from app.agents.recommendations import build_recommendation
+from app.agents.summary import stitch_summary
 from app.agents.router import select_agents_for_finding
 from app.core.config import get_settings
 from app.rules.engine import evaluate_event
@@ -307,6 +308,9 @@ class GovernanceService:
         merged.update(ai_outputs)
         recommendation.agent_outputs = merged
         recommendation.ai_generated = True
+        recommendation.agent_summary = (
+            generate_workflow_summary(finding, merged) or stitch_summary(merged)
+        )
         # Cache back so it's only generated once per finding.
         self.store.recommendations[finding.finding_id] = recommendation
 

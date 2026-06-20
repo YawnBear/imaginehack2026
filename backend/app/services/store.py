@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.schemas import ApprovalDecision, AuditLog, CloudEvent, Finding, Recommendation
-from app.schemas import Activity, Agent, Rule, ThreatReport
+from app.schemas import Activity, Agent, Rule, ThreatReport, Workflow
 from app.rules.seed_rules import builtin_rules
 from app.agents.seed_agents import builtin_agents
 
@@ -17,6 +17,7 @@ class InMemoryStore:
         self.rules: dict[str, Rule] = {rule.rule_id: rule for rule in builtin_rules()}
         self.agents: dict[str, Agent] = {agent.output_key: agent for agent in builtin_agents()}
         self.threat_reports: dict[str, ThreatReport] = {}
+        self.workflows: dict[str, Workflow] = {}
         self.activities: list[Activity] = []
         self.agent_last_seen: datetime | None = None
         self.agent_id: str | None = None

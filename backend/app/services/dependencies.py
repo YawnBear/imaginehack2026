@@ -4,6 +4,7 @@ from app.services.governance import GovernanceService
 from app.services.rules_service import RuleService
 from app.services.store import InMemoryStore
 from app.services.threats_service import ThreatService
+from app.services.workflows_service import WorkflowService
 
 _settings = get_settings()
 if _settings.database_url:
@@ -17,6 +18,7 @@ _governance_service = GovernanceService(_store)
 _rule_service = RuleService(_store)
 _agent_service = AgentService(_store)
 _threat_service = ThreatService(_store)
+_workflow_service = WorkflowService(_store, _governance_service)
 
 
 def get_governance_service() -> GovernanceService:
@@ -33,3 +35,7 @@ def get_agent_service() -> AgentService:
 
 def get_threat_service() -> ThreatService:
     return _threat_service
+
+
+def get_workflow_service() -> WorkflowService:
+    return _workflow_service

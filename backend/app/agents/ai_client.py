@@ -39,6 +39,7 @@ _COMPLETIONS_PATH = "chat/completions"
 # Hard cap so a misbehaving model can't run up cost or latency.
 _MAX_TOKENS = 600
 _TIMEOUT_SECONDS = 8
+_SUMMARY_MAX_TOKENS = 320
 
 
 def generate_agent_analysis(finding: Any, base_recommendation: Any, agents: list | None = None) -> dict | None:
@@ -208,3 +209,84 @@ def _loads_json_object(content: str) -> Any:
         except (TypeError, ValueError):
             return None
     return None
+
+
+def generate_workflow_summary(finding: Any, agent_outputs: dict) -> str | None:
+    """Merge per-agent analyses into ONE cohesive paragraph. None on any failure. Never raises."""
+    settings = get_settings()
+    if not settings.ai_enabled:
+        return None
+    outputs = {k: str(v).strip() for k, v in (agent_outputs or {}).items() if str(v).strip()}
+    if not outputs:
+        return None
+    try:
+        base_url = settings.ai_provider_base_url
+        if not base_url.endswith("/"):
+            base_url += "/"
+        url = base_url + _COMPLETIONS_PATH
+        body = json.dumps(
+            {
+                "model": settings.ai_model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a cloud governance assistant for a construction-tech company. "
+                            "You merge several specialist analyses of ONE finding into a single short "
+                            "paragraph for a human reviewer. Synthesize, do not just list. Reference "
+                            "only what the analyses say. Never invent dollar or carbon numbers, and "
+                            "never tell anyone to auto-execute a change. Respond with plain text only."
+                        ),
+                    },
+                    {"role": "user", "content": build_summary_prompt(finding, outputs)},
+                ],
+                "temperature": 0.4,
+                "max_tokens": _SUMMARY_MAX_TOKENS,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.ai_provider_api_key}",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
+            if response.status != 200:
+                return None
+            raw = response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - defensive: AI is purely additive
+        return None
+    return parse_summary(raw)
+
+
+def build_summary_prompt(finding, outputs: dict) -> str:
+    issue_type = getattr(finding, "issue_type", "unknown")
+    severity = getattr(finding, "severity", "unknown")
+    blocks = "\n".join(f"- {key}: {text}" for key, text in outputs.items())
+    return (
+        "A deterministic rule engine detected a cloud governance issue.\n"
+        f"issue_type: {issue_type}\nseverity: {severity}\n\n"
+        "These specialist agents each analyzed it:\n"
+        f"{blocks}\n\n"
+        "Write ONE short paragraph (2-4 sentences) that synthesizes ALL of the above for a human "
+        "reviewer: what they agree on, the main risk, and the headline recommendation. Plain text only."
+    )
+
+
+def parse_summary(raw: str) -> str | None:
+    try:
+        envelope = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    content = _extract_content(envelope)
+    if not content:
+        return None
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+    return text or None

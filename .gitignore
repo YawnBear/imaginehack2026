@@ -53,3 +53,4 @@ bun.lock
 backend/scripts/*
 backend/test-output/*
 .vscode/settings.json
+.claude/skills/

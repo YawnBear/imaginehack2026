@@ -316,6 +316,21 @@ export default function FindingModal({
                     </div>
                   )}
 
+                  {/* Workflow summary — one merged paragraph across all agents */}
+                  {rec.agent_summary && (
+                    <div className="mt-4 rounded-lg border border-[#065FD433] bg-[#065FD40A] p-3">
+                      <div className="mb-1 flex items-center gap-2">
+                        <h4 className="text-[12px] font-medium tracking-label text-[#606060]">WORKFLOW SUMMARY</h4>
+                        {rec.ai_generated && (
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: "#065FD414", color: "#065FD4" }}>
+                            ✨ AI-generated
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[13px] leading-relaxed text-[#0F0F0F]">{rec.agent_summary}</p>
+                    </div>
+                  )}
+
                   {/* Agent outputs */}
                   <div className="mb-2 mt-4 flex items-center gap-2">
                     <h4 className="text-[12px] font-medium tracking-label text-[#606060]">

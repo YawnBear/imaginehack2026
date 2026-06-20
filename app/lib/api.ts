@@ -36,6 +36,10 @@ import type {
   ReviewBody,
   ReviewResponse,
   ThreatReport,
+  Workflow,
+  WorkflowCreateBody,
+  WorkflowListResponse,
+  WorkflowRunAllResponse,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -60,7 +64,14 @@ async function tryFetch<T>(path: string, init?: RequestInit): Promise<T> {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
+    // 204 No Content (e.g. DELETE) and other empty bodies have no JSON to parse;
+    // calling res.json() on them throws SyntaxError. Return undefined instead so
+    // callers like deleteWorkflow/deleteRule/deleteAgent resolve to ok(true).
+    if (res.status === 204 || res.headers.get("content-length") === "0") {
+      return undefined as T;
+    }
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   } finally {
     clearTimeout(timeout);
   }
@@ -376,6 +387,43 @@ export async function generateThreatReport(findingId: string): Promise<ApiResult
     return ok(await tryFetch<ThreatReport>(`/api/findings/${findingId}/threat-report`, { method: "POST" }));
   } catch (e) {
     return fallback(MOCK_THREATS.find((t) => t.finding_id === findingId) ?? null, e);
+  }
+}
+
+// ---- Workflows (SafeCloud Phase 7b) ----
+
+export async function getWorkflows(): Promise<ApiResult<WorkflowListResponse>> {
+  try {
+    return ok(await tryFetch<WorkflowListResponse>("/api/workflows"));
+  } catch (e) {
+    return fallback({ items: [], total: 0 }, e);
+  }
+}
+
+export async function createWorkflow(
+  body: WorkflowCreateBody,
+): Promise<ApiResult<Workflow | null>> {
+  try {
+    return ok(await tryFetch<Workflow>("/api/workflows", { method: "POST", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback(null, e);
+  }
+}
+
+export async function deleteWorkflow(id: string): Promise<ApiResult<boolean>> {
+  try {
+    await tryFetch<unknown>(`/api/workflows/${id}`, { method: "DELETE" });
+    return ok(true);
+  } catch (e) {
+    return fallback(false, e);
+  }
+}
+
+export async function runAllWorkflows(): Promise<ApiResult<WorkflowRunAllResponse>> {
+  try {
+    return ok(await tryFetch<WorkflowRunAllResponse>("/api/workflows/run-all", { method: "POST" }));
+  } catch (e) {
+    return fallback({ scanned_findings: 0, workflows: [] }, e);
   }
 }
 
