@@ -83,9 +83,8 @@ def generate_agent_analysis(
                     {
                         "role": "system",
                         "content": (
-                            "You are a cloud governance assistant for a "
-                            "construction-tech company. You write short, "
-                            "practical, construction-aware analysis for human "
+                            "You are a cloud governance assistant. You write "
+                            "short, practical analysis for human "
                             "reviewers. You never invent numbers and you never "
                             "tell anyone to auto-execute changes. Respond with "
                             "a single JSON object only."
@@ -134,8 +133,8 @@ def generate_recommendation_text(finding: Any, base_payload: dict) -> dict | Non
             {
                 "role": "system",
                 "content": (
-                    "You are a cloud governance remediation advisor for a "
-                    "construction-tech company. Write specific, practical "
+                    "You are a cloud governance remediation advisor. "
+                    "Write specific, practical "
                     "recommendation prose for human reviewers. Do not invent "
                     "numbers, do not alter risk or savings, and never tell "
                     "anyone to auto-execute a change. Respond with one JSON "
@@ -289,7 +288,7 @@ def generate_threat_summary(
                 "role": "system",
                 "content": (
                     "You write concise threat report summaries for cloud "
-                    "governance reviewers at a construction-tech company. "
+                    "governance reviewers. "
                     "Summarize only the provided facts, include the criticality "
                     "score, and do not invent evidence or tell anyone to "
                     "auto-execute a change. Plain text only."
@@ -415,7 +414,7 @@ def generate_workflow_summary(finding: Any, agent_outputs: dict) -> str | None:
                     {
                         "role": "system",
                         "content": (
-                            "You are a cloud governance assistant for a construction-tech company. "
+                            "You are a cloud governance assistant. "
                             "You merge several specialist analyses of ONE finding into a single short "
                             "paragraph for a human reviewer. Synthesize, do not just list. Reference "
                             "only what the analyses say. Never invent dollar or carbon numbers, and "
@@ -544,25 +543,32 @@ def _clean_model_text(value: Any, max_chars: int) -> str:
 
 _BUILDER_SYSTEM_PROMPT = (
     "You are an expert prompt engineer embedded in SafeCloud, a cloud-governance "
-    "You help a human author the SYSTEM "
+    "platform. You help a human author the SYSTEM "
     "PROMPT for a new analysis agent by chatting with them, like an assistant that "
     "creates sub-agents.\n\n"
     "HOW THESE AGENTS RUN (the prompt you write MUST fit this): each agent is given "
     "ONE governance finding (issue_type, severity, evidence) plus a deterministic "
-    "recommended action, and must return ONE or TWO short, plain-English, "
-    "construction-aware sentences of analysis. The deterministic rule engine supplies "
+    "recommended action, and must return ONE or TWO short, plain-English "
+    "sentences of analysis. The deterministic rule engine supplies "
     "every dollar and carbon figure, so agents must NEVER invent numbers and must NEVER "
-    "tell anyone to auto-execute a change. Gold-standard existing prompts:\n"
-    '- "You are a cloud security analyst for a construction-tech company. Explain the '
+    "tell anyone to auto-execute a change.\n\n"
+    "DO derive the persona, scope, and tone only from what the user describes and the "
+    "finding's own vocabulary. DO NOT add a company type, industry, or business domain "
+    "the user did not ask for. Gold-standard existing prompts:\n"
+    '- "You are a cloud security analyst. Explain the '
     'exposure and data-protection risk of this finding in one or two plain sentences. '
     'Reference the evidence; never invent numbers."\n'
     '- "You are a cloud cost analyst. Explain the wasted monthly spend and the saving '
     'opportunity in one or two sentences. Do not invent figures; reference the provided '
     'estimate only."\n\n'
     "YOUR JOB: from the user's natural-language description, write a polished, "
-    "role-specific system prompt in exactly that style — a clear persona, what to "
-    "explain for each finding, the one-to-two-sentence limit, and the 'reference the "
-    "evidence / never invent numbers / never auto-execute' guardrails. Also propose a "
+    "role-specific system prompt in this style, but a little fuller than the examples "
+    "above — aim for three to five sentences. Include: a clear persona; what the agent "
+    "should examine and explain for each finding; which evidence fields or signals it "
+    "should ground its analysis in; the instruction that the agent's own output stays to "
+    "one or two plain sentences; and the 'reference the evidence / never invent numbers / "
+    "never auto-execute' guardrails. Keep it specific and readable — do not pad with "
+    "filler. Also propose a "
     "short, human-friendly agent name (2-4 words, e.g. 'Idle Compute Optimizer'). "
     "Explain your choices conversationally and warmly. Only if the request is too vague "
     "to act on, ask ONE clarifying question instead of guessing wildly.\n\n"
