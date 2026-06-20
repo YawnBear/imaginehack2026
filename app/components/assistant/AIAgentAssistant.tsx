@@ -95,7 +95,7 @@ export default function AIAgentAssistant({
                     <AIAgentMascot state={state} collapsed color={color} />
                   </div>
 
-                  <h3 className="mt-3 text-[15px] font-semibold text-[var(--color-agent-navy)]">
+                  <h3 className="mt-3 text-[15px] font-semibold text-ink">
                     {agent.name}
                   </h3>
 
