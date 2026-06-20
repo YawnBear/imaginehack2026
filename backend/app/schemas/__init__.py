@@ -11,12 +11,26 @@ from app.schemas.findings import (
     ReviewResponse,
 )
 from app.schemas.health import HealthResponse
+from app.schemas.rules import (
+    ClashWarning,
+    ConditionOperator,
+    Rule,
+    RuleCondition,
+    RuleCreate,
+    RuleListResponse,
+    RulePreviewRequest,
+    RulePreviewResponse,
+    RuleTemplate,
+    RuleUpdate,
+)
 
 __all__ = [
     "ApprovalDecision",
     "AuditLog",
     "AuditLogListResponse",
+    "ClashWarning",
     "CloudEvent",
+    "ConditionOperator",
     "DashboardSummary",
     "EventIngestRequest",
     "EventIngestResponse",
@@ -27,4 +41,12 @@ __all__ = [
     "Recommendation",
     "ReviewRequest",
     "ReviewResponse",
+    "Rule",
+    "RuleCondition",
+    "RuleCreate",
+    "RuleListResponse",
+    "RulePreviewRequest",
+    "RulePreviewResponse",
+    "RuleTemplate",
+    "RuleUpdate",
 ]
