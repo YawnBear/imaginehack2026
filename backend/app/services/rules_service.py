@@ -52,7 +52,7 @@ class RuleService:
             return None
         before = rule.model_dump(mode="json")
         updates = payload.model_dump(exclude_unset=True)
-        updated = rule.model_copy(update=updates)
+        updated = Rule.model_validate({**rule.model_dump(), **updates})
         self.store.rules[rule_id] = updated
         self._audit(
             "rule_updated", rule_id, actor_id, before=before, after=updated.model_dump(mode="json")

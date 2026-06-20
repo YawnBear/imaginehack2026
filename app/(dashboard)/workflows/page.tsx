@@ -11,7 +11,7 @@ export default async function WorkflowsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Workflows"
-        subtitle="Each workflow wires a rule to an AI agent and its analysts. Press Run all to scan your logs — the status light shows which workflows detected a threat."
+        subtitle="Each workflow wires a rule to an AI agent and its analysts. Edit a workflow to change its trigger rule or assigned agents."
       />
       {(wfRes.mock || rulesRes.mock || agentsRes.mock) && (
         <MockBanner reason={wfRes.error ?? rulesRes.error ?? agentsRes.error} />

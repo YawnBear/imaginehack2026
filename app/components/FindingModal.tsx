@@ -134,11 +134,11 @@ export default function FindingModal({
   const rec = detail?.recommendation;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden p-4 sm:p-6">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative my-auto w-full max-w-[760px] rounded-lg bg-canvas shadow-[var(--shadow-e3)]">
+      <div className="gg-fade-up relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-lg bg-canvas shadow-[var(--shadow-e3)] sm:max-h-[calc(100dvh-3rem)]">
         {/* header */}
-        <div className="flex items-start gap-3 border-b border-border p-5">
+        <div className="flex shrink-0 items-start gap-3 border-b border-border p-5">
           {finding && (
             <span
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
@@ -178,7 +178,7 @@ export default function FindingModal({
         </div>
 
         {/* body */}
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
           {error && !finding ? (
             <p className="rounded-lg bg-[var(--color-danger-tint)] p-4 text-[13px] text-ink">
               {error}
@@ -383,7 +383,7 @@ export default function FindingModal({
 
         {/* approval action row */}
         {detail && (
-          <div className="border-t border-border p-5">
+          <div className="shrink-0 border-t border-border p-5">
             {decided ? (
               <div className="space-y-2 rounded-lg bg-[var(--color-success-tint)] p-3 text-[13px] text-[var(--color-success-strong)]">
                 <div className="flex items-center gap-2">

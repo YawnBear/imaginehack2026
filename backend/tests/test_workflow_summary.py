@@ -15,6 +15,7 @@ import app.services.workflows_service as workflows_service
 from app.agents.summary import stitch_summary
 from app.agents.ai_client import generate_workflow_summary, parse_summary
 from app.main import create_app
+from app.schemas import WorkflowCreate, WorkflowRun, WorkflowUpdate
 from app.services.governance import GovernanceService
 from app.services.store import InMemoryStore
 from app.services.workflows_service import WorkflowService
@@ -135,6 +136,95 @@ def test_create_unknown_rule_400(monkeypatch):
         json={"name": "Bad", "rule_id": "NOPE", "agent_keys": []},
     )
     assert res.status_code == 400
+
+
+def test_update_workflow_route_roundtrip(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+    created = client.post(
+        "/api/workflows",
+        json={"name": "Bucket review", "rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
+    )
+    assert created.status_code == 201
+    wf_id = created.json()["workflow_id"]
+
+    patched = client.patch(
+        f"/api/workflows/{wf_id}",
+        json={"name": "Idle VM review", "rule_id": "RULE_IDLE_VM", "agent_keys": ["energy"]},
+    )
+    assert patched.status_code == 200
+    body = patched.json()
+    assert body["workflow_id"] == wf_id
+    assert body["name"] == "Idle VM review"
+    assert body["rule_id"] == "RULE_IDLE_VM"
+    assert body["agent_keys"] == ["energy"]
+    assert body["last_run"] is None
+
+    assert client.delete(f"/api/workflows/{wf_id}").status_code == 204
+
+
+def test_update_missing_workflow_404(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+    res = client.patch("/api/workflows/does-not-exist", json={"name": "Missing"})
+    assert res.status_code == 404
+
+
+def test_update_unknown_rule_400(monkeypatch):
+    monkeypatch.setattr(WorkflowService, "_scan", lambda self: 0)
+    client = TestClient(create_app())
+    created = client.post(
+        "/api/workflows",
+        json={"name": "Bucket review", "rule_id": "RULE_PUBLIC_BUCKET", "agent_keys": ["security"]},
+    )
+    assert created.status_code == 201
+    wf_id = created.json()["workflow_id"]
+
+    res = client.patch(f"/api/workflows/{wf_id}", json={"rule_id": "NOPE"})
+    assert res.status_code == 400
+
+    assert client.delete(f"/api/workflows/{wf_id}").status_code == 204
+
+
+def test_update_name_preserves_last_run():
+    store = InMemoryStore()
+    service = WorkflowService(store, GovernanceService(store))
+    wf = service.create(WorkflowCreate(name="W", rule_id="RULE_PUBLIC_BUCKET", agent_keys=["security"]))
+    wf.last_run = WorkflowRun(
+        ran_at=datetime.now(UTC),
+        finding_count=2,
+        summary="previous result",
+        agent_outputs={"security": "ok"},
+        ai_generated=True,
+    )
+    store.workflows[wf.workflow_id] = wf
+
+    updated = service.update(wf.workflow_id, WorkflowUpdate(name="Renamed"))
+
+    assert updated is not None
+    assert updated.name == "Renamed"
+    assert updated.rule_id == wf.rule_id
+    assert updated.agent_keys == wf.agent_keys
+    assert updated.last_run is not None
+    assert updated.last_run.summary == "previous result"
+
+
+def test_update_routing_clears_last_run():
+    store = InMemoryStore()
+    service = WorkflowService(store, GovernanceService(store))
+    wf = service.create(WorkflowCreate(name="W", rule_id="RULE_PUBLIC_BUCKET", agent_keys=["security"]))
+    wf.last_run = WorkflowRun(ran_at=datetime.now(UTC), finding_count=2, summary="stale")
+    store.workflows[wf.workflow_id] = wf
+
+    updated = service.update(
+        wf.workflow_id,
+        WorkflowUpdate(rule_id="RULE_IDLE_VM", agent_keys=["energy"]),
+    )
+
+    assert updated is not None
+    assert updated.rule_id == "RULE_IDLE_VM"
+    assert updated.agent_keys == ["energy"]
+    assert updated.last_run is None
 
 
 # --------------------------------------------------------------------------- #

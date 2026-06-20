@@ -5,6 +5,7 @@ from app.schemas import (
     WorkflowCreate,
     WorkflowListResponse,
     WorkflowRunAllResponse,
+    WorkflowUpdate,
 )
 from app.services.dependencies import get_workflow_service
 from app.services.workflows_service import WorkflowService
@@ -24,6 +25,20 @@ def create_workflow(
     if not service.rule_exists(payload.rule_id):
         raise HTTPException(status_code=400, detail="Unknown rule_id")
     return service.create(payload)
+
+
+@router.patch("/{workflow_id}", response_model=Workflow)
+def update_workflow(
+    workflow_id: str,
+    payload: WorkflowUpdate,
+    service: WorkflowService = Depends(get_workflow_service),
+) -> Workflow:
+    if payload.rule_id is not None and not service.rule_exists(payload.rule_id):
+        raise HTTPException(status_code=400, detail="Unknown rule_id")
+    updated = service.update(workflow_id, payload)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    return updated
 
 
 @router.delete("/{workflow_id}", status_code=status.HTTP_204_NO_CONTENT)

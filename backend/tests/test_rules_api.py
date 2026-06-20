@@ -54,11 +54,27 @@ def test_create_update_delete_roundtrip():
         },
     )
     assert created.status_code == 201
-    rule_id = created.json()["rule_id"]
+    created_body = created.json()
+    rule_id = created_body["rule_id"]
 
-    patched = client.patch(f"/api/rules/{rule_id}", json={"enabled": False})
+    patched = client.patch(
+        f"/api/rules/{rule_id}",
+        json={
+            "name": "Idle Production VM",
+            "enabled": False,
+            "conditions": [{"field": "metrics.avg_cpu_percent_7d", "operator": "<=", "value": 3}],
+        },
+    )
     assert patched.status_code == 200
-    assert patched.json()["enabled"] is False
+    patched_body = patched.json()
+    assert patched_body["name"] == "Idle Production VM"
+    assert patched_body["enabled"] is False
+    assert patched_body["conditions"] == [
+        {"field": "metrics.avg_cpu_percent_7d", "operator": "<=", "value": 3}
+    ]
+    assert patched_body["issue_type"] == created_body["issue_type"]
+    assert patched_body["category"] == created_body["category"]
+    assert patched_body["resource_type"] == created_body["resource_type"]
 
     deleted = client.delete(f"/api/rules/{rule_id}")
     assert deleted.status_code == 204

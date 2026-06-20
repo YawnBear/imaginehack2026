@@ -14,6 +14,7 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
   const { toast } = useToast();
   const [agents, setAgents] = useState<Agent[]>(initialAgents);
   const [open, setOpen] = useState(false);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   async function toggle(a: Agent) {
     const res = await updateAgent(a.agent_id, { enabled: !a.enabled });
@@ -27,12 +28,24 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
     setAgents((xs) => xs.filter((x) => x.agent_id !== a.agent_id));
     router.refresh();
   }
+  function openNew() {
+    setEditingAgent(null);
+    setOpen(true);
+  }
+  function openEdit(a: Agent) {
+    setEditingAgent(a);
+    setOpen(true);
+  }
+  function closeWizard() {
+    setOpen(false);
+    setEditingAgent(null);
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
-        <button onClick={() => setOpen(true)} className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90">+ New Agent</button>
+        <button onClick={openNew} className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90">+ New Agent</button>
       </div>
       <AIAgentAssistant agents={agents} />
       <div className="space-y-3">
@@ -45,26 +58,67 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
               </div>
               <div className="flex shrink-0 gap-2">
                 <button onClick={() => toggle(a)} className={`h-7 rounded-full px-3 text-[12px] font-medium ${a.enabled ? "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]" : "bg-surface text-muted"}`}>{a.enabled ? "Enabled" : "Disabled"}</button>
+                <button onClick={() => openEdit(a)} className="h-7 rounded-full border border-border px-3 text-[12px] text-ink hover:bg-surface">Edit</button>
                 <button onClick={() => remove(a)} className="h-7 rounded-full px-3 text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]">Delete</button>
               </div>
             </div>
           </Card>
         ))}
       </div>
-      {open && <AgentWizard onClose={() => setOpen(false)} onCreated={(a) => { setAgents((xs) => [...xs, a]); setOpen(false); toast("Agent created", "success"); router.refresh(); }} />}
+      {open && (
+        <AgentWizard
+          initialAgent={editingAgent ?? undefined}
+          onClose={closeWizard}
+          onSaved={(a, action) => {
+            setAgents((xs) =>
+              action === "edit"
+                ? xs.map((x) => (x.agent_id === a.agent_id ? a : x))
+                : [...xs, a],
+            );
+            closeWizard();
+            toast(action === "edit" ? "Agent updated" : "Agent created", "success");
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (a: Agent) => void }) {
+function AgentWizard({
+  initialAgent,
+  onClose,
+  onSaved,
+}: {
+  initialAgent?: Agent;
+  onClose: () => void;
+  onSaved: (a: Agent, action: "create" | "edit") => void;
+}) {
+  const { toast } = useToast();
+  const isEdit = Boolean(initialAgent);
   const [mode, setMode] = useState<"manual" | "ai">("manual");
-  const [name, setName] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [name, setName] = useState(initialAgent?.name ?? "");
+  const [prompt, setPrompt] = useState(initialAgent?.system_prompt ?? "");
   const [saving, setSaving] = useState(false);
   async function save() {
     if (!name.trim() || !prompt.trim()) return;
     setSaving(true);
-    try { const res = await createAgent({ name: name.trim(), system_prompt: prompt.trim() }); onCreated(res.data); }
+    try {
+      if (initialAgent) {
+        const res = await updateAgent(initialAgent.agent_id, {
+          name: name.trim(),
+          system_prompt: prompt.trim(),
+        });
+        if (res.mock || !res.data) {
+          toast("Couldn't update (offline)", "error");
+          return;
+        }
+        onSaved(res.data, "edit");
+        return;
+      }
+      const res = await createAgent({ name: name.trim(), system_prompt: prompt.trim() });
+      onSaved(res.data, "create");
+    }
     finally { setSaving(false); }
   }
   return (
@@ -72,25 +126,26 @@ function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
       <div className={`gg-fade-up relative z-10 w-full rounded-xl border border-border bg-surface-raised p-5 shadow-[var(--shadow-e3)] ${mode === "ai" ? "max-w-[920px]" : "max-w-[560px]"}`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-bold">New Agent</h2>
+          <h2 className="text-[18px] font-bold">{isEdit ? "Edit Agent" : "New Agent"}</h2>
           <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
-        {/* Mode toggle: Manual (default) | Generate with AI */}
-        <div className="mt-3 inline-flex rounded-full border border-border bg-surface-subtle p-1 text-[12px] font-medium">
-          <button
-            onClick={() => setMode("manual")}
-            className={`h-7 rounded-full px-3 ${mode === "manual" ? "bg-action text-on-action" : "text-muted hover:text-ink"}`}
-          >
-            Manual
-          </button>
-          <button
-            onClick={() => setMode("ai")}
-            className={`h-7 rounded-full px-3 ${mode === "ai" ? "bg-action text-on-action" : "text-muted hover:text-ink"}`}
-          >
-            ✨ Generate with AI
-          </button>
-        </div>
+        {!isEdit && (
+          <div className="mt-3 inline-flex rounded-full border border-border bg-surface-subtle p-1 text-[12px] font-medium">
+            <button
+              onClick={() => setMode("manual")}
+              className={`h-7 rounded-full px-3 ${mode === "manual" ? "bg-action text-on-action" : "text-muted hover:text-ink"}`}
+            >
+              Manual
+            </button>
+            <button
+              onClick={() => setMode("ai")}
+              className={`h-7 rounded-full px-3 ${mode === "ai" ? "bg-action text-on-action" : "text-muted hover:text-ink"}`}
+            >
+              ✨ Generate with AI
+            </button>
+          </div>
+        )}
 
         {mode === "manual" ? (
           <>
@@ -101,11 +156,11 @@ function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <p className="mt-1 text-[11px] text-subtle">The agent runs this prompt against each finding it&apos;s assigned (set assignments in Workflows). Requires an AI key to produce output.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-surface">Cancel</button>
-              <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50">{saving ? "Saving…" : "Save agent"}</button>
+              <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50">{saving ? "Saving…" : isEdit ? "Save changes" : "Save agent"}</button>
             </div>
           </>
         ) : (
-          <AgentAIBuilder onCreated={onCreated} onClose={onClose} />
+          <AgentAIBuilder onCreated={(a) => onSaved(a, "create")} onClose={onClose} />
         )}
       </div>
     </div>

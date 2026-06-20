@@ -56,6 +56,7 @@ from app.schemas.workflows import (
     WorkflowListResponse,
     WorkflowRun,
     WorkflowRunAllResponse,
+    WorkflowUpdate,
 )
 
 __all__ = [
@@ -106,4 +107,5 @@ __all__ = [
     "WorkflowListResponse",
     "WorkflowRun",
     "WorkflowRunAllResponse",
+    "WorkflowUpdate",
 ]

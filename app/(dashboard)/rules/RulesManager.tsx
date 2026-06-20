@@ -27,6 +27,7 @@ export default function RulesManager({
   const { toast } = useToast();
   const [rules, setRules] = useState<Rule[]>(initialRules);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState<Rule | null>(null);
 
   async function toggle(rule: Rule) {
     const res = await updateRule(rule.rule_id, { enabled: !rule.enabled });
@@ -42,6 +43,21 @@ export default function RulesManager({
     setRules((rs) => rs.filter((r) => r.rule_id !== rule.rule_id));
     toast("Rule deleted", "success");
     router.refresh();
+  }
+
+  function openNew() {
+    setEditingRule(null);
+    setWizardOpen(true);
+  }
+
+  function openEdit(rule: Rule) {
+    setEditingRule(rule);
+    setWizardOpen(true);
+  }
+
+  function closeWizard() {
+    setWizardOpen(false);
+    setEditingRule(null);
   }
 
   return (
@@ -60,7 +76,7 @@ export default function RulesManager({
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-muted">{rules.length} rule{rules.length === 1 ? "" : "s"}</p>
         <button
-          onClick={() => setWizardOpen(true)}
+          onClick={openNew}
           className="flex h-9 items-center gap-1.5 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90"
         >
           + New Rule
@@ -89,6 +105,12 @@ export default function RulesManager({
                 {rule.enabled ? "Enabled" : "Disabled"}
               </button>
               <button
+                onClick={() => openEdit(rule)}
+                className="h-7 rounded-full border border-border px-3 text-[12px] text-ink hover:bg-surface"
+              >
+                Edit
+              </button>
+              <button
                 onClick={() => remove(rule)}
                 className="h-7 rounded-full px-3 text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]"
               >
@@ -101,11 +123,16 @@ export default function RulesManager({
 
       {wizardOpen && (
         <RuleWizard
-          onClose={() => setWizardOpen(false)}
-          onCreated={(rule) => {
-            setRules((rs) => [...rs, rule]);
-            setWizardOpen(false);
-            toast("Rule created", "success");
+          initialRule={editingRule ?? undefined}
+          onClose={closeWizard}
+          onSaved={(rule, action) => {
+            setRules((rs) =>
+              action === "edit"
+                ? rs.map((r) => (r.rule_id === rule.rule_id ? rule : r))
+                : [...rs, rule],
+            );
+            closeWizard();
+            toast(action === "edit" ? "Rule updated" : "Rule created", "success");
             router.refresh();
           }}
         />
@@ -124,16 +151,22 @@ function slug(s: string): string {
 }
 
 function RuleWizard({
+  initialRule,
   onClose,
-  onCreated,
+  onSaved,
 }: {
+  initialRule?: Rule;
   onClose: () => void;
-  onCreated: (rule: Rule) => void;
+  onSaved: (rule: Rule, action: "create" | "edit") => void;
 }) {
-  const [name, setName] = useState("");
-  const [conditions, setConditions] = useState<RuleCondition[]>([
-    { field: "", operator: "==", value: "" },
-  ]);
+  const { toast } = useToast();
+  const isEdit = Boolean(initialRule);
+  const [name, setName] = useState(initialRule?.name ?? "");
+  const [conditions, setConditions] = useState<RuleCondition[]>(
+    initialRule
+      ? initialRule.conditions.map((c) => ({ ...c }))
+      : [{ field: "", operator: "==", value: "" }],
+  );
   const [preview, setPreview] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -143,6 +176,7 @@ function RuleWizard({
 
   async function runPreview() {
     const res = await previewRule({
+      resource_type: initialRule?.resource_type ?? undefined,
       conditions: conditions.map((c) => ({ ...c, value: coerce(c.value) })),
     });
     setPreview(res.data.match_count);
@@ -152,13 +186,26 @@ function RuleWizard({
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const nextConditions = conditions.map((c) => ({ ...c, value: coerce(c.value) }));
+      if (initialRule) {
+        const res = await updateRule(initialRule.rule_id, {
+          name: name.trim(),
+          conditions: nextConditions,
+        });
+        if (res.mock || !res.data) {
+          toast("Couldn't update (offline)", "error");
+          return;
+        }
+        onSaved(res.data, "edit");
+        return;
+      }
       const res = await createRule({
         name: name.trim(),
         issue_type: slug(name),
         category: "security",
-        conditions: conditions.map((c) => ({ ...c, value: coerce(c.value) })),
+        conditions: nextConditions,
       });
-      onCreated(res.data);
+      onSaved(res.data, "create");
     } finally {
       setSaving(false);
     }
@@ -169,7 +216,7 @@ function RuleWizard({
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
       <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-border bg-canvas p-5 shadow-[var(--shadow-e3)]">
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-bold">New Rule</h2>
+          <h2 className="text-[18px] font-bold">{isEdit ? "Edit Rule" : "New Rule"}</h2>
           <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
@@ -238,7 +285,7 @@ function RuleWizard({
             disabled={saving || !name.trim()}
             className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? "Saving…" : "Save rule"}
+            {saving ? "Saving…" : isEdit ? "Save changes" : "Save rule"}
           </button>
         </div>
       </div>

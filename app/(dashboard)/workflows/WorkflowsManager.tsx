@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Agent, Rule, Workflow } from "@/app/lib/types";
-import { createWorkflow, deleteWorkflow, runAllWorkflows } from "@/app/lib/api";
+import { createWorkflow, deleteWorkflow, updateWorkflow } from "@/app/lib/api";
 import { CATEGORY_COLOR, relativeTime } from "@/app/lib/format";
 import { useToast } from "@/app/lib/toast";
 import { WorkflowGraph } from "./WorkflowGraph";
@@ -17,12 +17,10 @@ export default function WorkflowsManager({
   agents: Agent[];
 }) {
   const { toast } = useToast();
-
   const [list, setList] = useState<Workflow[]>(workflows);
-  const [running, setRunning] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
-  // Lookups for rendering cards.
   const ruleById = useMemo(
     () => Object.fromEntries(rules.map((r) => [r.rule_id, r])),
     [rules],
@@ -31,25 +29,6 @@ export default function WorkflowsManager({
     () => Object.fromEntries(agents.map((a) => [a.output_key, a])),
     [agents],
   );
-
-  async function runAll() {
-    if (list.length === 0 || running) return;
-    setRunning(true);
-    const res = await runAllWorkflows();
-    setRunning(false);
-    // Merge the freshly-run workflows into the current list by id.
-    const byId = new Map(list.map((w) => [w.workflow_id, w]));
-    for (const w of res.data.workflows) byId.set(w.workflow_id, w);
-    setList(Array.from(byId.values()));
-    if (res.mock) {
-      toast("Offline — connect the backend to run workflows", "info");
-    } else {
-      toast(
-        `Scanned ${res.data.scanned_findings} findings across ${res.data.workflows.length} workflow${res.data.workflows.length === 1 ? "" : "s"}`,
-        "success",
-      );
-    }
-  }
 
   async function remove(wf: Workflow) {
     const res = await deleteWorkflow(wf.workflow_id);
@@ -61,31 +40,35 @@ export default function WorkflowsManager({
     toast("Workflow deleted", "success");
   }
 
+  function openNew() {
+    setEditingWorkflow(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(wf: Workflow) {
+    setEditingWorkflow(wf);
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditingWorkflow(null);
+  }
+
   return (
     <div className="space-y-5">
-      {/* Action bar */}
       <div className="flex items-center justify-between gap-3">
         <p className="text-[13px] text-muted">
           {list.length} workflow{list.length === 1 ? "" : "s"}
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setModalOpen(true)}
-            className="h-9 rounded-full border border-border bg-canvas px-4 text-[13px] font-medium text-ink hover:bg-surface"
-          >
-            + Create workflow
-          </button>
-          <button
-            onClick={runAll}
-            disabled={list.length === 0 || running}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
-          >
-            {running ? "Running…" : "Run all ▶"}
-          </button>
-        </div>
+        <button
+          onClick={openNew}
+          className="h-9 rounded-full border border-border bg-canvas px-4 text-[13px] font-medium text-ink hover:bg-surface"
+        >
+          + Create workflow
+        </button>
       </div>
 
-      {/* One n8n-style canvas per workflow: rule → AI agent → agents (side fan) */}
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-canvas py-16 text-center">
           <p className="text-[14px] font-medium text-ink">No workflows yet</p>
@@ -101,6 +84,7 @@ export default function WorkflowsManager({
               wf={wf}
               rule={ruleById[wf.rule_id] ?? null}
               agentByKey={agentByKey}
+              onEdit={() => openEdit(wf)}
               onDelete={() => remove(wf)}
             />
           ))}
@@ -108,14 +92,19 @@ export default function WorkflowsManager({
       )}
 
       {modalOpen && (
-        <CreateWorkflowModal
+        <WorkflowModal
+          initialWorkflow={editingWorkflow ?? undefined}
           rules={rules}
           agents={agents}
-          onClose={() => setModalOpen(false)}
-          onCreated={(wf) => {
-            setList((xs) => [wf, ...xs]);
-            setModalOpen(false);
-            toast("Workflow created", "success");
+          onClose={closeModal}
+          onSaved={(wf, action) => {
+            setList((xs) =>
+              action === "edit"
+                ? xs.map((x) => (x.workflow_id === wf.workflow_id ? wf : x))
+                : [wf, ...xs],
+            );
+            closeModal();
+            toast(action === "edit" ? "Workflow updated" : "Workflow created", "success");
           }}
         />
       )}
@@ -127,16 +116,17 @@ function WorkflowCard({
   wf,
   rule,
   agentByKey,
+  onEdit,
   onDelete,
 }: {
   wf: Workflow;
   rule: Rule | null;
   agentByKey: Record<string, Agent>;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const run = wf.last_run;
 
-  // One box per workflow: the card IS the dotted canvas (no nested inner box).
   return (
     <div
       className="overflow-hidden rounded-xl border border-border bg-surface-subtle"
@@ -146,19 +136,25 @@ function WorkflowCard({
         backgroundSize: "15px 15px",
       }}
     >
-      {/* Header: name + delete */}
       <div className="flex items-start justify-between gap-3 px-5 pt-4">
         <p className="min-w-0 truncate text-[15px] font-medium text-ink">{wf.name}</p>
-        <button
-          onClick={onDelete}
-          aria-label={`Delete ${wf.name}`}
-          className="shrink-0 rounded-full px-2 py-1 text-[14px] text-subtle hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
-        >
-          <span aria-hidden>✕</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={onEdit}
+            className="h-7 rounded-full border border-border bg-canvas px-3 text-[12px] text-ink hover:bg-surface"
+          >
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            aria-label={`Delete ${wf.name}`}
+            className="shrink-0 rounded-full px-2 py-1 text-[14px] text-subtle hover:bg-[var(--color-danger-soft)] hover:text-[var(--color-danger)]"
+          >
+            <span aria-hidden>x</span>
+          </button>
+        </div>
       </div>
 
-      {/* Rule → agents (side fan) → verdict */}
       <div className="overflow-x-auto px-5 py-3">
         <WorkflowGraph
           rule={rule}
@@ -168,31 +164,33 @@ function WorkflowCard({
         />
       </div>
 
-      {/* Run metadata */}
       <p className="px-5 pb-4 text-[11px] text-subtle">
-        {run?.ran_at
-          ? `Last scanned ${relativeTime(run.ran_at)}`
-          : "Not run yet — press Run all."}
+        {run?.ran_at ? `Last scanned ${relativeTime(run.ran_at)}` : "Not run yet."}
       </p>
     </div>
   );
 }
 
-function CreateWorkflowModal({
+function WorkflowModal({
+  initialWorkflow,
   rules,
   agents,
   onClose,
-  onCreated,
+  onSaved,
 }: {
+  initialWorkflow?: Workflow;
   rules: Rule[];
   agents: Agent[];
   onClose: () => void;
-  onCreated: (wf: Workflow) => void;
+  onSaved: (wf: Workflow, action: "create" | "edit") => void;
 }) {
   const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [ruleId, setRuleId] = useState<string>(rules[0]?.rule_id ?? "");
-  const [keys, setKeys] = useState<Set<string>>(new Set());
+  const isEdit = Boolean(initialWorkflow);
+  const [name, setName] = useState(initialWorkflow?.name ?? "");
+  const [ruleId, setRuleId] = useState<string>(
+    initialWorkflow?.rule_id ?? rules[0]?.rule_id ?? "",
+  );
+  const [keys, setKeys] = useState<Set<string>>(new Set(initialWorkflow?.agent_keys ?? []));
   const [saving, setSaving] = useState(false);
 
   function toggle(key: string) {
@@ -207,17 +205,20 @@ function CreateWorkflowModal({
   async function save() {
     if (!name.trim() || !ruleId) return;
     setSaving(true);
-    const res = await createWorkflow({
+    const payload = {
       name: name.trim(),
       rule_id: ruleId,
       agent_keys: Array.from(keys),
-    });
+    };
+    const res = initialWorkflow
+      ? await updateWorkflow(initialWorkflow.workflow_id, payload)
+      : await createWorkflow(payload);
     setSaving(false);
     if (res.mock || !res.data) {
-      toast("Couldn't create (offline)", "error");
+      toast(initialWorkflow ? "Couldn't update (offline)" : "Couldn't create (offline)", "error");
       return;
     }
-    onCreated(res.data);
+    onSaved(res.data, initialWorkflow ? "edit" : "create");
   }
 
   return (
@@ -225,9 +226,9 @@ function CreateWorkflowModal({
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
       <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-border bg-canvas p-5 shadow-[var(--shadow-e3)]">
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-bold">Create workflow</h2>
+          <h2 className="text-[18px] font-bold">{isEdit ? "Edit workflow" : "Create workflow"}</h2>
           <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
-            <span aria-hidden>✕</span>
+            <span aria-hidden>x</span>
           </button>
         </div>
 
@@ -300,7 +301,7 @@ function CreateWorkflowModal({
             disabled={saving || !name.trim() || !ruleId}
             className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? "Saving…" : "Save workflow"}
+            {saving ? "Saving..." : isEdit ? "Save changes" : "Save workflow"}
           </button>
         </div>
       </div>

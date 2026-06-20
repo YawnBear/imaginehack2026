@@ -1,62 +1,77 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { IconClose } from "./icons";
 
-const STEPS: { title: string; body: React.ReactNode }[] = [
+const STEPS: { title: string; body: ReactNode }[] = [
   {
-    title: "A scan turns cloud events into findings",
+    title: "Configure what Safe Cloud should check",
     body: (
       <>
-        Hit <strong>Run scan</strong> in the header to ingest the latest
-        database scan sources. The deterministic rule engine detects issues (public
-        buckets, idle VMs, unused storage, unencrypted databases) and creates a
-        finding for each.
+        Use <strong>Detection Rules</strong> to define the conditions to match,
+        <strong> AI Agents</strong> to add specialist analysis, and{" "}
+        <strong>Workflows</strong> to connect a rule to the agents that should
+        review matching findings. The built-in rules and agents work for the
+        demo if you skip this setup.
       </>
     ),
   },
   {
-    title: "Open a finding to see the full picture",
+    title: "Run a scan",
     body: (
       <>
-        Each finding shows the <strong>evidence</strong>, the{" "}
-        <strong>triggering rule</strong>, the dual{" "}
-        <strong>rule-vs-AI confidence</strong>, and the{" "}
-        <strong>AI agents&apos; analysis</strong> (Security / Cost / Energy /
-        Workflow / Audit) with estimated savings and carbon avoided.
+        Press <strong>Run scan</strong> in the header to ingest the latest
+        connected scan sources and cloud events. Safe Cloud reprocesses those
+        sources through the deterministic rule engine and creates or updates
+        findings such as public buckets, idle VMs, unused storage, unencrypted
+        databases, and suspicious cloud activity.
       </>
     ),
   },
   {
-    title: "Pick your reviewer role",
+    title: "Review the findings",
     body: (
       <>
-        Use the <strong>profile menu</strong> (top-right) to choose your
-        reviewer role. You only approve what your role owns - Security signs off
-        on access, DBA on encryption, and so on.
+        Open a row from <strong>Overview</strong> or <strong>Threats</strong>.
+        The detail view shows the evidence, triggering rule, criticality score,
+        timeline, recommended action, rule confidence, AI confidence, estimated
+        savings, carbon impact, and any workflow or agent analysis.
       </>
     ),
   },
   {
-    title: "Approve, Reject, Defer or ask for more info",
+    title: "Run workflows when you want agent summaries",
     body: (
       <>
-        Record a decision with a reason. A finding clears to{" "}
-        <strong>Approved</strong> only when <strong>all</strong> required
-        reviewers approve - switch roles and approve as each to walk the
-        multi-reviewer workflow.
+        On <strong>Workflows</strong>, create a workflow by choosing a rule and
+        agent set, then press <strong>Run all</strong>. Each workflow scans the
+        latest available snapshot or ingested findings, updates its status
+        light, and writes the selected agents&apos; summary back into matching
+        recommendations.
       </>
     ),
   },
   {
-    title: "Everything is written to the Audit trail",
+    title: "Record the reviewer decision",
     body: (
       <>
-        Every scan, finding, recommendation and decision lands in the{" "}
-        <strong>Audit</strong> log with before/after state.{" "}
-        <strong>
-          Safe Cloud never executes cloud changes — humans do, after approval.
-        </strong>
+        Use the <strong>profile menu</strong> to switch to the reviewer role
+        you are representing, add a reason, then choose{" "}
+        <strong>Approve</strong>, <strong>Reject</strong>,{" "}
+        <strong>Defer</strong>, or <strong>Needs more info</strong>. A finding
+        becomes <strong>Approved</strong> only after every required reviewer
+        role has approved it.
+      </>
+    ),
+  },
+  {
+    title: "Use Audit as the handoff record",
+    body: (
+      <>
+        The <strong>Audit</strong> page records scan events, findings,
+        recommendations, and reviewer decisions with the state details captured
+        by the backend. Approval means the issue is cleared for a human team to
+        remediate; <strong>Safe Cloud does not execute cloud changes.</strong>
       </>
     ),
   },
@@ -90,8 +105,8 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
               How to use Safe Cloud
             </h2>
             <p className="mt-0.5 text-[13px] text-muted">
-              AI-assisted cloud governance - explain, recommend, and approve.
-              Humans stay in control.
+              AI-assisted cloud governance - detect, explain, recommend, and
+              record human review.
             </p>
           </div>
           <button
@@ -126,8 +141,8 @@ export default function HelpModal({ onClose }: { onClose: () => void }) {
             </svg>
             <span>
               <strong>Safety:</strong> Safe Cloud never executes any cloud change.
-              It analyses and recommends; a human approves; remediation is carried
-              out by your team - every step is auditable.
+              It analyzes and recommends; required reviewers approve; remediation
+              is carried out by your team, with decisions preserved in Audit.
             </span>
           </div>
         </div>

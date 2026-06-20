@@ -27,6 +27,12 @@ class WorkflowCreate(BaseModel):
     agent_keys: list[str] = Field(default_factory=list)
 
 
+class WorkflowUpdate(BaseModel):
+    name: str | None = None
+    rule_id: str | None = None
+    agent_keys: list[str] | None = None
+
+
 class WorkflowListResponse(BaseModel):
     items: list[Workflow]
     total: int

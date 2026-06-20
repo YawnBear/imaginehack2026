@@ -20,6 +20,7 @@ import type {
   AgentGenerateResponse,
   AgentListResponse,
   AgentStatus,
+  AgentUpdateBody,
   AuditLog,
   AuditLogsResponse,
   ClashWarning,
@@ -34,6 +35,7 @@ import type {
   RuleListResponse,
   RulePreviewResponse,
   RuleTemplate,
+  RuleUpdateBody,
   ReviewBody,
   ReviewResponse,
   ReviewerRoleOption,
@@ -42,6 +44,7 @@ import type {
   WorkflowCreateBody,
   WorkflowListResponse,
   WorkflowRunAllResponse,
+  WorkflowUpdateBody,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
@@ -331,7 +334,7 @@ export async function createRule(body: RuleCreateBody): Promise<ApiResult<Rule>>
 
 export async function updateRule(
   id: string,
-  body: Partial<RuleCreateBody> & { enabled?: boolean },
+  body: RuleUpdateBody,
 ): Promise<ApiResult<Rule | null>> {
   try {
     return ok(
@@ -407,7 +410,7 @@ export async function createAgent(body: AgentCreateBody): Promise<ApiResult<Agen
 
 export async function updateAgent(
   id: string,
-  body: Partial<AgentCreateBody> & { enabled?: boolean },
+  body: AgentUpdateBody,
 ): Promise<ApiResult<Agent | null>> {
   try {
     return ok(await tryFetch<Agent>(`/api/agents/${id}`, { method: "PATCH", body: JSON.stringify(body) }));
@@ -488,6 +491,17 @@ export async function createWorkflow(
 ): Promise<ApiResult<Workflow | null>> {
   try {
     return ok(await tryFetch<Workflow>("/api/workflows", { method: "POST", body: JSON.stringify(body) }));
+  } catch (e) {
+    return fallback(null, e);
+  }
+}
+
+export async function updateWorkflow(
+  id: string,
+  body: WorkflowUpdateBody,
+): Promise<ApiResult<Workflow | null>> {
+  try {
+    return ok(await tryFetch<Workflow>(`/api/workflows/${id}`, { method: "PATCH", body: JSON.stringify(body) }));
   } catch (e) {
     return fallback(null, e);
   }

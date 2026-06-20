@@ -271,6 +271,8 @@ export interface RuleCreateBody {
   agent_keys?: string[];
 }
 
+export type RuleUpdateBody = Partial<RuleCreateBody> & { enabled?: boolean };
+
 export interface RulePreviewResponse {
   match_count: number;
   matched_resource_ids: string[];
@@ -296,6 +298,8 @@ export interface AgentCreateBody {
   system_prompt: string;
   enabled?: boolean;
 }
+
+export type AgentUpdateBody = Partial<AgentCreateBody> & { enabled?: boolean };
 
 // ---- AI agent builder (describe in NLP -> generated system prompt) ----
 export interface AgentChatMessage {
@@ -383,6 +387,8 @@ export interface WorkflowCreateBody {
   rule_id: string;
   agent_keys: string[];
 }
+
+export type WorkflowUpdateBody = Partial<WorkflowCreateBody>;
 
 export interface WorkflowListResponse {
   items: Workflow[];

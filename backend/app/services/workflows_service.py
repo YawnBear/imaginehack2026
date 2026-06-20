@@ -14,6 +14,7 @@ from app.schemas import (
     WorkflowListResponse,
     WorkflowRun,
     WorkflowRunAllResponse,
+    WorkflowUpdate,
 )
 
 # repo_root/watch/infra-snapshot.json  (…/backend/app/services/this -> 4x up = repo root)
@@ -49,6 +50,31 @@ class WorkflowService:
         )
         self.store.workflows[wf.workflow_id] = wf
         return wf
+
+    def update(self, workflow_id: str, payload: WorkflowUpdate) -> Workflow | None:
+        wf = self.store.workflows.get(workflow_id)
+        if wf is None:
+            return None
+
+        updates = payload.model_dump(exclude_unset=True, exclude_none=True)
+        name = wf.name
+        if "name" in updates:
+            name = str(updates["name"]).strip() or "Untitled workflow"
+        rule_id = updates.get("rule_id", wf.rule_id)
+        agent_keys = list(updates["agent_keys"]) if "agent_keys" in updates else list(wf.agent_keys)
+
+        routing_changed = rule_id != wf.rule_id or agent_keys != wf.agent_keys
+        updated = Workflow.model_validate(
+            {
+                **wf.model_dump(),
+                "name": name,
+                "rule_id": rule_id,
+                "agent_keys": agent_keys,
+                "last_run": None if routing_changed else wf.last_run,
+            }
+        )
+        self.store.workflows[workflow_id] = updated
+        return updated
 
     def delete(self, workflow_id: str) -> bool:
         if workflow_id in self.store.workflows:
