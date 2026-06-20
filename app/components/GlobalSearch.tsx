@@ -80,7 +80,7 @@ export default function GlobalSearch() {
   return (
     <div ref={boxRef} className="relative mx-auto hidden w-full max-w-[520px] md:block">
       <div className="flex items-center">
-        <div className="flex h-[40px] flex-1 items-center rounded-l-full border border-[#E5E5E5] bg-white px-4">
+        <div className="flex h-[40px] flex-1 items-center rounded-l-full border border-border bg-canvas px-4">
           <input
             value={query}
             onFocus={() => setOpen(true)}
@@ -93,28 +93,28 @@ export default function GlobalSearch() {
               if (e.key === "Escape") setOpen(false);
             }}
             placeholder="Search findings, resources, projects..."
-            className="w-full bg-transparent text-[14px] text-[#0F0F0F] placeholder:text-[#909090] focus:outline-none"
+            className="w-full bg-transparent text-[14px] text-ink placeholder:text-subtle focus:outline-none"
           />
         </div>
         <button
           aria-label="Search"
           onClick={goToResults}
-          className="flex h-[40px] w-[60px] items-center justify-center rounded-r-full border border-l-0 border-[#E5E5E5] bg-[#F8F8F8] text-[#606060] hover:bg-[#F2F2F2]"
+          className="flex h-[40px] w-[60px] items-center justify-center rounded-r-full border border-l-0 border-border bg-surface-subtle text-muted hover:bg-surface"
         >
           <IconSearch width={18} height={18} />
         </button>
       </div>
 
       {open && trimmedQuery && (
-        <div className="absolute left-0 top-[46px] z-50 w-full overflow-hidden rounded-lg border border-[#E5E5E5] bg-white shadow-[var(--shadow-e2)]">
+        <div className="absolute left-0 top-[46px] z-50 w-full overflow-hidden rounded-lg border border-border bg-canvas shadow-[var(--shadow-e2)]">
           {isSearching ? (
-            <div className="px-4 py-3 text-[13px] text-[#606060]">Searching...</div>
+            <div className="px-4 py-3 text-[13px] text-muted">Searching...</div>
           ) : visibleError ? (
-            <div className="px-4 py-3 text-[13px] text-[#606060]">
+            <div className="px-4 py-3 text-[13px] text-muted">
               Search unavailable: {visibleError}
             </div>
           ) : visibleFindings.length === 0 ? (
-            <div className="px-4 py-3 text-[13px] text-[#606060]">
+            <div className="px-4 py-3 text-[13px] text-muted">
               No findings match &quot;{trimmedQuery}&quot;.
             </div>
           ) : (
@@ -128,7 +128,7 @@ export default function GlobalSearch() {
                       setOpen(false);
                       setOpenId(f.finding_id);
                     }}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#F2F2F2]"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-surface"
                   >
                     <span
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
@@ -137,10 +137,10 @@ export default function GlobalSearch() {
                       <ResourceIcon type={f.resource_type} width={16} height={16} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-[#0F0F0F]">
+                      <span className="block truncate text-[13px] font-medium text-ink">
                         {f.title ?? issueLabel(f.issue_type)}
                       </span>
-                      <span className="block truncate font-mono text-[11px] text-[#606060]">
+                      <span className="block truncate font-mono text-[11px] text-muted">
                         {f.finding_id} - {f.resource_id}
                       </span>
                     </span>
@@ -149,7 +149,7 @@ export default function GlobalSearch() {
               })}
               <button
                 onClick={goToResults}
-                className="flex w-full items-center justify-between border-t border-[#E5E5E5] px-4 py-2.5 text-[12px] font-medium text-[#065FD4] hover:bg-[#F2F2F2]"
+                className="flex w-full items-center justify-between border-t border-border px-4 py-2.5 text-[12px] font-medium text-[var(--color-link)] hover:bg-surface"
               >
                 <span>
                   See all {visibleTotal} result{visibleTotal === 1 ? "" : "s"}

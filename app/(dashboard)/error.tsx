@@ -14,7 +14,7 @@ export default function DashboardError({
       <ErrorState message={error.message || "The backend did not return live data."} />
       <button
         onClick={reset}
-        className="h-9 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black"
+        className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90"
       >
         Try again
       </button>

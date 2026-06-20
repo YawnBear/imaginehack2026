@@ -30,8 +30,8 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#606060]">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
-        <button onClick={() => setOpen(true)} className="h-9 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black">+ New Agent</button>
+        <p className="text-[13px] text-muted">{agents.length} agent{agents.length === 1 ? "" : "s"}</p>
+        <button onClick={() => setOpen(true)} className="h-9 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90">+ New Agent</button>
       </div>
       <AIAgentAssistant agents={agents} />
       <div className="space-y-3">
@@ -39,12 +39,12 @@ export default function AgentsManager({ initialAgents }: { initialAgents: Agent[
           <Card key={a.agent_id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[14px] font-medium text-[#0F0F0F]">{a.name}</p>
-                <p className="mt-1 line-clamp-2 text-[12px] text-[#606060]">{a.system_prompt}</p>
+                <p className="text-[14px] font-medium text-ink">{a.name}</p>
+                <p className="mt-1 line-clamp-2 text-[12px] text-muted">{a.system_prompt}</p>
               </div>
               <div className="flex shrink-0 gap-2">
-                <button onClick={() => toggle(a)} className={`h-7 rounded-full px-3 text-[12px] font-medium ${a.enabled ? "bg-[#E7F6EC] text-[#1f7a3d]" : "bg-[#F2F2F2] text-[#606060]"}`}>{a.enabled ? "Enabled" : "Disabled"}</button>
-                <button onClick={() => remove(a)} className="h-7 rounded-full px-3 text-[12px] text-[#FF0000] hover:bg-[#FFECEC]">Delete</button>
+                <button onClick={() => toggle(a)} className={`h-7 rounded-full px-3 text-[12px] font-medium ${a.enabled ? "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]" : "bg-surface text-muted"}`}>{a.enabled ? "Enabled" : "Disabled"}</button>
+                <button onClick={() => remove(a)} className="h-7 rounded-full px-3 text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]">Delete</button>
               </div>
             </div>
           </Card>
@@ -68,16 +68,16 @@ function AgentWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-[var(--shadow-e3)]">
-        <div className="flex items-center justify-between"><h2 className="text-[18px] font-bold">New Agent</h2><button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">✕</button></div>
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Exposure Specialist" className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]" />
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">System prompt</label>
-        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="You are a... For each finding, explain... in one or two sentences. Never invent numbers." className="mt-1 w-full resize-none rounded-lg border border-[#E5E5E5] px-3 py-2 text-[13px]" />
-        <p className="mt-1 text-[11px] text-[#909090]">The agent runs this prompt against each finding it&apos;s assigned (set assignments in Workflows). Requires an AI key to produce output.</p>
+      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-border bg-canvas p-5 shadow-[var(--shadow-e3)]">
+        <div className="flex items-center justify-between"><h2 className="text-[18px] font-bold">New Agent</h2><button onClick={onClose} className="text-muted hover:text-ink">✕</button></div>
+        <label className="mt-4 block text-[12px] font-medium text-muted">Name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Data Exposure Specialist" className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]" />
+        <label className="mt-4 block text-[12px] font-medium text-muted">System prompt</label>
+        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={6} placeholder="You are a... For each finding, explain... in one or two sentences. Never invent numbers." className="mt-1 w-full resize-none rounded-lg border border-border px-3 py-2 text-[13px]" />
+        <p className="mt-1 text-[11px] text-subtle">The agent runs this prompt against each finding it&apos;s assigned (set assignments in Workflows). Requires an AI key to produce output.</p>
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]">Cancel</button>
-          <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50">{saving ? "Saving…" : "Save agent"}</button>
+          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-surface">Cancel</button>
+          <button onClick={save} disabled={saving || !name.trim() || !prompt.trim()} className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50">{saving ? "Saving…" : "Save agent"}</button>
         </div>
       </div>
     </div>

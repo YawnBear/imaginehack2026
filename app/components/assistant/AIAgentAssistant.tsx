@@ -38,18 +38,18 @@ function getAgentState(agent: Agent, index: number): AIAgentState {
 
 function getStatusCopy(state: AIAgentState, enabled: boolean) {
   if (!enabled) {
-    return { label: "Needs attention", tone: "bg-[#FFF3E8] text-[#B86800]" };
+    return { label: "Needs attention", tone: "bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]" };
   }
 
   if (state === "scanning") {
-    return { label: "Scanning live", tone: "bg-[#ECFCFF] text-[#127D98]" };
+    return { label: "Scanning live", tone: "bg-[var(--color-agent-ice)] text-[var(--color-agent-blue)]" };
   }
 
   if (state === "success") {
-    return { label: "Healthy", tone: "bg-[#EAF9EE] text-[#1D7A2E]" };
+    return { label: "Healthy", tone: "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]" };
   }
 
-  return { label: "Idle watch", tone: "bg-[#F3FAFE] text-[#2B8AB8]" };
+  return { label: "Idle watch", tone: "bg-[var(--color-agent-surface)] text-[var(--color-agent-blue)]" };
 }
 
 const AGENT_COLORS: AIAgentColor[] = ["yellow", "orange", "pink", "blue", "green"];
@@ -60,17 +60,17 @@ export default function AIAgentAssistant({ agents }: AIAgentAssistantProps) {
       className="w-full"
       aria-label="SafeCloud agent mascot status"
     >
-      <div className="rounded-2xl border border-[#D8EBF5] bg-[linear-gradient(180deg,rgba(248,253,255,0.98)_0%,rgba(236,247,252,0.94)_100%)] p-4 shadow-[0_10px_30px_rgba(8,42,67,0.10)] sm:p-5">
+      <div className="rounded-2xl border border-[var(--color-agent-border)] gg-agent-panel p-4 shadow-agent sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#2B8AB8]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-agent-blue)]">
               Agent Fleet
             </p>
-            <p className="mt-1 text-[13px] leading-5 text-[#355769]">
+            <p className="mt-1 text-[13px] leading-5 text-[var(--color-agent-muted)]">
               A playful face for each agent, with motion driven by live status.
             </p>
           </div>
-          <span className="rounded-full bg-white/80 px-3 py-1 text-[12px] font-medium text-[#123247]">
+          <span className="rounded-full bg-canvas/80 px-3 py-1 text-[12px] font-medium text-[var(--color-agent-ink)]">
             {agents.length} total
           </span>
         </div>
@@ -84,13 +84,13 @@ export default function AIAgentAssistant({ agents }: AIAgentAssistantProps) {
             return (
               <div
                 key={agent.agent_id}
-                className="flex min-w-0 flex-col items-center rounded-2xl bg-white/55 px-2 py-3"
+                className="flex min-w-0 flex-col items-center rounded-2xl bg-canvas/55 px-2 py-3"
                 aria-label={`${agent.name}: ${status.label}`}
               >
-                <div className="rounded-full border border-white/80 bg-transparent shadow-[0_8px_20px_rgba(8,42,67,0.12)]">
+                <div className="rounded-full border border-on-accent/80 bg-transparent shadow-agent">
                   <AIAgentMascot state={state} collapsed color={color} />
                 </div>
-                <p className="mt-2 clamp-1 max-w-[96px] text-center text-[12px] font-semibold text-[#0F2230]">
+                <p className="mt-2 clamp-1 max-w-[96px] text-center text-[12px] font-semibold text-[var(--color-agent-navy)]">
                   {agent.name}
                 </p>
                 <div className="mt-2 flex justify-center">

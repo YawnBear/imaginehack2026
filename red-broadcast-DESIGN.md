@@ -3,6 +3,13 @@
 ## Overview
 A content-first design system engineered for video consumption at scale. Red Broadcast uses a signature red accent sparingly against clean white and dark surfaces, letting video thumbnails dominate the visual landscape. The aesthetic is efficient and grid-driven — designed for rapid scanning across thousands of videos while maintaining a consistent, recognizable framework that works from mobile to living room screens.
 
+## Implementation Contract
+- This document is the design source of truth for every Safe Cloud interface component.
+- `app/red-broadcast-tokens.css` is its executable token mapping for Tailwind CSS.
+- Component and page files must consume semantic tokens such as `canvas`, `surface`, `ink`, `muted`, `border`, `action`, `success`, `warning`, `danger`, and `link` rather than declaring palette values.
+- Light and dark themes override the same semantic token names; components must not contain theme-specific color branches.
+- Illustration-only colors are namespaced as `agent-*` tokens and remain centralized in the executable token file.
+
 ## Colors
 - **Primary** (#FF0000): Subscribe button, live badges, progress bars — Broadcast Red
 - **Primary Hover** (#CC0000): Hover state for red interactive elements

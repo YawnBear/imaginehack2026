@@ -23,7 +23,7 @@ export function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => 
   return (
     <button
       onClick={() => onOpen(f.finding_id)}
-      className="group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#F2F2F2]"
+      className="group flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left transition-colors hover:bg-surface"
     >
       {/* severity / resource block (stands in for the thumbnail) */}
       <span
@@ -39,15 +39,15 @@ export function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => 
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <SeverityBadge severity={f.severity} />
-          <span className="text-[11px] text-[#606060]">{f.finding_id}</span>
+          <span className="text-[11px] text-muted">{f.finding_id}</span>
         </span>
-        <span className="clamp-2 mt-1 block text-[14px] font-medium leading-snug text-[#0F0F0F]">
+        <span className="clamp-2 mt-1 block text-[14px] font-medium leading-snug text-ink">
           {f.title ?? issueLabel(f.issue_type)}
         </span>
-        <span className="clamp-1 mt-0.5 block font-mono text-[12px] text-[#606060]">
+        <span className="clamp-1 mt-0.5 block font-mono text-[12px] text-muted">
           {f.resource_id}
         </span>
-        <span className="mt-1 block text-[12px] text-[#606060]">
+        <span className="mt-1 block text-[12px] text-muted">
           {CATEGORY_LABEL[f.category]} · {f.owner_team ?? "Unassigned"} ·{" "}
           {relativeTime(f.created_at)}
         </span>
@@ -55,14 +55,14 @@ export function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => 
 
       <span className="hidden shrink-0 flex-col items-end gap-1.5 sm:flex">
         <StatusBadge status={f.status} />
-        <span className="text-[11px] text-[#606060]">
+        <span className="text-[11px] text-muted">
           {f.required_reviewers.length} reviewer{f.required_reviewers.length === 1 ? "" : "s"}
         </span>
       </span>
       <IconChevron
         width={20}
         height={20}
-        className="shrink-0 text-[#909090] transition-transform group-hover:translate-x-0.5"
+        className="shrink-0 text-subtle transition-transform group-hover:translate-x-0.5"
       />
     </button>
   );
@@ -116,8 +116,8 @@ function Chip({
       onClick={onClick}
       className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
         selected
-          ? "bg-[#0F0F0F] text-white"
-          : "bg-[#F2F2F2] text-[#0F0F0F] hover:bg-[#E5E5E5]"
+          ? "bg-action text-on-action"
+          : "bg-surface text-ink hover:bg-surface-hover"
       }`}
     >
       {label}
@@ -156,13 +156,13 @@ export default function FindingsExplorer({
         active={active}
         onChange={(k, v) => setActive((a) => ({ ...a, [k]: v }))}
       />
-      <p className="text-[12px] text-[#606060]">
+      <p className="text-[12px] text-muted">
         {filtered.length} of {findings.length} findings
       </p>
       {filtered.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="divide-y divide-[#F2F2F2] bg-white p-1.5">
+        <div className="divide-y divide-border bg-canvas p-1.5">
           {filtered.map((f) => (
             <FindingRow key={f.finding_id} f={f} onOpen={setOpenId} />
           ))}
@@ -179,7 +179,7 @@ export function CompactFindingList({ findings }: { findings: Finding[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
   return (
     <>
-      <div className="divide-y divide-[#F2F2F2]">
+      <div className="divide-y divide-border">
         {findings.map((f) => (
           <FindingRow key={f.finding_id} f={f} onOpen={setOpenId} />
         ))}

@@ -2,7 +2,6 @@ import { getSummary, getFindings } from "@/app/lib/api";
 import { PageHeader, MetricCard } from "@/app/components/layout-bits";
 import { Card, SectionTitle, MockBanner, EstimateNote, SafetyBanner } from "@/app/components/ui";
 import { DonutChart, BarChart, type Slice } from "@/app/components/charts";
-import CarbonCounter from "@/app/components/CarbonCounter";
 import { CompactFindingList } from "@/app/components/FindingsExplorer";
 import { rm, kg, relativeTime, SEVERITY_COLOR, CATEGORY_COLOR } from "@/app/lib/format";
 import {
@@ -29,7 +28,7 @@ export default async function OverviewPage() {
     ([k, v]) => ({
       label: k,
       value: v,
-      color: CATEGORY_COLOR[k as Category] ?? "#606060",
+      color: CATEGORY_COLOR[k as Category] ?? "var(--color-muted)",
     }),
   );
   const severityOrder: Severity[] = ["critical", "high", "medium", "low"];
@@ -53,7 +52,7 @@ export default async function OverviewPage() {
         title="Overview"
         subtitle="AI-assisted cloud governance for your construction cloud estate — explainable findings, estimated savings, human-approved remediation."
         right={
-          <span className="hidden items-center gap-1.5 rounded-full border border-[#E5E5E5] px-3 py-1.5 text-[12px] text-[#606060] sm:flex">
+          <span className="hidden items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[12px] text-muted sm:flex">
             <IconClock width={14} height={14} /> Latest scan{" "}
             {s.latest_scan_at ? relativeTime(s.latest_scan_at) : "—"}
           </span>
@@ -61,12 +60,6 @@ export default async function OverviewPage() {
       />
 
       {usingMock && <MockBanner reason={summaryRes.error} />}
-
-      {/* Carbon counter — the signature moment */}
-      <CarbonCounter
-        monthlyCarbonKg={s.estimated_carbon_reduction_kg}
-        monthlySavingsRm={s.estimated_monthly_savings}
-      />
 
       {/* Metric cards */}
       <section>
@@ -81,42 +74,42 @@ export default async function OverviewPage() {
             label="CRITICAL"
             value={String(s.critical_findings)}
             sub="needs immediate review"
-            accent="#FF0000"
+            accent="var(--color-danger)"
             icon={<IconSecurity width={16} height={16} />}
           />
           <MetricCard
             label="PENDING APPROVALS"
             value={String(s.pending_approvals)}
             sub="awaiting human sign-off"
-            accent="#FB8C00"
+            accent="var(--color-warning)"
             icon={<IconClock width={16} height={16} />}
           />
           <MetricCard
             label="APPROVED ACTIONS"
             value={String(s.approved_actions)}
             sub="cleared for remediation"
-            accent="#2BA640"
+            accent="var(--color-success)"
             icon={<IconCheck width={16} height={16} />}
           />
           <MetricCard
             label="EST. MONTHLY SAVINGS"
             value={rm(s.estimated_monthly_savings)}
             sub="across approved + pending"
-            accent="#065FD4"
+            accent="var(--color-link)"
             icon={<IconCost width={16} height={16} />}
           />
           <MetricCard
             label="EST. CARBON REDUCTION"
             value={kg(s.estimated_carbon_reduction_kg)}
             sub="CO₂e per month (estimate)"
-            accent="#2BA640"
+            accent="var(--color-success)"
             icon={<IconLeaf width={16} height={16} />}
           />
           <MetricCard
             label="SECURITY FINDINGS"
             value={String(s.findings_by_category.security ?? 0)}
             sub="public buckets, unencrypted DBs"
-            accent="#FF0000"
+            accent="var(--color-danger)"
           />
           <MetricCard
             label="COST + ENERGY"
@@ -124,7 +117,7 @@ export default async function OverviewPage() {
               (s.findings_by_category.cost ?? 0) + (s.findings_by_category.energy ?? 0),
             )}
             sub="idle / oversized / unused"
-            accent="#065FD4"
+            accent="var(--color-link)"
           />
         </div>
       </section>
@@ -155,9 +148,9 @@ export default async function OverviewPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <SectionTitle>Recent critical findings</SectionTitle>
-          <span className="text-[12px] text-[#606060]">click any finding to review</span>
+          <span className="text-[12px] text-muted">click any finding to review</span>
         </div>
-        <div className="bg-white p-1.5">
+        <div className="bg-canvas p-1.5">
           <CompactFindingList findings={criticalFindings} />
         </div>
       </section>

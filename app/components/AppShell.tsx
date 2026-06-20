@@ -36,14 +36,14 @@ const NAV = [
 function BrandMark() {
   return (
     <span className="flex items-center gap-2">
-      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#FF0000]">
-        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-danger)]">
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="var(--color-on-accent)" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
           <path d="M9 12l2 2 4-4" />
         </svg>
       </span>
-      <span className="text-[16px] font-bold tracking-tight text-[#0F0F0F]">
-        Safe <span className="font-medium text-[#606060]">Cloud</span>
+      <span className="text-[16px] font-bold tracking-tight text-ink">
+        Safe <span className="font-medium text-muted">Cloud</span>
       </span>
     </span>
   );
@@ -102,13 +102,13 @@ export default function AppShell({
   }
 
   return (
-    <div className="min-h-full bg-white text-[#0F0F0F]">
+    <div className="min-h-full bg-canvas text-ink">
       {/* Top bar */}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[#E5E5E5] bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:px-4">
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-canvas px-3 shadow-e1 sm:px-4">
         <button
           aria-label="Toggle menu"
           onClick={toggleMenu}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[#606060] hover:bg-[#F2F2F2]"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-surface"
         >
           <IconMenu />
         </button>
@@ -126,16 +126,16 @@ export default function AppShell({
             onClick={handleRunScan}
             disabled={scanning}
             title="Re-scan: ingest cloud events and detect findings"
-            className="flex h-9 items-center gap-1.5 rounded-full bg-[#0F0F0F] px-3 text-[13px] font-medium text-white hover:bg-black disabled:opacity-60 sm:px-4"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-action px-3 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-60 sm:px-4"
           >
             <span
-              className={`h-2 w-2 rounded-full bg-[#2BA640] ${scanning ? "gg-pulse" : ""}`}
+              className={`h-2 w-2 rounded-full bg-[var(--color-success)] ${scanning ? "gg-pulse" : ""}`}
             />
             <span className="hidden sm:inline">{scanning ? "Scanning..." : "Run scan"}</span>
             <span className="sm:hidden">{scanning ? "..." : "Scan"}</span>
           </button>
 
-          <span className="hidden items-center gap-1.5 text-[12px] text-[#606060] lg:flex">
+          <span className="hidden items-center gap-1.5 text-[12px] text-muted lg:flex">
             Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "-"}
           </span>
 
@@ -162,7 +162,7 @@ export default function AppShell({
       <div className="flex">
         {/* Sidebar (desktop) */}
         <aside
-          className={`sticky top-14 hidden h-[calc(100vh-56px)] shrink-0 border-r border-[#E5E5E5] bg-white py-3 lg:block ${sidebarWidth} transition-[width] duration-200`}
+          className={`sticky top-14 hidden h-[calc(100vh-56px)] shrink-0 border-r border-border bg-canvas py-3 lg:block ${sidebarWidth} transition-[width] duration-200`}
         >
           <nav className="flex flex-col gap-0.5 px-2">
             {NAV.map((item) => {
@@ -175,28 +175,20 @@ export default function AppShell({
                   title={item.label}
                   className={`flex items-center gap-4 rounded-lg px-3 py-2.5 text-[14px] ${
                     active
-                      ? "bg-[#F2F2F2] font-bold text-[#0F0F0F]"
-                      : "font-normal text-[#0F0F0F] hover:bg-[#F2F2F2]"
+                      ? "bg-surface font-bold text-ink"
+                      : "font-normal text-ink hover:bg-surface"
                   } ${collapsed ? "justify-center px-0" : ""}`}
                 >
                   <Icon
                     width={22}
                     height={22}
-                    style={{ color: active ? "#0F0F0F" : "#606060" }}
+                    style={{ color: active ? "var(--color-ink)" : "var(--color-muted)" }}
                   />
                   {!collapsed && <span>{item.label}</span>}
                 </Link>
               );
             })}
           </nav>
-          {!collapsed && (
-            <div className="mx-3 mt-4 rounded-lg border border-[#E5E5E5] bg-[#F8F8F8] p-3">
-              <p className="text-[12px] font-medium text-[#0F0F0F]">Hilti track</p>
-              <p className="mt-1 text-[11px] leading-snug text-[#606060]">
-                Secure &amp; Energy-Aware Cloud Platforms for Construction Tech.
-              </p>
-            </div>
-          )}
         </aside>
 
         {/* Mobile drawer */}
@@ -206,7 +198,7 @@ export default function AppShell({
               className="absolute inset-0 gg-scrim"
               onClick={() => setMobileOpen(false)}
             />
-            <aside className="absolute left-0 top-0 h-full w-[240px] bg-white py-3 shadow-[var(--shadow-e3)]">
+            <aside className="absolute left-0 top-0 h-full w-[240px] bg-canvas py-3 shadow-[var(--shadow-e3)]">
               <div className="px-4 pb-3">
                 <BrandMark />
               </div>
@@ -221,11 +213,11 @@ export default function AppShell({
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-4 rounded-lg px-3 py-2.5 text-[14px] ${
                         active
-                          ? "bg-[#F2F2F2] font-bold"
-                          : "hover:bg-[#F2F2F2]"
+                          ? "bg-surface font-bold"
+                          : "hover:bg-surface"
                       }`}
                     >
-                      <Icon width={22} height={22} style={{ color: active ? "#0F0F0F" : "#606060" }} />
+                      <Icon width={22} height={22} style={{ color: active ? "var(--color-ink)" : "var(--color-muted)" }} />
                       {item.label}
                     </Link>
                   );

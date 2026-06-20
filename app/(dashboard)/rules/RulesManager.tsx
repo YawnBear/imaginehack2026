@@ -47,7 +47,7 @@ export default function RulesManager({
   return (
     <div className="space-y-4">
       {clashes.length > 0 && (
-        <div className="rounded-lg border border-[#FB8C00] bg-[#FFF7EC] p-3 text-[13px] text-[#8a5200]">
+        <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-tint)] p-3 text-[13px] text-[var(--color-warning-strong)]">
           <p className="font-medium">⚠ {clashes.length} rule clash{clashes.length === 1 ? "" : "es"} detected</p>
           <ul className="mt-1 list-disc pl-5">
             {clashes.map((c, i) => (
@@ -58,39 +58,39 @@ export default function RulesManager({
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#606060]">{rules.length} rule{rules.length === 1 ? "" : "s"}</p>
+        <p className="text-[13px] text-muted">{rules.length} rule{rules.length === 1 ? "" : "s"}</p>
         <button
           onClick={() => setWizardOpen(true)}
-          className="flex h-9 items-center gap-1.5 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black"
+          className="flex h-9 items-center gap-1.5 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90"
         >
           + New Rule
         </button>
       </div>
 
       <Card>
-        <div className="divide-y divide-[#E5E5E5]">
+        <div className="divide-y divide-border">
           {rules.map((rule) => (
             <div key={rule.rule_id} className="flex items-center gap-3 py-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-[14px] font-medium text-[#0F0F0F]">{rule.name}</span>
+                  <span className="truncate text-[14px] font-medium text-ink">{rule.name}</span>
                   <SeverityBadge severity={rule.severity_base} />
                   <Pill>{rule.resource_type ?? "any"}</Pill>
                   {rule.remediation_destructive && <Pill>destructive</Pill>}
                 </div>
-                <p className="mt-0.5 truncate text-[12px] text-[#606060]">
+                <p className="mt-0.5 truncate text-[12px] text-muted">
                   {rule.conditions.map((c) => `${c.field} ${c.operator} ${formatVal(c.value)}`).join(" AND ") || "no conditions"}
                 </p>
               </div>
               <button
                 onClick={() => toggle(rule)}
-                className={`h-7 rounded-full px-3 text-[12px] font-medium ${rule.enabled ? "bg-[#E7F6EC] text-[#1f7a3d]" : "bg-[#F2F2F2] text-[#606060]"}`}
+                className={`h-7 rounded-full px-3 text-[12px] font-medium ${rule.enabled ? "bg-[var(--color-success-soft)] text-[var(--color-success-strong)]" : "bg-surface text-muted"}`}
               >
                 {rule.enabled ? "Enabled" : "Disabled"}
               </button>
               <button
                 onClick={() => remove(rule)}
-                className="h-7 rounded-full px-3 text-[12px] text-[#FF0000] hover:bg-[#FFECEC]"
+                className="h-7 rounded-full px-3 text-[12px] text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)]"
               >
                 Delete
               </button>
@@ -167,25 +167,25 @@ function RuleWizard({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 gg-scrim" onClick={onClose} />
-      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-[#E5E5E5] bg-white p-5 shadow-[var(--shadow-e3)]">
+      <div className="gg-fade-up relative z-10 w-full max-w-[560px] rounded-xl border border-border bg-canvas p-5 shadow-[var(--shadow-e3)]">
         <div className="flex items-center justify-between">
           <h2 className="text-[18px] font-bold">New Rule</h2>
-          <button onClick={onClose} className="text-[#606060] hover:text-[#0F0F0F]">✕</button>
+          <button onClick={onClose} className="text-muted hover:text-ink">✕</button>
         </div>
 
-        <label className="mt-4 block text-[12px] font-medium text-[#606060]">Rule name</label>
+        <label className="mt-4 block text-[12px] font-medium text-muted">Rule name</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Idle Prod VM"
-          className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]"
+          className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]"
         />
 
         <div className="mt-4 flex items-center justify-between">
-          <label className="text-[12px] font-medium text-[#606060]">Conditions</label>
+          <label className="text-[12px] font-medium text-muted">Conditions</label>
           <button
             onClick={() => setConditions((cs) => [...cs, { field: "", operator: "==", value: "" }])}
-            className="text-[12px] text-[#065FD4]"
+            className="text-[12px] text-[var(--color-link)]"
           >
             + condition
           </button>
@@ -197,12 +197,12 @@ function RuleWizard({
                 value={c.field}
                 onChange={(e) => setCond(i, { field: e.target.value })}
                 placeholder="config.public_access"
-                className="flex-1 rounded-lg border border-[#E5E5E5] px-2 py-1.5 text-[13px]"
+                className="flex-1 rounded-lg border border-border px-2 py-1.5 text-[13px]"
               />
               <select
                 value={c.operator}
                 onChange={(e) => setCond(i, { operator: e.target.value as ConditionOperator })}
-                className="rounded-lg border border-[#E5E5E5] px-2 py-1.5 text-[13px]"
+                className="rounded-lg border border-border px-2 py-1.5 text-[13px]"
               >
                 {OPERATORS.map((op) => <option key={op} value={op}>{op}</option>)}
               </select>
@@ -210,33 +210,33 @@ function RuleWizard({
                 value={c.value === undefined || c.value === null ? "" : String(c.value)}
                 onChange={(e) => setCond(i, { value: e.target.value })}
                 placeholder="value"
-                className="w-24 rounded-lg border border-[#E5E5E5] px-2 py-1.5 text-[13px]"
+                className="w-24 rounded-lg border border-border px-2 py-1.5 text-[13px]"
               />
               <button
                 onClick={() => setConditions((cs) => cs.filter((_, idx) => idx !== i))}
-                className="px-1 text-[#FF0000]"
+                className="px-1 text-[var(--color-danger)]"
               >✕</button>
             </div>
           ))}
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <button onClick={runPreview} className="h-9 rounded-full border border-[#E5E5E5] px-4 text-[13px] hover:bg-[#F2F2F2]">
+          <button onClick={runPreview} className="h-9 rounded-full border border-border px-4 text-[13px] hover:bg-surface">
             Preview matches
           </button>
           {preview !== null && (
-            <span className="text-[13px] text-[#606060]">
-              Matches <span className="font-bold text-[#0F0F0F]">{preview}</span> resource{preview === 1 ? "" : "s"} right now
+            <span className="text-[13px] text-muted">
+              Matches <span className="font-bold text-ink">{preview}</span> resource{preview === 1 ? "" : "s"} right now
             </span>
           )}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]">Cancel</button>
+          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-surface">Cancel</button>
           <button
             onClick={save}
             disabled={saving || !name.trim()}
-            className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50"
+            className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save rule"}
           </button>

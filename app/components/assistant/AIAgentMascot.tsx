@@ -10,11 +10,11 @@ type AIAgentMascotProps = {
 };
 
 const FACE_THEME: Record<AIAgentColor, { body: string; blush: string }> = {
-  yellow: { body: "#FFD91F", blush: "#FFF2A0" },
-  orange: { body: "#FF5A0B", blush: "#FFC3A9" },
-  pink: { body: "#F58CC7", blush: "#FFD2EB" },
-  blue: { body: "#46ACEA", blush: "#CBEFFE" },
-  green: { body: "#16A96F", blush: "#A6EACD" },
+  yellow: { body: "var(--color-agent-yellow)", blush: "var(--color-agent-yellow-soft)" },
+  orange: { body: "var(--color-agent-orange)", blush: "var(--color-agent-orange-soft)" },
+  pink: { body: "var(--color-agent-pink)", blush: "var(--color-agent-pink-soft)" },
+  blue: { body: "var(--color-agent-blue-bright)", blush: "var(--color-agent-blue-soft)" },
+  green: { body: "var(--color-agent-green)", blush: "var(--color-agent-green-soft)" },
 };
 
 const EYE_BY_STATE: Record<AIAgentState, { left: string; right: string }> = {
@@ -71,7 +71,7 @@ export default function AIAgentMascot({
           cx="140"
           cy="140"
           r="108"
-          fill="#7EDCFF"
+          fill="var(--color-agent-cyan)"
           opacity={state === "scanning" ? 0.18 : 0.08}
           className={state === "scanning" ? "gg-agent-glow" : ""}
         />
@@ -79,7 +79,7 @@ export default function AIAgentMascot({
           cx="140"
           cy="140"
           r="98"
-          stroke="#8CE8FF"
+          stroke="var(--color-agent-cyan-light)"
           strokeWidth="7"
           strokeDasharray="16 16"
           opacity="var(--agent-ring-opacity)"
@@ -91,7 +91,7 @@ export default function AIAgentMascot({
 
         <path
           d={eye.left}
-          stroke="#F7F8FB"
+          stroke="var(--color-agent-surface)"
           strokeWidth="9"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -99,7 +99,7 @@ export default function AIAgentMascot({
         />
         <path
           d={eye.right}
-          stroke="#F7F8FB"
+          stroke="var(--color-agent-surface)"
           strokeWidth="9"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -108,28 +108,28 @@ export default function AIAgentMascot({
 
         {state !== "alert" && (
           <>
-            <circle cx="106" cy="112" r="6" fill="#172028" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
-            <circle cx="174" cy="112" r="6" fill="#172028" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
+            <circle cx="106" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
+            <circle cx="174" cy="112" r="6" fill="var(--color-agent-dark)" className={state === "scanning" ? "gg-agent-eye-scan" : ""} />
           </>
         )}
 
         <path
           d={MOUTH_BY_STATE[state]}
-          stroke="#1B2027"
+          stroke="var(--color-agent-shell)"
           strokeWidth="8"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
         <g opacity="var(--agent-alert-opacity)">
-          <circle cx="208" cy="84" r="23" fill="#FFF3E8" stroke="#FB8C00" strokeWidth="5" />
-          <path d="M208 72v14" stroke="#FB8C00" strokeWidth="7" strokeLinecap="round" />
-          <circle cx="208" cy="96" r="4.5" fill="#FB8C00" />
+          <circle cx="208" cy="84" r="23" fill="var(--color-warning-soft)" stroke="var(--color-warning)" strokeWidth="5" />
+          <path d="M208 72v14" stroke="var(--color-warning)" strokeWidth="7" strokeLinecap="round" />
+          <circle cx="208" cy="96" r="4.5" fill="var(--color-warning)" />
         </g>
 
         <g opacity="var(--agent-success-opacity)">
-          <circle cx="76" cy="82" r="18" fill="#EAF9EE" stroke="#2BA640" strokeWidth="4" />
-          <path d="M68 82l6 6 11-12" stroke="#2BA640" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="76" cy="82" r="18" fill="var(--color-success-soft)" stroke="var(--color-success)" strokeWidth="4" />
+          <path d="M68 82l6 6 11-12" stroke="var(--color-success)" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
         </g>
       </svg>
     </div>

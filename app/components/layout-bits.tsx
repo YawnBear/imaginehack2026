@@ -12,8 +12,8 @@ export function PageHeader({
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-[24px] font-bold leading-tight text-[#0F0F0F]">{title}</h1>
-        {subtitle && <p className="mt-1 text-[14px] text-[#606060]">{subtitle}</p>}
+        <h1 className="text-[24px] font-bold leading-tight text-ink">{title}</h1>
+        {subtitle && <p className="mt-1 text-[14px] text-muted">{subtitle}</p>}
       </div>
       {right && <div className="flex items-center gap-2">{right}</div>}
     </div>
@@ -24,7 +24,7 @@ export function MetricCard({
   label,
   value,
   sub,
-  accent = "#0F0F0F",
+  accent = "var(--color-ink)",
   icon,
 }: {
   label: string;
@@ -34,9 +34,9 @@ export function MetricCard({
   icon?: ReactNode;
 }) {
   return (
-    <div className="group rounded-xl bg-[#F8F8F8] p-4 transition-colors hover:bg-[#F2F2F2]">
+    <div className="group rounded-xl bg-surface-subtle p-4 transition-colors hover:bg-surface">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-medium tracking-label text-[#606060]">
+        <span className="text-[12px] font-medium tracking-label text-muted">
           {label}
         </span>
         {icon && (
@@ -51,7 +51,7 @@ export function MetricCard({
       <p className="mt-2 text-[28px] font-bold leading-none tabular-nums" style={{ color: accent }}>
         {value}
       </p>
-      {sub && <p className="mt-1.5 text-[12px] text-[#606060]">{sub}</p>}
+      {sub && <p className="mt-1.5 text-[12px] text-muted">{sub}</p>}
     </div>
   );
 }
