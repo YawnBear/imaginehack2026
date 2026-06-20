@@ -150,3 +150,99 @@ export interface ReviewBody {
   reviewer_role: string;
   reason: string;
 }
+
+// ---- Custom Rules (SafeCloud Phase 1) ----
+export type ConditionOperator =
+  | "=="
+  | "!="
+  | "<"
+  | "<="
+  | ">"
+  | ">="
+  | "in"
+  | "not_in"
+  | "exists"
+  | "contains";
+
+export type RuleMode = "monitor" | "manual" | "auto";
+
+export interface RuleCondition {
+  field: string;
+  operator: ConditionOperator;
+  value?: unknown;
+}
+
+export interface Rule {
+  rule_id: string;
+  name: string;
+  enabled: boolean;
+  template_key: string;
+  resource_type: ResourceType;
+  conditions: RuleCondition[];
+  severity_base: Severity;
+  escalate_in_prod: boolean;
+  rule_confidence: number;
+  category: Category;
+  issue_type: string;
+  required_reviewers: string[];
+  evidence_fields: string[];
+  remediation_action_key: string;
+  remediation_destructive: boolean;
+  mode: RuleMode;
+  auto_threshold: number | null;
+  created_at: string;
+}
+
+export interface RuleListResponse {
+  items: Rule[];
+  total: number;
+}
+
+export interface RuleTemplate {
+  template_key: string;
+  name: string;
+  description: string;
+  resource_type: ResourceType;
+  conditions: RuleCondition[];
+  severity_base: Severity;
+  escalate_in_prod: boolean;
+  rule_confidence: number;
+  category: Category;
+  issue_type: string;
+  required_reviewers: string[];
+  evidence_fields: string[];
+  remediation_action_key: string;
+  remediation_destructive: boolean;
+}
+
+export interface ClashWarning {
+  rule_id_a: string;
+  rule_id_b: string;
+  resource_type: string;
+  field: string;
+  message: string;
+}
+
+export interface RuleCreateBody {
+  name: string;
+  resource_type: ResourceType;
+  issue_type: string;
+  category: Category;
+  conditions: RuleCondition[];
+  enabled?: boolean;
+  template_key?: string;
+  severity_base?: Severity;
+  escalate_in_prod?: boolean;
+  rule_confidence?: number;
+  required_reviewers?: string[];
+  evidence_fields?: string[];
+  remediation_action_key?: string;
+  remediation_destructive?: boolean;
+  mode?: RuleMode;
+  auto_threshold?: number | null;
+}
+
+export interface RulePreviewResponse {
+  match_count: number;
+  matched_resource_ids: string[];
+}

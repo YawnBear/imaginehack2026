@@ -7,6 +7,8 @@
 import {
   MOCK_AUDIT_LOGS,
   MOCK_FINDINGS,
+  MOCK_RULE_TEMPLATES,
+  MOCK_RULES,
   MOCK_SUMMARY,
   mockFindingDetail,
 } from "./mockData";
@@ -14,11 +16,17 @@ import { buildScanEvents } from "./scanEvents";
 import type {
   AuditLog,
   AuditLogsResponse,
+  ClashWarning,
   DashboardSummary,
   Finding,
   FindingDetail,
   FindingsQuery,
   FindingsResponse,
+  Rule,
+  RuleCreateBody,
+  RuleListResponse,
+  RulePreviewResponse,
+  RuleTemplate,
   ReviewBody,
   ReviewResponse,
 } from "./types";
@@ -194,6 +202,105 @@ export async function getAuditLogs(): Promise<ApiResult<AuditLog[]>> {
   } catch (e) {
     return fallback(MOCK_AUDIT_LOGS, e);
   }
+}
+
+// ---- Rules (SafeCloud Phase 1) ----
+
+export async function getRules(): Promise<ApiResult<RuleListResponse>> {
+  try {
+    return ok(await tryFetch<RuleListResponse>("/api/rules"));
+  } catch (e) {
+    return fallback({ items: MOCK_RULES, total: MOCK_RULES.length }, e);
+  }
+}
+
+export async function getRuleTemplates(): Promise<ApiResult<RuleTemplate[]>> {
+  try {
+    return ok(await tryFetch<RuleTemplate[]>("/api/rules/templates"));
+  } catch (e) {
+    return fallback(MOCK_RULE_TEMPLATES, e);
+  }
+}
+
+export async function getClashes(): Promise<ApiResult<ClashWarning[]>> {
+  try {
+    return ok(await tryFetch<ClashWarning[]>("/api/rules/clashes"));
+  } catch (e) {
+    return fallback([], e);
+  }
+}
+
+export async function createRule(body: RuleCreateBody): Promise<ApiResult<Rule>> {
+  try {
+    return ok(
+      await tryFetch<Rule>("/api/rules", { method: "POST", body: JSON.stringify(body) }),
+    );
+  } catch (e) {
+    // Mock mode: echo a fake created rule so the UI can optimistically render.
+    return fallback(
+      {
+        ...body,
+        rule_id: `rule-mock-${Math.abs(hashString(body.name))}`,
+        enabled: body.enabled ?? true,
+        template_key: body.template_key ?? "custom",
+        severity_base: body.severity_base ?? "medium",
+        escalate_in_prod: body.escalate_in_prod ?? false,
+        rule_confidence: body.rule_confidence ?? 0.8,
+        required_reviewers: body.required_reviewers ?? [],
+        evidence_fields: body.evidence_fields ?? [],
+        remediation_action_key: body.remediation_action_key ?? "tag_resource",
+        remediation_destructive: body.remediation_destructive ?? false,
+        mode: body.mode ?? "manual",
+        auto_threshold: body.auto_threshold ?? null,
+        created_at: new Date().toISOString(),
+      } as Rule,
+      e,
+    );
+  }
+}
+
+export async function updateRule(
+  id: string,
+  body: Partial<RuleCreateBody> & { enabled?: boolean },
+): Promise<ApiResult<Rule | null>> {
+  try {
+    return ok(
+      await tryFetch<Rule>(`/api/rules/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    );
+  } catch (e) {
+    return fallback(null, e);
+  }
+}
+
+export async function deleteRule(id: string): Promise<ApiResult<boolean>> {
+  try {
+    await tryFetch<unknown>(`/api/rules/${id}`, { method: "DELETE" });
+    return ok(true);
+  } catch (e) {
+    return fallback(false, e);
+  }
+}
+
+export async function previewRule(body: {
+  resource_type: string;
+  conditions: { field: string; operator: string; value?: unknown }[];
+}): Promise<ApiResult<RulePreviewResponse>> {
+  try {
+    return ok(
+      await tryFetch<RulePreviewResponse>("/api/rules/preview", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch (e) {
+    return fallback({ match_count: 0, matched_resource_ids: [] }, e);
+  }
+}
+
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h;
 }
 
 export const apiBaseConfigured = Boolean(BASE_URL);
