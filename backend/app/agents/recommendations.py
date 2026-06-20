@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.schemas import Finding, Recommendation
@@ -18,7 +17,7 @@ def build_recommendation(finding: Finding) -> Recommendation:
         recommendation_id=f"rec-{uuid4().hex[:10]}",
         finding_id=finding.finding_id,
         confidence=payload.pop("confidence"),
-        agent_outputs=payload.pop("agent_outputs"),
+        agent_outputs=payload.pop("agent_outputs", {}),
         safe_to_execute=False,
         **payload,
     )
@@ -32,11 +31,6 @@ def _public_bucket(finding: Finding) -> dict:
         "estimated_monthly_savings": 0,
         "estimated_carbon_reduction_kg": 0,
         "confidence": 0.9,
-        "agent_outputs": {
-            "security": "Public bucket access is a direct exposure risk.",
-            "workflow": "Confirm whether the bucket is intentionally public before changing permissions.",
-            "audit": "Security and DevOps approvals are required before remediation is recorded.",
-        },
     }
 
 
@@ -51,11 +45,6 @@ def _idle_vm(finding: Finding) -> dict:
         "estimated_monthly_savings": savings,
         "estimated_carbon_reduction_kg": carbon,
         "confidence": 0.82,
-        "agent_outputs": {
-            "cost": f"Estimated monthly savings are ${savings}.",
-            "energy": f"Estimated carbon reduction is {carbon} kg CO2e.",
-            "workflow": "Application ownership must be checked before stopping production-linked compute.",
-        },
     }
 
 
@@ -70,11 +59,6 @@ def _unused_storage(finding: Finding) -> dict:
         "estimated_monthly_savings": savings,
         "estimated_carbon_reduction_kg": carbon,
         "confidence": 0.78,
-        "agent_outputs": {
-            "cost": f"Estimated monthly savings are ${savings}.",
-            "energy": f"Estimated carbon reduction is {carbon} kg CO2e.",
-            "audit": "Project-owner approval is required because deleted storage can affect historical records.",
-        },
     }
 
 
@@ -86,11 +70,6 @@ def _unencrypted_database(finding: Finding) -> dict:
         "estimated_monthly_savings": 0,
         "estimated_carbon_reduction_kg": 0,
         "confidence": 0.86,
-        "agent_outputs": {
-            "security": "Unencrypted databases create data-protection and compliance risk.",
-            "workflow": "Application downtime and backup readiness must be confirmed before changes.",
-            "audit": "Security, DevOps, application owner, and DBA approvals are required.",
-        },
     }
 
 
@@ -102,7 +81,4 @@ def _generic(finding: Finding) -> dict:
         "estimated_monthly_savings": 0,
         "estimated_carbon_reduction_kg": 0,
         "confidence": 0.65,
-        "agent_outputs": {
-            "audit": f"Generated at {datetime.now(UTC).isoformat()}",
-        },
     }
