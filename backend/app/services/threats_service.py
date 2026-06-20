@@ -16,7 +16,12 @@ class ThreatService:
             return None
         rec = self.store.recommendations.get(finding_id)
         report = build_threat_report(
-            finding, rec, self._event_for(finding), self.store.audit_logs, finding.status
+            finding,
+            rec,
+            self._event_for(finding),
+            self.store.audit_logs,
+            finding.status,
+            use_ai_summary=True,
         )
         self.store.threat_reports[finding_id] = report
         return report
