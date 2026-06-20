@@ -435,31 +435,50 @@ class PostgresStore:
 
     def _ensure_energy_primary_key(self, conn) -> None:
         conn.execute(text("create extension if not exists pgcrypto"))
-        conn.execute(
+
+        # The energy table may pre-date this code with an `energy_id` of a
+        # different type (e.g. a bigint identity column). Only apply the uuid
+        # backfill/default when the column is absent or already uuid — never
+        # coerce an existing non-uuid id column (that raises DatatypeMismatch).
+        energy_id_type = conn.execute(
             text(
-                "alter table if exists public.energy "
-                "add column if not exists energy_id uuid"
+                "select data_type from information_schema.columns "
+                "where table_schema = 'public' and table_name = 'energy' "
+                "and column_name = 'energy_id'"
             )
-        )
-        conn.execute(
-            text(
-                "update public.energy "
-                "set energy_id = gen_random_uuid() "
-                "where energy_id is null"
+        ).scalar()
+
+        if energy_id_type is None or energy_id_type == "uuid":
+            conn.execute(
+                text(
+                    "alter table if exists public.energy "
+                    "add column if not exists energy_id uuid"
+                )
             )
-        )
-        conn.execute(
-            text(
-                "alter table if exists public.energy "
-                "alter column energy_id set default gen_random_uuid()"
+            conn.execute(
+                text(
+                    "update public.energy "
+                    "set energy_id = gen_random_uuid() "
+                    "where energy_id is null"
+                )
             )
-        )
-        conn.execute(
-            text(
-                "alter table if exists public.energy "
-                "alter column energy_id set not null"
+            conn.execute(
+                text(
+                    "alter table if exists public.energy "
+                    "alter column energy_id set default gen_random_uuid()"
+                )
             )
-        )
+            conn.execute(
+                text(
+                    "alter table if exists public.energy "
+                    "alter column energy_id set not null"
+                )
+            )
+        # else: energy_id already exists as a non-uuid id column — leave its
+        # type, default, and values untouched.
+
+        # Ensure a primary key exists on energy_id (whatever its type) only when
+        # the table has no primary key and every row already has a non-null id.
         conn.execute(
             text(
                 """
@@ -471,6 +490,9 @@ class PostgresStore:
                            from pg_constraint
                            where conrelid = 'public.energy'::regclass
                              and contype = 'p'
+                       )
+                       and not exists (
+                           select 1 from public.energy where energy_id is null
                        ) then
                         alter table public.energy
                         add constraint energy_pkey primary key (energy_id);
