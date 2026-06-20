@@ -87,11 +87,11 @@ export default function AgentAIBuilder({
   return (
     <div className="mt-4 grid gap-4 md:grid-cols-2">
       {/* ---- Left: conversation ---- */}
-      <div className="flex h-[58vh] flex-col rounded-xl border border-[#E5E5E5] bg-[#FAFAFA]">
+      <div className="flex h-[58vh] flex-col rounded-xl border border-border bg-surface-subtle">
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
           {messages.length === 0 && (
             <div className="gg-fade-up space-y-3">
-              <p className="text-[13px] text-[#606060]">
+              <p className="text-[13px] text-muted">
                 Describe the agent you want in plain English. I&apos;ll write a professional system
                 prompt, explain my choices, and you can refine it by chatting.
               </p>
@@ -100,7 +100,7 @@ export default function AgentAIBuilder({
                   <button
                     key={ex}
                     onClick={() => send(ex)}
-                    className="block w-full rounded-lg border border-[#E5E5E5] bg-white px-3 py-2 text-left text-[12px] text-[#0F0F0F] hover:bg-[#F2F2F2]"
+                    className="block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-left text-[12px] text-ink hover:bg-surface"
                   >
                     {ex}
                   </button>
@@ -111,13 +111,13 @@ export default function AgentAIBuilder({
           {messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[85%] rounded-2xl bg-[#0F0F0F] px-3 py-2 text-[13px] text-white">
+                <div className="max-w-[85%] rounded-2xl bg-action px-3 py-2 text-[13px] text-on-action">
                   {m.content}
                 </div>
               </div>
             ) : (
               <div key={i} className="flex justify-start">
-                <div className="max-w-[90%] rounded-2xl bg-[#EDEDED] px-3 py-2 text-[13px] text-[#0F0F0F]">
+                <div className="max-w-[90%] rounded-2xl bg-surface px-3 py-2 text-[13px] text-ink">
                   {/* Animate only the most recent assistant message. */}
                   {i === messages.length - 1 ? <TypewriterText text={m.content} /> : <span className="whitespace-pre-wrap">{m.content}</span>}
                 </div>
@@ -126,13 +126,13 @@ export default function AgentAIBuilder({
           )}
           {thinking && (
             <div className="flex justify-start">
-              <div className="gg-pulse rounded-2xl bg-[#EDEDED] px-3 py-2 text-[13px] text-[#606060]">
+              <div className="gg-pulse rounded-2xl bg-surface px-3 py-2 text-[13px] text-muted">
                 Thinking…
               </div>
             </div>
           )}
         </div>
-        <div className="border-t border-[#E5E5E5] p-2">
+        <div className="border-t border-border p-2">
           <div className="flex items-end gap-2">
             <textarea
               value={input}
@@ -145,12 +145,12 @@ export default function AgentAIBuilder({
               }}
               rows={2}
               placeholder={messages.length === 0 ? "Describe your agent…" : "Refine it (e.g. 'focus on cost waste')…"}
-              className="min-h-[40px] flex-1 resize-none rounded-lg border border-[#E5E5E5] bg-white px-3 py-2 text-[13px]"
+              className="min-h-[40px] flex-1 resize-none rounded-lg border border-border bg-surface-raised px-3 py-2 text-[13px]"
             />
             <button
               onClick={() => send(input)}
               disabled={!input.trim() || thinking}
-              className="h-9 shrink-0 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50"
+              className="h-9 shrink-0 rounded-full bg-action px-4 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
             >
               {thinking ? "…" : "Send"}
             </button>
@@ -161,33 +161,33 @@ export default function AgentAIBuilder({
       {/* ---- Right: live, editable preview ---- */}
       <div className="flex h-[58vh] flex-col">
         <div className="flex-1 overflow-y-auto pr-1">
-          <label className="block text-[12px] font-medium text-[#606060]">Agent name</label>
+          <label className="block text-[12px] font-medium text-muted">Agent name</label>
           <input
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
             placeholder="Generated name appears here…"
-            className="mt-1 w-full rounded-lg border border-[#E5E5E5] px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-[14px]"
           />
-          <label className="mt-4 block text-[12px] font-medium text-[#606060]">System prompt</label>
+          <label className="mt-4 block text-[12px] font-medium text-muted">System prompt</label>
           <textarea
             value={draftPrompt}
             onChange={(e) => setDraftPrompt(e.target.value)}
             rows={12}
             placeholder="The generated system prompt appears here. You can edit it before saving."
-            className="mt-1 w-full resize-none rounded-lg border border-[#E5E5E5] px-3 py-2 text-[13px]"
+            className="mt-1 w-full resize-none rounded-lg border border-border px-3 py-2 text-[13px]"
           />
-          <p className="mt-1 text-[11px] text-[#909090]">
+          <p className="mt-1 text-[11px] text-subtle">
             This runs against each finding the agent is assigned (set assignments in Workflows).
           </p>
         </div>
         <div className="mt-3 flex justify-end gap-2">
-          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-[#F2F2F2]">
+          <button onClick={onClose} className="h-9 rounded-full px-4 text-[13px] hover:bg-surface">
             Cancel
           </button>
           <button
             onClick={save}
             disabled={!canSave}
-            className="h-9 rounded-full bg-[#0F0F0F] px-5 text-[13px] font-medium text-white hover:bg-black disabled:opacity-50"
+            className="h-9 rounded-full bg-action px-5 text-[13px] font-medium text-on-action hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save agent"}
           </button>
@@ -199,15 +199,16 @@ export default function AgentAIBuilder({
 
 /** Reveals text word-by-word for a "talking" feel. Animates once per text. */
 function TypewriterText({ text }: { text: string }) {
+  return <TypewriterTextRun key={text} text={text} />;
+}
+
+function TypewriterTextRun({ text }: { text: string }) {
   const [shown, setShown] = useState("");
+
   useEffect(() => {
-    if (!text) {
-      setShown("");
-      return;
-    }
+    if (!text) return;
     const tokens = text.split(/(\s+)/); // keep whitespace so layout is preserved
     let i = 0;
-    setShown("");
     const id = setInterval(() => {
       i += 1;
       setShown(tokens.slice(0, i).join(""));

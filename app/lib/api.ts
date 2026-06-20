@@ -56,9 +56,13 @@ export interface ApiResult<T> {
   error?: string;
 }
 
-async function tryFetch<T>(path: string, init?: RequestInit, timeoutMs = 5000): Promise<T> {
+async function tryFetch<T>(
+  path: string,
+  init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const url = BASE_URL ? `${BASE_URL}${path}` : path;
   try {
     const res = await fetch(url, {
@@ -78,7 +82,7 @@ async function tryFetch<T>(path: string, init?: RequestInit, timeoutMs = 5000): 
     return (text ? JSON.parse(text) : undefined) as T;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`Backend request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`);
+      throw new Error(`Backend request timed out after ${timeoutMs / 1000}s`);
     }
     throw err;
   } finally {
