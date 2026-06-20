@@ -8,6 +8,7 @@ import AIAgentMascot, {
 type AIAgentAssistantProps = {
   agents: Agent[];
   onToggle: (agent: Agent) => void;
+  onEdit: (agent: Agent) => void;
   onDelete: (agent: Agent) => void;
 };
 
@@ -50,6 +51,7 @@ const AGENT_SPRITES: AIAgentSprite[] = ["doux", "mort", "tard", "vita"];
 export default function AIAgentAssistant({
                                            agents,
                                            onToggle,
+                                           onEdit,
                                            onDelete,
                                          }: AIAgentAssistantProps) {
   return (
@@ -88,6 +90,13 @@ export default function AIAgentAssistant({
                         }`}
                     >
                       {agent.enabled ? "Enabled" : "Disabled"}
+                    </button>
+
+                    <button
+                        onClick={() => onEdit(agent)}
+                        className="h-7 rounded-full border border-border px-3 text-[12px] text-ink hover:bg-surface"
+                    >
+                      Edit
                     </button>
 
                     <button
