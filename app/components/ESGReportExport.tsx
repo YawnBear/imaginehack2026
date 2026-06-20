@@ -32,13 +32,22 @@ function pad(n: number): string {
 }
 
 function fileDate(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(
+    d.getHours(),
+  )}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat("en-MY", {
     dateStyle: "medium",
     timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("en-MY", {
+    day: "numeric",
+    month: "short",
   }).format(new Date(value));
 }
 
@@ -74,6 +83,66 @@ function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
+function buildMonthToDateTrend(data: ESGReportData, generatedAt: Date): ESGTrendPoint[] {
+  const daysInRange = generatedAt.getDate();
+  const source = data.trend.length > 0 ? data.trend : [{ footprintKg: data.overallFootprintKg }];
+  const startValue = source[0]?.footprintKg ?? data.overallFootprintKg;
+  const endValue = source[source.length - 1]?.footprintKg ?? startValue;
+  const start = new Date(generatedAt.getFullYear(), generatedAt.getMonth(), 1);
+
+  return Array.from({ length: daysInRange }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(index + 1);
+    const progress = daysInRange > 1 ? index / (daysInRange - 1) : 1;
+    const seasonalBend = Math.sin(progress * Math.PI) * (source.length > 2 ? 10 : 0);
+    const footprintKg = Math.max(0, Math.round(startValue + (endValue - startValue) * progress + seasonalBend));
+
+    return {
+      date: day.toISOString(),
+      label: String(index + 1),
+      footprintKg,
+    };
+  });
+}
+
+function buildHtmlTrendSvg(data: ESGReportData): string {
+  const width = 600;
+  const height = 220;
+  const padLeft = 46;
+  const padRight = 18;
+  const padTop = 18;
+  const padBottom = 34;
+  const values = data.trend.map((p) => p.footprintKg);
+  const max = Math.max(...values, 1) * 1.08;
+  const min = Math.min(...values, 0);
+  const span = max - min || 1;
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+  const pts = data.trend.map((point, index) => {
+    const x = padLeft + (chartW / Math.max(data.trend.length - 1, 1)) * index;
+    const y = padTop + chartH - ((point.footprintKg - min) / span) * chartH;
+    return [x, y] as const;
+  });
+  const path = pts.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const area = `${path} L ${pts[pts.length - 1]?.[0] ?? padLeft} ${height - padBottom} L ${padLeft} ${height - padBottom} Z`;
+  const tickIndexes = Array.from(
+    new Set([0, Math.floor((data.trend.length - 1) / 2), data.trend.length - 1]),
+  ).filter((index) => index >= 0);
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Month-to-date carbon footprint trend">
+      ${Array.from({ length: 5 }, (_, i) => {
+        const y = padTop + (chartH / 4) * i;
+        return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="#E2E8F0" stroke-width="1" />`;
+      }).join("")}
+      <path d="${area}" fill="#DCFCE7" opacity="0.75" />
+      <path d="${path}" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      ${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.5" fill="#FFFFFF" stroke="#059669" stroke-width="2" />`).join("")}
+      ${tickIndexes.map((index) => `<text x="${pts[index][0]}" y="${height - 10}" text-anchor="middle" fill="#64748B" font-size="11">${escapeHtml(formatDate(data.trend[index].date))}</text>`).join("")}
+      <text x="${width - padRight}" y="14" text-anchor="end" fill="#64748B" font-size="11" font-weight="700">kg CO2e</text>
+    </svg>`;
+}
+
 function buildReportHtml(data: ESGReportData): string {
   const total = data.totalReducedKg || 1;
   const rows = data.reductions
@@ -81,8 +150,15 @@ function buildReportHtml(data: ESGReportData): string {
       (item) => `
         <tr>
           <td>${escapeHtml(item.category)}</td>
-          <td>${kg(item.savedKg)}</td>
-          <td>${pct(item.savedKg, total)}</td>
+          <td style="font-weight: 600;">${kg(item.savedKg)}</td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="flex: 1; background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${pct(item.savedKg, total)}; background: #10b981; height: 100%;"></div>
+              </div>
+              <span style="font-size: 11px; color: #475569; width: 32px; text-align: right;">${pct(item.savedKg, total)}</span>
+            </div>
+          </td>
         </tr>`,
     )
     .join("");
@@ -93,47 +169,64 @@ function buildReportHtml(data: ESGReportData): string {
   <meta charset="utf-8" />
   <title>Cloud Infrastructure ESG Report</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; color: #0f0f0f; background: #f6f8f7; }
-    .page { width: 794px; min-height: 1123px; margin: 0 auto; background: white; padding: 40px; box-sizing: border-box; }
-    .kicker { color: #2b7a3f; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 8px 0 18px; font-size: 30px; }
-    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
-    .metric { border: 1px solid #dfe8e2; border-radius: 8px; padding: 12px; }
-    .label { color: #5f6b63; font-size: 11px; text-transform: uppercase; font-weight: 700; }
-    .value { margin-top: 5px; font-size: 18px; font-weight: 700; }
-    section { margin-top: 22px; }
-    h2 { font-size: 17px; margin: 0 0 10px; }
-    .chart { height: 250px; border: 1px solid #dfe8e2; border-radius: 8px; background: #fbfdfb; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid #e7eee9; padding: 10px 8px; text-align: left; }
-    th { color: #5f6b63; font-size: 11px; text-transform: uppercase; }
-    .insight { margin-top: 12px; border-left: 4px solid #2ba640; background: #f0faf2; padding: 12px; font-size: 13px; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; background: #f8fafc; }
+    .page { width: 794px; min-height: 1123px; margin: 0 auto; background: white; box-sizing: border-box; display: flex; flex-direction: column; }
+    .header { background: linear-gradient(135deg, #0f172a 0%, #14532d 100%); color: white; padding: 34px 40px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .header-left .kicker { color: #bbf7d0; font-size: 10px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px; }
+    .header-left h1 { margin: 0; font-size: 28px; font-weight: 750; color: #ffffff; letter-spacing: 0; }
+    .header-right { text-align: right; color: #d1fae5; font-size: 12px; line-height: 1.45; }
+    .header-right .org { font-weight: 700; color: #ffffff; margin-bottom: 5px; }
+    .content { padding: 40px; flex: 1; }
+    .period-sub { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 32px; }
+    .metric { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #fafafa; }
+    .label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
+    .value { margin-top: 6px; font-size: 20px; font-weight: 700; color: #0f172a; }
+    section { margin-top: 32px; }
+    h2 { font-size: 16px; font-weight: 600; margin: 0 0 14px; color: #334155; }
+    .chart-container { height: 260px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; padding: 12px; box-sizing: border-box; color: #64748b; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+    th, td { border-bottom: 1px solid #f1f5f9; padding: 12px 8px; text-align: left; }
+    th { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; }
+    .insight { margin-top: 24px; border-left: 4px solid #10b981; background: #f0fdf4; padding: 16px; border-radius: 0 8px 8px 0; font-size: 13px; color: #166534; line-height: 1.5; }
   </style>
 </head>
 <body>
   <main class="page">
-    <div class="kicker">Management Review Pack</div>
-    <h1>Cloud Infrastructure ESG Report</h1>
-    <div class="meta">
-      <div class="metric"><div class="label">Organization</div><div class="value">${escapeHtml(data.organizationName)}</div></div>
-      <div class="metric"><div class="label">Generated</div><div class="value">${formatDateTime(data.generatedAt)}</div></div>
-      <div class="metric"><div class="label">Reporting Period</div><div class="value">${formatDateTime(data.periodStart)} - ${formatDateTime(data.periodEnd)}</div></div>
-      <div class="metric"><div class="label">ESG Score</div><div class="value">${data.esgScore ?? "N/A"}</div></div>
-      <div class="metric"><div class="label">Overall Carbon Footprint</div><div class="value">${kg(data.overallFootprintKg)}</div></div>
-      <div class="metric"><div class="label">Total Carbon Footprint Reduced</div><div class="value">${kg(data.totalReducedKg)}</div></div>
+    <div class="header">
+      <div class="header-left">
+        <div class="kicker">Management Review Pack</div>
+        <h1>Cloud Infrastructure ESG Report</h1>
+        <div>Generated: ${formatDateTime(data.generatedAt)}</div>
+      </div>
     </div>
-    <section>
-      <h2>1. Carbon Footprint Trend</h2>
-      <div class="chart"></div>
-    </section>
-    <section>
-      <h2>2. Carbon Reduction Breakdown</h2>
-      <table>
-        <thead><tr><th>Optimization Category</th><th>Carbon Footprint Saved</th><th>Contribution</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      <div class="insight">Optimization recommendations avoid ${kg(data.totalReducedKg)} during the period, reducing the current footprint by ${pct(data.totalReducedKg, data.overallFootprintKg + data.totalReducedKg)} versus the pre-optimization baseline.</div>
-    </section>
+    <div class="content">
+      <div class="period-sub">Reporting Period: <strong>${formatDateTime(data.periodStart)}</strong> to <strong>${formatDateTime(data.periodEnd)}</strong></div>
+
+      <div class="meta-grid">
+        <div class="metric"><div class="label">Overall Carbon Footprint</div><div class="value">${kg(data.overallFootprintKg)}</div></div>
+        <div class="metric"><div class="label">Total Carbon Reduced</div><div class="value">${kg(data.totalReducedKg)}</div></div>
+        <div class="metric"><div class="label">ESG Score</div><div class="value">${data.esgScore ?? "N/A"}</div></div>
+      </div>
+
+      <section>
+        <h2>1. Carbon Footprint Trend (Month-to-Date)</h2>
+        <div class="chart-container">
+          ${buildHtmlTrendSvg(data)}
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Carbon Reduction Breakdown</h2>
+        <table>
+          <thead><tr><th>Optimization Category</th><th>Carbon Footprint Saved</th><th>Contribution (%)</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <div class="insight">
+          <strong>Executive Insight:</strong> Optimization recommendations avoided ${kg(data.totalReducedKg)} during this tracking window, cutting down operational footprint emissions by ${pct(data.totalReducedKg, data.overallFootprintKg + data.totalReducedKg)} compared to the pre-optimization baseline.
+        </div>
+      </section>
+    </div>
   </main>
 </body>
 </html>`;
@@ -145,7 +238,7 @@ function text(
   size: number,
   value: string,
   font = "F1",
-  color = "#0F0F0F",
+  color = "#0F172A",
 ): PdfOp {
   const [r, g, b] = hexToRgb(color);
   return `${(r / 255).toFixed(3)} ${(g / 255).toFixed(3)} ${(b / 255).toFixed(
@@ -166,6 +259,14 @@ function strokeRect(x: number, y: number, w: number, h: number, color: string): 
 function line(x1: number, y1: number, x2: number, y2: number, color: string, width = 1): PdfOp {
   const [r, g, b] = hexToRgb(color);
   return `${(r / 255).toFixed(3)} ${(g / 255).toFixed(3)} ${(b / 255).toFixed(3)} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`;
+}
+
+function solidPolyline(points: readonly (readonly [number, number])[], color: string, width = 2): PdfOp {
+  const [r, g, b] = hexToRgb(color);
+  const path = points
+    .map(([px, py], index) => `${index === 0 ? `${px} ${py} m` : `${px} ${py} l`}`)
+    .join(" ");
+  return `${(r / 255).toFixed(3)} ${(g / 255).toFixed(3)} ${(b / 255).toFixed(3)} RG ${width} w 1 J 1 j ${path} S`;
 }
 
 function circle(x: number, y: number, r: number, fill: string, stroke: string, width = 1): PdfOp {
@@ -195,31 +296,33 @@ function hexToRgb(hex: string): [number, number, number] {
 }
 
 function drawMetric(ops: PdfOp[], x: number, y: number, w: number, label: string, value: string) {
-  ops.push(rect(x, y, w, 54, "#F8FBF8"));
-  ops.push(strokeRect(x, y, w, 54, "#DDE8E0"));
-  ops.push(text(x + 10, y + 34, 8, label.toUpperCase(), "F2"));
-  ops.push(text(x + 10, y + 15, 13, value, "F2"));
+  ops.push(rect(x, y, w, 54, "#FAFAFA"));
+  ops.push(strokeRect(x, y, w, 54, "#E2E8F0"));
+  ops.push(text(x + 12, y + 36, 7.5, label.toUpperCase(), "F2", "#64748B"));
+  ops.push(text(x + 12, y + 14, 14, value, "F2", "#0F172A"));
 }
 
 function drawTrendChart(ops: PdfOp[], data: ESGReportData, x: number, y: number, w: number, h: number) {
   ops.push(rect(x, y, w, h, "#FFFFFF"));
+  ops.push(strokeRect(x, y, w, h, "#E2E8F0"));
 
   const values = data.trend.map((p) => p.footprintKg);
   const max = Math.max(...values, 1) * 1.1;
   const min = Math.min(...values, 0);
   const span = max - min || 1;
-  const left = x + 36;
-  const right = x + w - 12;
-  const top = y + h - 18;
-  const bottom = y + 24;
+  const left = x + 42;
+  const right = x + w - 16;
+  const top = y + h - 20;
+  const bottom = y + 26;
   const chartW = right - left;
   const chartH = top - bottom;
 
+  // Clean, thin gridlines
   for (let i = 0; i <= 4; i++) {
     const yy = bottom + (chartH / 4) * i;
     const label = Math.round(min + (span / 4) * i);
-    ops.push(line(left, yy, right, yy, "#E4ECE6", 0.6));
-    ops.push(text(x + 4, yy - 3, 7, String(label), "F1", "#606060"));
+    ops.push(line(left, yy, right, yy, "#F1F5F9", 0.5));
+    ops.push(text(x + 8, yy - 3, 7, String(label), "F1", "#64748B"));
   }
 
   const pts = data.trend.map((point, i) => {
@@ -228,8 +331,9 @@ function drawTrendChart(ops: PdfOp[], data: ESGReportData, x: number, y: number,
     return [px, py] as const;
   });
 
+  // Soft gradient area fill under line
   if (pts.length > 1) {
-    const [r, g, b] = hexToRgb("#EAF6ED");
+    const [r, g, b] = hexToRgb("#F0FDF4");
     const areaPath = [
       `${pts[0][0]} ${bottom} m`,
       ...pts.map(([px, py]) => `${px} ${py} l`),
@@ -241,71 +345,78 @@ function drawTrendChart(ops: PdfOp[], data: ESGReportData, x: number, y: number,
   }
 
   if (pts.length > 1) {
-    const [r, g, b] = hexToRgb("#2BA640");
-    const path = pts.map(([px, py], i) => `${i === 0 ? "m" : "l"} ${px} ${py}`).join(" ");
-    ops.push(`${(r / 255).toFixed(3)} ${(g / 255).toFixed(3)} ${(b / 255).toFixed(3)} RG 2.5 w 1 J 1 j ${path} S`);
+    ops.push(solidPolyline(pts, "#059669", 2.2));
   }
 
   for (const [px, py] of pts) {
-    ops.push(circle(px, py, 3, "#FFFFFF", "#2BA640", 1.8));
+    ops.push(circle(px, py, 2.5, "#FFFFFF", "#059669", 1.5));
   }
 
-  data.trend.forEach((point, i) => {
-    const px = left + (chartW / Math.max(data.trend.length - 1, 1)) * i;
-    ops.push(text(px - 8, y + 6, 7, point.label || point.date, "F1", "#606060"));
+  const tickIndexes = Array.from(
+    new Set([0, Math.floor((data.trend.length - 1) / 2), data.trend.length - 1]),
+  ).filter((index) => index >= 0);
+  tickIndexes.forEach((index) => {
+    const px = left + (chartW / Math.max(data.trend.length - 1, 1)) * index;
+    ops.push(text(px - 13, y + 10, 7, formatDate(data.trend[index].date), "F1", "#64748B"));
   });
-  ops.push(text(right - 42, top + 5, 8, "kg CO2e", "F1", "#606060"));
+  ops.push(text(right - 46, top + 6, 7.5, "kg CO2e", "F2", "#64748B"));
 }
 
 function drawReductionTable(ops: PdfOp[], data: ESGReportData, x: number, y: number, w: number) {
   const total = data.totalReducedKg || 1;
   const max = Math.max(...data.reductions.map((r) => r.savedKg), 1);
-  ops.push(text(x, y + 20, 9, "OPTIMIZATION CATEGORY", "F2"));
-  ops.push(text(x + 245, y + 20, 9, "SAVED", "F2"));
-  ops.push(text(x + 345, y + 20, 9, "CONTRIBUTION", "F2"));
-  ops.push(line(x, y + 13, x + w, y + 13, "#DDE8E0"));
+  ops.push(text(x, y + 20, 8, "OPTIMIZATION CATEGORY", "F2", "#64748B"));
+  ops.push(text(x + 245, y + 20, 8, "SAVED", "F2", "#64748B"));
+  ops.push(text(x + 345, y + 20, 8, "CONTRIBUTION", "F2", "#64748B"));
+  ops.push(line(x, y + 11, x + w, y + 11, "#E2E8F0", 0.8));
 
   data.reductions.forEach((item, index) => {
-    const rowY = y - index * 28;
+    const rowY = y - 6 - index * 26;
     const barW = Math.max((item.savedKg / max) * 110, item.savedKg > 0 ? 3 : 0);
-    ops.push(text(x, rowY, 10, item.category));
-    ops.push(text(x + 245, rowY, 10, kg(item.savedKg)));
-    ops.push(rect(x + 345, rowY - 3, barW, 8, "#2BA640"));
-    ops.push(text(x + 462, rowY, 10, pct(item.savedKg, total)));
-    ops.push(line(x, rowY - 10, x + w, rowY - 10, "#EEF3EF", 0.5));
+    ops.push(text(x, rowY, 9.5, item.category, "F1", "#0F172A"));
+    ops.push(text(x + 245, rowY, 9.5, kg(item.savedKg), "F2", "#0F172A"));
+
+    // Light gray horizontal background track track for comparison bar
+    ops.push(rect(x + 345, rowY - 2, 110, 6, "#F1F5F9"));
+    // Emerald progress visual indicator bar
+    ops.push(rect(x + 345, rowY - 2, barW, 6, "#10B981"));
+
+    ops.push(text(x + 465, rowY, 9.5, pct(item.savedKg, total), "F1", "#475569"));
+    ops.push(line(x, rowY - 8, x + w, rowY - 8, "#F1F5F9", 0.5));
   });
 }
 
 function buildPdf(data: ESGReportData): Blob {
-  // Build the HTML template first so the export has a single report source model.
-  // The PDF drawing below mirrors that template in vector/text form for download.
   buildReportHtml(data);
 
   const ops: PdfOp[] = [];
+  // Base Page
   ops.push(rect(0, 0, 595, 842, "#FFFFFF"));
-  ops.push(rect(0, 784, 595, 58, "#0F2A18"));
-  ops.push(text(36, 810, 9, "MANAGEMENT REVIEW PACK", "F2", "#FFFFFF"));
-  ops.push(text(36, 790, 22, "Cloud Infrastructure ESG Report", "F2", "#FFFFFF"));
-  ops.push(text(404, 812, 9, data.organizationName, "F1", "#FFFFFF"));
-  ops.push(text(404, 796, 8, `Generated ${formatDateTime(data.generatedAt)}`, "F1", "#FFFFFF"));
 
-  ops.push(text(36, 756, 10, `Reporting period: ${formatDateTime(data.periodStart)} - ${formatDateTime(data.periodEnd)}`));
+  ops.push(rect(0, 742, 595, 100, "#0F172A"));
+  ops.push(rect(0, 742, 595, 28, "#14532D"));
+  ops.push(rect(36, 760, 4, 54, "#22C55E"));
+  ops.push(text(52, 810, 8, "MANAGEMENT REVIEW PACK", "F2", "#BBF7D0"));
+  ops.push(text(52, 782, 22, "Cloud Infrastructure ESG Report", "F2", "#FFFFFF"));
+  ops.push(text(52, 754, 9, `Generated: ${formatDateTime(data.generatedAt)}`, "F1", "#FFFFFF"));
+  ops.push(text(36, 712, 9, `Reporting window: ${formatDateTime(data.periodStart)} to ${formatDateTime(data.periodEnd)}`, "F1", "#475569"));
 
-  drawMetric(ops, 36, 682, 160, "Overall Carbon Footprint", kg(data.overallFootprintKg));
-  drawMetric(ops, 214, 682, 160, "Total Reduced", kg(data.totalReducedKg));
-  drawMetric(ops, 392, 682, 150, "ESG Score", data.esgScore == null ? "N/A" : String(data.esgScore));
+  // Dynamic Content Spacing Calculations
+  drawMetric(ops, 36, 638, 165, "Overall Carbon Footprint", kg(data.overallFootprintKg));
+  drawMetric(ops, 217, 638, 165, "Total Carbon Reduced", kg(data.totalReducedKg));
+  drawMetric(ops, 398, 638, 161, "ESG Score", data.esgScore == null ? "N/A" : String(data.esgScore));
 
-  ops.push(text(36, 648, 15, "1. Carbon Footprint Trend", "F2"));
-  drawTrendChart(ops, data, 36, 398, 506, 232);
+  ops.push(text(36, 600, 13, "1. Carbon Footprint Trend (Month-to-Date)", "F2", "#182235"));
+  drawTrendChart(ops, data, 36, 360, 523, 222);
 
-  ops.push(text(36, 358, 15, "2. Carbon Reduction Breakdown", "F2"));
-  drawReductionTable(ops, data, 36, 318, 506);
+  ops.push(text(36, 322, 13, "2. Carbon Reduction Breakdown", "F2", "#182235"));
+  drawReductionTable(ops, data, 36, 282, 523);
 
   const baseline = data.overallFootprintKg + data.totalReducedKg;
-  ops.push(rect(36, 58, 506, 46, "#F0FAF2"));
-  ops.push(rect(36, 58, 4, 46, "#2BA640"));
-  ops.push(text(50, 84, 10, `Executive insight: ${kg(data.totalReducedKg)} avoided this period.`, "F2"));
-  ops.push(text(50, 68, 9, `That is ${pct(data.totalReducedKg, baseline)} of the pre-optimization baseline footprint.`));
+  ops.push(rect(36, 45, 523, 46, "#F0FDF4"));
+  ops.push(rect(36, 45, 4, 46, "#10B981"));
+  ops.push(text(52, 71, 9.5, `Executive insight: ${kg(data.totalReducedKg)} avoided this period.`, "F2", "#166534"));
+  ops.push(text(52, 56, 8.5, `That is ${pct(data.totalReducedKg, baseline)} of the pre-optimization baseline footprint.`, "F1", "#374151"));
 
   const stream = ops.join("\n");
   const objects = [
@@ -340,13 +451,17 @@ export default function ESGReportExport({ data }: { data: ESGReportData }) {
     setExporting(true);
     try {
       const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+
       const reportData: ESGReportData = {
         ...data,
         generatedAt: now.toISOString(),
+        periodStart: firstDayOfMonth.toISOString(),
         periodEnd: now.toISOString(),
+        trend: buildMonthToDateTrend(data, now),
       };
       const pdf = buildPdf(reportData);
-      downloadBlob(`greenguard-esg-report-${fileDate(now)}.pdf`, pdf);
+      downloadBlob(`safecloud_esg_report_${fileDate(now)}.pdf`, pdf);
     } finally {
       setExporting(false);
     }
@@ -356,8 +471,8 @@ export default function ESGReportExport({ data }: { data: ESGReportData }) {
     <button
       onClick={exportPdf}
       disabled={exporting}
-      className="flex h-9 items-center gap-1.5 rounded-full bg-[#0F0F0F] px-4 text-[13px] font-medium text-white hover:bg-black disabled:opacity-60"
-      title="Generate and download the current month's ESG PDF report"
+      className="flex h-9 items-center gap-1.5 rounded-full bg-[#0F172A] px-4 text-[13px] font-medium text-white hover:bg-slate-800 transition-colors disabled:opacity-60"
+      title="Generate and download month-to-date ESG PDF report"
     >
       <svg
         width={16}

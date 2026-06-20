@@ -60,7 +60,7 @@ export default async function EnergyPage() {
       ? Math.min(100, Math.round(72 + (totalReduction / beforeFootprint) * 100))
       : null;
   const reportData = {
-    organizationName: "GreenGuard Cloud Demo Organization",
+    organizationName: "SafeCloud",
     generatedAt: now.toISOString(),
     periodStart: periodStart.toISOString(),
     periodEnd: now.toISOString(),
