@@ -1,6 +1,7 @@
 import { getAuditLogs } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { MockBanner, EmptyState } from "@/app/components/ui";
+import AuditExport from "@/app/components/AuditExport";
 import { formatTime } from "@/app/lib/format";
 import type { AuditLog } from "@/app/lib/types";
 
@@ -36,12 +37,21 @@ function StateBlock({ title, state }: { title: string; state?: Record<string, un
     <div className="flex-1">
       <p className="mb-1 text-[11px] font-medium tracking-label text-[#606060]">{title}</p>
       <div className="rounded-lg bg-[#F8F8F8] p-2.5 font-mono text-[11px] text-[#0F0F0F]">
-        {Object.entries(state).map(([k, v]) => (
-          <div key={k} className="flex gap-2">
-            <span className="text-[#606060]">{k}:</span>
-            <span>{String(v)}</span>
-          </div>
-        ))}
+        {Object.entries(state).map(([k, v]) => {
+          const isObj = v !== null && typeof v === "object";
+          return (
+            <div key={k} className="flex gap-2">
+              <span className="text-[#606060]">{k}:</span>
+              {isObj ? (
+                <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-snug text-[#0F0F0F]">
+                  {JSON.stringify(v, null, 2)}
+                </pre>
+              ) : (
+                <span>{String(v)}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -58,6 +68,7 @@ export default async function AuditPage() {
       <PageHeader
         title="Audit log"
         subtitle="Immutable, chronological trail: scan event → finding → recommendation → human approval → remediation. Before/after states are captured for accountability."
+        right={<AuditExport logs={logs} />}
       />
       {res.mock && <MockBanner reason={res.error} />}
 

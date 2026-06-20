@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from app.agents.ai_client import generate_agent_analysis
 from app.agents.recommendations import build_recommendation
+from app.core.config import get_settings
 from app.rules.engine import evaluate_event
 from app.schemas import (
     ApprovalDecision,
@@ -13,6 +15,7 @@ from app.schemas import (
     Finding,
     FindingDetail,
     FindingListResponse,
+    Recommendation,
     ReviewRequest,
     ReviewResponse,
 )
@@ -153,9 +156,13 @@ class GovernanceService:
         finding = self.store.findings.get(finding_id)
         if not finding:
             return None
+
+        recommendation = self.store.recommendations.get(finding_id)
+        self._maybe_enrich_recommendation(finding, recommendation)
+
         return FindingDetail(
             finding=finding,
-            recommendation=self.store.recommendations.get(finding_id),
+            recommendation=recommendation,
             approvals=[
                 approval
                 for approval in self.store.approvals.values()
@@ -266,6 +273,38 @@ class GovernanceService:
             page_size=page_size,
             total=total,
         )
+
+    def _maybe_enrich_recommendation(
+        self,
+        finding: Finding,
+        recommendation: Recommendation | None,
+    ) -> None:
+        """Lazily rewrite the analysis TEXT via the LLM, once per finding.
+
+        Hybrid safety: the rule engine remains the source of truth. Only the
+        per-agent ``agent_outputs`` text is replaced/extended. The deterministic
+        numbers (savings/carbon/risk/required reviewers/confidence) are never
+        touched. On any AI failure the deterministic template text is kept and
+        ``ai_generated`` stays False. Result is cached on the stored
+        recommendation so generation happens at most once per finding.
+        """
+        if recommendation is None:
+            return
+        if recommendation.ai_generated:
+            return  # already enriched (cached) — generate once only
+        if not get_settings().ai_enabled:
+            return
+
+        ai_outputs = generate_agent_analysis(finding, recommendation)
+        if not ai_outputs:
+            return  # disabled/timeout/unparseable -> keep template text
+
+        merged = dict(recommendation.agent_outputs)
+        merged.update(ai_outputs)
+        recommendation.agent_outputs = merged
+        recommendation.ai_generated = True
+        # Cache back so it's only generated once per finding.
+        self.store.recommendations[finding.finding_id] = recommendation
 
     def _remaining_reviewers(self, finding_id: str, required_reviewers: list[str]) -> list[str]:
         approved_roles = {

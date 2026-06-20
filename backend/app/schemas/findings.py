@@ -18,6 +18,7 @@ class Recommendation(BaseModel):
     confidence: float
     agent_outputs: dict[str, Any] = Field(default_factory=dict)
     safe_to_execute: bool = False
+    ai_generated: bool = False
 
 
 class Finding(BaseModel):

@@ -18,7 +18,7 @@ export interface ChipGroup {
   options: { value: string; label: string }[];
 }
 
-function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => void }) {
+export function FindingRow({ f, onOpen }: { f: Finding; onOpen: (id: string) => void }) {
   const color = SEVERITY_COLOR[f.severity];
   return (
     <button

@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   IconOverview,
   IconSecurity,
@@ -10,9 +10,14 @@ import {
   IconEnergy,
   IconAudit,
   IconMenu,
-  IconSearch,
+  IconInfo,
 } from "./icons";
 import { relativeTime } from "@/app/lib/format";
+import { runScan } from "@/app/lib/api";
+import { useToast } from "@/app/lib/toast";
+import GlobalSearch from "./GlobalSearch";
+import ProfileMenu from "./ProfileMenu";
+import HelpModal from "./HelpModal";
 
 const NAV = [
   { href: "/", label: "Overview", icon: IconOverview },
@@ -46,13 +51,46 @@ export default function AppShell({
   latestScanAt: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const sidebarWidth = collapsed ? "lg:w-[72px]" : "lg:w-[240px]";
+
+  // Hamburger: on mobile open the drawer, on desktop collapse the rail.
+  // (lg breakpoint = 1024px, matching the Tailwind `lg:` used for the sidebar.)
+  function toggleMenu() {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      setCollapsed((c) => !c);
+    } else {
+      setMobileOpen((o) => !o);
+    }
+  }
+
+  async function handleRunScan() {
+    if (scanning) return;
+    setScanning(true);
+    try {
+      const res = await runScan();
+      const n = res.data.created_findings;
+      toast(
+        n > 0
+          ? `Scan complete — ${n} new finding${n === 1 ? "" : "s"} detected`
+          : "Scan complete — no new issues (estate clean)",
+        res.error ? "info" : "success",
+      );
+      // Refresh server components so counts/statuses/lists update live.
+      router.refresh();
+    } finally {
+      setScanning(false);
+    }
+  }
 
   return (
     <div className="min-h-full bg-white text-[#0F0F0F]">
@@ -60,10 +98,7 @@ export default function AppShell({
       <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-[#E5E5E5] bg-white px-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)] sm:px-4">
         <button
           aria-label="Toggle menu"
-          onClick={() => {
-            setCollapsed((c) => !c);
-            setMobileOpen((o) => !o);
-          }}
+          onClick={toggleMenu}
           className="flex h-10 w-10 items-center justify-center rounded-full text-[#606060] hover:bg-[#F2F2F2]"
         >
           <IconMenu />
@@ -73,33 +108,40 @@ export default function AppShell({
         </Link>
 
         {/* Search (center) */}
-        <div className="mx-auto hidden w-full max-w-[520px] items-center md:flex">
-          <div className="flex h-[40px] flex-1 items-center rounded-l-full border border-[#E5E5E5] bg-white px-4">
-            <input
-              placeholder="Search findings, resources, projects…"
-              className="w-full bg-transparent text-[14px] text-[#0F0F0F] placeholder:text-[#909090] focus:outline-none"
-            />
-          </div>
-          <button
-            aria-label="Search"
-            className="flex h-[40px] w-[60px] items-center justify-center rounded-r-full border border-l-0 border-[#E5E5E5] bg-[#F8F8F8] text-[#606060] hover:bg-[#F2F2F2]"
-          >
-            <IconSearch width={18} height={18} />
-          </button>
-        </div>
+        <GlobalSearch />
 
         {/* Right cluster */}
-        <div className="ml-auto flex items-center gap-3 md:ml-0">
-          <span className="hidden items-center gap-1.5 text-[12px] text-[#606060] sm:flex">
-            <span className="h-2 w-2 rounded-full bg-[#2BA640] gg-pulse" />
+        <div className="ml-auto flex items-center gap-2 md:ml-0 md:gap-3">
+          {/* Run scan */}
+          <button
+            onClick={handleRunScan}
+            disabled={scanning}
+            title="Re-scan: ingest cloud events and detect findings"
+            className="flex h-9 items-center gap-1.5 rounded-full bg-[#0F0F0F] px-3 text-[13px] font-medium text-white hover:bg-black disabled:opacity-60 sm:px-4"
+          >
+            <span
+              className={`h-2 w-2 rounded-full bg-[#2BA640] ${scanning ? "gg-pulse" : ""}`}
+            />
+            <span className="hidden sm:inline">{scanning ? "Scanning…" : "Run scan"}</span>
+            <span className="sm:hidden">{scanning ? "…" : "Scan"}</span>
+          </button>
+
+          <span className="hidden items-center gap-1.5 text-[12px] text-[#606060] lg:flex">
             Latest scan: {latestScanAt ? relativeTime(latestScanAt) : "—"}
           </span>
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#065FD4] text-[12px] font-medium text-white"
-            title="Demo user — Site Ops Lead"
+
+          {/* Help */}
+          <button
+            aria-label="How to use GreenGuard"
+            onClick={() => setHelpOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[#606060] hover:bg-[#F2F2F2]"
+            title="How to use GreenGuard"
           >
-            SO
-          </span>
+            <IconInfo width={20} height={20} />
+          </button>
+
+          {/* Profile / reviewer role */}
+          <ProfileMenu onHelp={() => setHelpOpen(true)} />
         </div>
       </header>
 
@@ -184,6 +226,8 @@ export default function AppShell({
           <div className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
+
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

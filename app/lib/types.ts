@@ -63,6 +63,9 @@ export interface Recommendation {
   // Only the keys present should be rendered.
   agent_outputs: Record<string, string>;
   safe_to_execute: boolean;
+  // True when the agent analysis text was rewritten by the external LLM
+  // (hybrid AI layer). False/undefined = deterministic template text.
+  ai_generated?: boolean;
 }
 
 export interface AuditLog {

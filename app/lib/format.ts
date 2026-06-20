@@ -1,6 +1,6 @@
 // Formatting helpers + severity/status presentation maps.
 
-import type { Category, FindingStatus, RiskLevel, Severity } from "./types";
+import type { Category, Finding, FindingStatus, RiskLevel, Severity } from "./types";
 
 // Currency: the backend computes all savings in USD and some agent_outputs
 // strings embed a literal "$". We display USD with a "$" prefix so the live
@@ -121,3 +121,30 @@ export const CATEGORY_COLOR: Record<Category, string> = {
   workflow: "#FB8C00",
   audit: "#606060",
 };
+
+// One canonical matcher used by BOTH the top-bar suggestions dropdown and the
+// /search results page, so they always agree. Matches across resource_name,
+// resource_id, project_id, owner_team, issue_type, finding_id, category,
+// severity — plus title/explanation when present (mock data).
+export function findingMatchesQuery(f: Finding, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  const projectId = (f.evidence?.["project_id"] ?? "") as unknown;
+  const haystack = [
+    f.resource_name,
+    f.resource_id,
+    typeof projectId === "string" ? projectId : "",
+    f.owner_team,
+    f.issue_type,
+    f.finding_id,
+    f.category,
+    f.severity,
+    f.title,
+    f.explanation,
+    issueLabel(f.issue_type),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
+}

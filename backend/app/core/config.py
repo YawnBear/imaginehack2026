@@ -10,12 +10,30 @@ class Settings(BaseSettings):
     seed_data_enabled: bool = True
     database_url: str | None = None
     ai_provider_api_key: str | None = None
+    ai_provider_base_url: str = "https://console-api.grafilab.ai/api/"
+    ai_model: str = "grafilab-chat"
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def ai_enabled(self) -> bool:
+        """AI text generation is on only with a real, non-placeholder key.
+
+        Treated as disabled when the key is missing, blank, or still a
+        placeholder (contains REPLACE / your-key). This keeps the app fully
+        functional via deterministic template fallback when no key is set.
+        """
+        key = (self.ai_provider_api_key or "").strip()
+        if not key:
+            return False
+        lowered = key.lower()
+        if "replace" in lowered or "your-key" in lowered:
+            return False
+        return True
 
     @property
     def cors_origins(self) -> list[str]:

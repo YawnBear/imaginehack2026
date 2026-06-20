@@ -10,6 +10,7 @@ import {
   MOCK_SUMMARY,
   mockFindingDetail,
 } from "./mockData";
+import { buildScanEvents } from "./scanEvents";
 import type {
   AuditLog,
   AuditLogsResponse,
@@ -141,6 +142,43 @@ export async function reviewFinding(
         status: body.decision,
         required_reviewers_remaining: [],
         audit_id: "mock-audit",
+      },
+      e,
+    );
+  }
+}
+
+// Response shape of POST /api/demo/seed and /api/events/ingest (ARCHITECTURE.md §5).
+export interface SeedResponse {
+  accepted: number;
+  created_findings: number;
+  duplicate_events: number;
+}
+
+// "Run scan" — ingest a pool of fresh, construction-flavored cloud events into
+// the live rule engine via POST /api/events/ingest (same {accepted,
+// created_findings, duplicate_events} response shape as the seed endpoint).
+// The events have STABLE event_id + resource_id, so the backend dedups by
+// (resource_id, issue_type): the FIRST scan surfaces the whole pool and the
+// dashboard visibly grows; repeat scans correctly report 0 new findings.
+// Timestamps are stamped at call time (not module top) to avoid SSR/CSR
+// hydration mismatch. In mock mode we report the pool size so the toast reads
+// like a real first scan.
+export async function runScan(): Promise<ApiResult<SeedResponse>> {
+  const events = buildScanEvents(new Date().toISOString());
+  try {
+    return ok(
+      await tryFetch<SeedResponse>("/api/events/ingest", {
+        method: "POST",
+        body: JSON.stringify({ events }),
+      }),
+    );
+  } catch (e) {
+    return fallback(
+      {
+        accepted: events.length,
+        created_findings: events.length,
+        duplicate_events: 0,
       },
       e,
     );
