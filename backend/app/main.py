@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.agent_routes import router as agent_router
 from app.api.agents_routes import router as agents_router
 from app.api.routes import router as api_router
 from app.api.rules_routes import router as rules_router
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(rules_router)
     app.include_router(agents_router)
     app.include_router(threats_router)
+    app.include_router(agent_router)
     return app
 
 

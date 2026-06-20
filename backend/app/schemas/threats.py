@@ -49,6 +49,7 @@ class ResponsePolicyUpdate(BaseModel):
 class RemediationCommand(BaseModel):
     command_id: str
     finding_id: str
+    resource_id: str = ""
     action_key: str
     destructive: bool
     status: CommandStatus = "queued"

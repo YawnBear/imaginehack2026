@@ -1,3 +1,12 @@
+from app.schemas.agent_io import (
+    Activity,
+    AgentConfigResponse,
+    AgentEnrollResponse,
+    AgentEventsRequest,
+    AgentEventsResponse,
+    AgentStatusResponse,
+    CommandResultRequest,
+)
 from app.schemas.agents import (
     Agent,
     AgentCreate,
@@ -45,6 +54,13 @@ from app.schemas.threats import (
 )
 
 __all__ = [
+    "Activity",
+    "AgentConfigResponse",
+    "AgentEnrollResponse",
+    "AgentEventsRequest",
+    "AgentEventsResponse",
+    "AgentStatusResponse",
+    "CommandResultRequest",
     "Agent",
     "AgentCreate",
     "AgentLens",

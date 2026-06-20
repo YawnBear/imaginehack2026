@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ai_provider_api_key: str | None = None
     ai_provider_base_url: str = "https://console-api.grafilab.ai/api/"
     ai_model: str = "grafilab-chat"
+    agent_token: str = "safecloud-demo-agent-token"
 
     model_config = SettingsConfigDict(
         env_file=".env",

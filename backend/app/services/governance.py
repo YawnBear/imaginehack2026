@@ -345,6 +345,7 @@ class GovernanceService:
         command = RemediationCommand(
             command_id=f"cmd-{uuid4().hex[:10]}",
             finding_id=finding.finding_id,
+            resource_id=finding.resource_id,
             action_key=action_key,
             destructive=destructive,
             approved_by=approved_roles,
@@ -359,6 +360,36 @@ class GovernanceService:
             after_state=command.model_dump(mode="json"),
             metadata={"finding_id": finding.finding_id},
         )
+
+    def record_activity(self, activities: list) -> int:
+        for activity in activities:
+            self.store.activities.append(activity)
+        return len(activities)
+
+    def complete_command(self, command_id: str, status: str, result: str) -> bool:
+        command = self.store.commands.get(command_id)
+        if command is None:
+            return False
+        before = command.model_dump(mode="json")
+        command.status = "completed" if status == "completed" else "failed"
+        command.result = result
+        command.executed_at = _now()
+        self.store.commands[command_id] = command
+        finding = self.store.findings.get(command.finding_id)
+        if finding is not None and command.status == "completed":
+            finding.status = "action_completed"
+            finding.updated_at = _now()
+            self.store.findings[finding.finding_id] = finding
+        self._audit(
+            entity_type="command",
+            entity_id=command_id,
+            action=f"remediation_{command.status}",
+            actor_id="safecloud-agent",
+            before_state=before,
+            after_state=command.model_dump(mode="json"),
+            metadata={"finding_id": command.finding_id},
+        )
+        return True
 
     def _remaining_reviewers(self, finding_id: str, required_reviewers: list[str]) -> list[str]:
         approved_roles = {

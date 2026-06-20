@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.schemas import ApprovalDecision, AuditLog, CloudEvent, Finding, Recommendation
-from app.schemas import Agent, RemediationCommand, ResponsePolicy, Rule, ThreatReport
+from app.schemas import Activity, Agent, RemediationCommand, ResponsePolicy, Rule, ThreatReport
 from app.rules.seed_rules import builtin_rules
 from app.agents.seed_agents import builtin_agents
 
@@ -19,6 +19,9 @@ class InMemoryStore:
         self.threat_reports: dict[str, ThreatReport] = {}
         self.commands: dict[str, RemediationCommand] = {}
         self.policy: ResponsePolicy = ResponsePolicy()
+        self.activities: list[Activity] = []
+        self.agent_last_seen: datetime | None = None
+        self.agent_id: str | None = None
 
     def find_active_duplicate(self, resource_id: str, issue_type: str) -> Finding | None:
         for finding in self.findings.values():
