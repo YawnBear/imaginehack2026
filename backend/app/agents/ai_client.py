@@ -39,19 +39,21 @@ _COMPLETIONS_PATH = "chat/completions"
 # Hard cap so a misbehaving model can't run up cost or latency.
 _MAX_TOKENS = 600
 _TIMEOUT_SECONDS = 8
+_SUMMARY_MAX_TOKENS = 320
 
-# Agent keys that are meaningful per issue type. The model is asked to fill
-# only the relevant subset; we additionally clamp its output to these keys.
-_RELEVANT_AGENTS: dict[str, list[str]] = {
-    "public_bucket": ["security", "workflow", "audit"],
-    "idle_vm": ["cost", "energy", "workflow"],
-    "unused_storage": ["cost", "energy", "audit"],
-    "unencrypted_database": ["security", "workflow", "audit"],
-}
-_ALL_AGENTS = ["security", "cost", "energy", "workflow", "audit"]
+# The conversational agent builder writes a full system prompt plus an
+# explanation, so it needs more room and a longer budget than per-finding
+# analysis. The model (e.g. claude-opus-4-8 via the proxy) can also be slower.
+_DRAFT_MAX_TOKENS = 1500
+_DRAFT_TIMEOUT_SECONDS = 45
 
 
-def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | None:
+def generate_agent_analysis(
+    finding: Any,
+    base_recommendation: Any,
+    agents: list | None = None,
+    context: dict | None = None,
+) -> dict | None:
     """Return a dict of per-agent analysis text, or ``None`` on any failure.
 
     AI rewrites only the analysis *text*. The deterministic numbers
@@ -68,7 +70,10 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | No
             base_url += "/"
         url = base_url + _COMPLETIONS_PATH
 
-        prompt = _build_prompt(finding, base_recommendation)
+        agents = agents or []
+        if not agents:
+            return None
+        prompt = build_prompt(finding, base_recommendation, agents, context)
         body = json.dumps(
             {
                 "model": settings.ai_model,
@@ -111,68 +116,76 @@ def generate_agent_analysis(finding: Any, base_recommendation: Any) -> dict | No
     except Exception:  # noqa: BLE001 - defensive: AI is purely additive
         return None
 
-    return _parse_response(raw, finding)
+    allowed = {getattr(a, "output_key", "") for a in agents}
+    return parse_response(raw, allowed)
 
 
-def _build_prompt(finding: Any, base_recommendation: Any) -> str:
+def build_prompt(finding, base_recommendation, agents, context: dict | None = None) -> str:
     issue_type = getattr(finding, "issue_type", "unknown")
     severity = getattr(finding, "severity", "unknown")
-    rule_id = getattr(finding, "rule_id", "unknown")
     evidence = getattr(finding, "evidence", {}) or {}
     recommended_action = getattr(base_recommendation, "recommended_action", "")
-
-    agents = _RELEVANT_AGENTS.get(issue_type, _ALL_AGENTS)
     try:
         evidence_text = json.dumps(evidence, default=str)
     except (TypeError, ValueError):
         evidence_text = str(evidence)
 
+    blocks, keys = [], []
+    for agent in agents:
+        key = getattr(agent, "output_key", "")
+        keys.append(key)
+        blocks.append(f'- "{key}": {getattr(agent, "system_prompt", "")}')
+    instructions = "\n".join(blocks)
+    context_block = ""
+    if context:
+        try:
+            context_text = json.dumps(context, default=str)
+        except (TypeError, ValueError):
+            context_text = str(context)
+        context_block = (
+            "\nAdditional scan context is provided for evidence only. "
+            "It includes the triggering source row, related cloud events, and the full scanned_asset_data table:\n"
+            f"{context_text}\n"
+        )
+
     return (
         "A deterministic rule engine detected a cloud governance issue.\n"
-        f"issue_type: {issue_type}\n"
-        f"severity: {severity}\n"
-        f"rule_id: {rule_id}\n"
+        f"issue_type: {issue_type}\nseverity: {severity}\n"
         f"evidence: {evidence_text}\n"
         f"deterministic_recommended_action: {recommended_action}\n\n"
-        "Write a concise, construction-aware analysis for the human reviewers. "
-        "Return ONLY a JSON object whose keys are a subset of "
-        f"{agents} (use only the ones that are relevant to this issue). "
-        "Each value is one or two plain-English sentences of analysis from that "
-        "perspective. Do NOT include dollar amounts, carbon figures, or "
-        "approval counts (those are provided separately). Do NOT instruct "
-        "anyone to execute the change automatically — a human approves it. "
-        "Example shape: {\"security\": \"...\", \"workflow\": \"...\"}"
+        f"{context_block}"
+        "Produce a JSON object. For each agent key below, write one or two plain-English "
+        "sentences following that agent's instruction:\n"
+        f"{instructions}\n\n"
+        f"Return ONLY a JSON object whose keys are exactly: {keys}. "
+        "Do NOT invent dollar amounts or carbon figures (those are provided separately). "
+        'Example: {"security": "..."}'
     )
 
 
-def _parse_response(raw: str, finding: Any) -> dict | None:
-    """Robustly extract the per-agent dict from the LLM response."""
+def parse_response(raw: str, allowed_keys: set) -> dict | None:
+    """Robustly extract the per-agent dict, clamped to allowed_keys."""
     try:
         envelope = json.loads(raw)
     except (TypeError, ValueError):
         return None
-
     content = _extract_content(envelope)
     if not content:
         return None
-
     parsed = _loads_json_object(content)
     if not isinstance(parsed, dict) or not parsed:
         return None
-
-    # Clamp to known agent keys and coerce values to clean strings.
     cleaned: dict[str, str] = {}
     for key, value in parsed.items():
-        agent = str(key).strip().lower()
-        if agent not in _ALL_AGENTS:
+        agent_key = str(key).strip()
+        if agent_key not in allowed_keys:
             continue
         if isinstance(value, (list, tuple)):
             text = " ".join(str(item).strip() for item in value if str(item).strip())
         else:
             text = str(value).strip()
         if text:
-            cleaned[agent] = text
-
+            cleaned[agent_key] = text
     return cleaned or None
 
 
@@ -219,3 +232,229 @@ def _loads_json_object(content: str) -> Any:
         except (TypeError, ValueError):
             return None
     return None
+
+
+def generate_workflow_summary(finding: Any, agent_outputs: dict) -> str | None:
+    """Merge per-agent analyses into ONE cohesive paragraph. None on any failure. Never raises."""
+    settings = get_settings()
+    if not settings.ai_enabled:
+        return None
+    outputs = {k: str(v).strip() for k, v in (agent_outputs or {}).items() if str(v).strip()}
+    if not outputs:
+        return None
+    try:
+        base_url = settings.ai_provider_base_url
+        if not base_url.endswith("/"):
+            base_url += "/"
+        url = base_url + _COMPLETIONS_PATH
+        body = json.dumps(
+            {
+                "model": settings.ai_model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a cloud governance assistant for a construction-tech company. "
+                            "You merge several specialist analyses of ONE finding into a single short "
+                            "paragraph for a human reviewer. Synthesize, do not just list. Reference "
+                            "only what the analyses say. Never invent dollar or carbon numbers, and "
+                            "never tell anyone to auto-execute a change. Respond with plain text only."
+                        ),
+                    },
+                    {"role": "user", "content": build_summary_prompt(finding, outputs)},
+                ],
+                "temperature": 0.4,
+                "max_tokens": _SUMMARY_MAX_TOKENS,
+            }
+        ).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.ai_provider_api_key}",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
+            if response.status != 200:
+                return None
+            raw = response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - defensive: AI is purely additive
+        return None
+    return parse_summary(raw)
+
+
+def build_summary_prompt(finding, outputs: dict) -> str:
+    issue_type = getattr(finding, "issue_type", "unknown")
+    severity = getattr(finding, "severity", "unknown")
+    blocks = "\n".join(f"- {key}: {text}" for key, text in outputs.items())
+    return (
+        "A deterministic rule engine detected a cloud governance issue.\n"
+        f"issue_type: {issue_type}\nseverity: {severity}\n\n"
+        "These specialist agents each analyzed it:\n"
+        f"{blocks}\n\n"
+        "Write ONE short paragraph (2-4 sentences) that synthesizes ALL of the above for a human "
+        "reviewer: what they agree on, the main risk, and the headline recommendation. Plain text only."
+    )
+
+
+def parse_summary(raw: str) -> str | None:
+    try:
+        envelope = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    content = _extract_content(envelope)
+    if not content:
+        return None
+    text = content.strip()
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+    return text or None
+
+
+# ---------------------------------------------------------------------------
+# Conversational agent builder: describe an agent in natural language and get a
+# professional, SafeCloud-native system prompt back. Like the rest of this
+# module it NEVER raises — on any failure it returns ``None`` so the route can
+# degrade gracefully.
+# ---------------------------------------------------------------------------
+
+_BUILDER_SYSTEM_PROMPT = (
+    "You are an expert prompt engineer embedded in SafeCloud, a cloud-governance "
+    "dashboard for a construction-tech company. You help a human author the SYSTEM "
+    "PROMPT for a new analysis agent by chatting with them, like an assistant that "
+    "creates sub-agents.\n\n"
+    "HOW THESE AGENTS RUN (the prompt you write MUST fit this): each agent is given "
+    "ONE governance finding (issue_type, severity, evidence) plus a deterministic "
+    "recommended action, and must return ONE or TWO short, plain-English, "
+    "construction-aware sentences of analysis. The deterministic rule engine supplies "
+    "every dollar and carbon figure, so agents must NEVER invent numbers and must NEVER "
+    "tell anyone to auto-execute a change. Gold-standard existing prompts:\n"
+    '- "You are a cloud security analyst for a construction-tech company. Explain the '
+    'exposure and data-protection risk of this finding in one or two plain sentences. '
+    'Reference the evidence; never invent numbers."\n'
+    '- "You are a cloud cost analyst. Explain the wasted monthly spend and the saving '
+    'opportunity in one or two sentences. Do not invent figures; reference the provided '
+    'estimate only."\n\n'
+    "YOUR JOB: from the user's natural-language description, write a polished, "
+    "role-specific system prompt in exactly that style — a clear persona, what to "
+    "explain for each finding, the one-to-two-sentence limit, and the 'reference the "
+    "evidence / never invent numbers / never auto-execute' guardrails. Also propose a "
+    "short, human-friendly agent name (2-4 words, e.g. 'Idle Compute Optimizer'). "
+    "Explain your choices conversationally and warmly. Only if the request is too vague "
+    "to act on, ask ONE clarifying question instead of guessing wildly.\n\n"
+    "OUTPUT FORMAT: ALWAYS respond with a SINGLE JSON object and nothing else:\n"
+    '{"reply": "<your conversational explanation or clarifying question>", '
+    '"name": "<suggested agent name, or empty string>", '
+    '"system_prompt": "<the system prompt you wrote, or empty string>"}\n'
+    "Leave name and system_prompt as empty strings ONLY when you are purely asking a "
+    "clarifying question and have not drafted anything yet."
+)
+
+
+def generate_subagent_draft(
+    messages: list,
+    current_name: str | None = None,
+    current_system_prompt: str | None = None,
+) -> dict | None:
+    """Return ``{"reply", "name", "system_prompt"}`` or ``None`` on any failure.
+
+    ``messages`` is the running chat history (objects or dicts with ``role`` and
+    ``content``). The current draft, if any, is passed back as context so the
+    model refines it in place rather than starting over. Never raises.
+    """
+    settings = get_settings()
+    if not settings.ai_enabled:
+        return None
+
+    try:
+        base_url = settings.ai_provider_base_url
+        if not base_url.endswith("/"):
+            base_url += "/"
+        url = base_url + _COMPLETIONS_PATH
+
+        chat: list[dict] = [{"role": "system", "content": _BUILDER_SYSTEM_PROMPT}]
+        draft = (current_system_prompt or "").strip()
+        if draft:
+            chat.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "The draft the user is currently looking at:\n"
+                        f"name: {(current_name or '').strip()}\n"
+                        f"system_prompt: {draft}\n"
+                        "Refine THIS draft based on the conversation rather than "
+                        "starting from scratch, unless the user asks for something new."
+                    ),
+                }
+            )
+
+        had_user_turn = False
+        for turn in messages or []:
+            role = _turn_field(turn, "role")
+            content = _turn_field(turn, "content")
+            if role in ("user", "assistant") and content:
+                chat.append({"role": role, "content": str(content)})
+                if role == "user":
+                    had_user_turn = True
+        if not had_user_turn:
+            return None
+
+        body = json.dumps(
+            {
+                "model": settings.ai_model,
+                "messages": chat,
+                "temperature": 0.5,
+                "max_tokens": _DRAFT_MAX_TOKENS,
+            }
+        ).encode("utf-8")
+
+        request = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.ai_provider_api_key}",
+            },
+        )
+
+        with urllib.request.urlopen(request, timeout=_DRAFT_TIMEOUT_SECONDS) as response:
+            if response.status != 200:
+                return None
+            raw = response.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError):
+        return None
+    except Exception:  # noqa: BLE001 - defensive: AI is purely additive
+        return None
+
+    return parse_draft(raw)
+
+
+def _turn_field(turn, field: str):
+    if isinstance(turn, dict):
+        return turn.get(field)
+    return getattr(turn, field, None)
+
+
+def parse_draft(raw: str) -> dict | None:
+    """Extract the builder's JSON object, tolerating prose/fences. None on failure."""
+    try:
+        envelope = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    content = _extract_content(envelope)
+    if not content:
+        return None
+    parsed = _loads_json_object(content)
+    if not isinstance(parsed, dict):
+        return None
+    reply = str(parsed.get("reply", "") or "").strip()
+    name = str(parsed.get("name", "") or "").strip()
+    system_prompt = str(parsed.get("system_prompt", "") or "").strip()
+    if not (reply or name or system_prompt):
+        return None
+    return {"reply": reply, "name": name, "system_prompt": system_prompt}

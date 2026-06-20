@@ -1,6 +1,10 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = _BACKEND_ROOT.parent
 
 
 class Settings(BaseSettings):
@@ -12,9 +16,17 @@ class Settings(BaseSettings):
     ai_provider_api_key: str | None = None
     ai_provider_base_url: str = "https://console-api.grafilab.ai/api/"
     ai_model: str = "grafilab-chat"
+    agent_token: str = "safecloud-demo-agent-token"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Read repo-root and backend-local env files. Later files override
+        # earlier ones, while real process env still has highest priority.
+        env_file=(
+            _REPO_ROOT / ".env",
+            _BACKEND_ROOT / ".env",
+            _REPO_ROOT / ".env.local",
+            _BACKEND_ROOT / ".env.local",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )

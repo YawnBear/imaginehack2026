@@ -11,8 +11,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  // Pull a wide page so search covers the whole estate, not just one panel.
-  const res = await getFindings({ page_size: 100 });
+  const res = await getFindings({ q, page_size: 100 });
 
   return (
     <div className="space-y-5">

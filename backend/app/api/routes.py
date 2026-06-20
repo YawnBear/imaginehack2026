@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.schemas import (
     AuditLogListResponse,
     DashboardSummary,
+    EnergySummary,
     EventIngestRequest,
     EventIngestResponse,
     Finding,
@@ -20,9 +21,11 @@ router = APIRouter()
 
 @router.get("/healthz", response_model=HealthResponse, tags=["health"])
 def healthz(service: GovernanceService = Depends(get_governance_service)) -> HealthResponse:
+    from app.core.config import get_settings
+
     return HealthResponse(
         status="ok",
-        database="in_memory",
+        database="postgres" if get_settings().database_url else "in_memory",
         seeded=service.has_events,
     )
 
@@ -47,6 +50,7 @@ def list_findings(
     status_filter: str | None = Query(default=None, alias="status"),
     resource_type: str | None = None,
     owner_team: str | None = None,
+    q: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     service: GovernanceService = Depends(get_governance_service),
@@ -57,6 +61,7 @@ def list_findings(
         status=status_filter,
         resource_type=resource_type,
         owner_team=owner_team,
+        q=q,
         page=page,
         page_size=page_size,
     )
@@ -94,6 +99,27 @@ def dashboard_summary(
     service: GovernanceService = Depends(get_governance_service),
 ) -> DashboardSummary:
     return service.dashboard_summary()
+
+
+@router.get("/api/energy/summary", response_model=EnergySummary, tags=["dashboard"])
+def energy_summary(
+    service: GovernanceService = Depends(get_governance_service),
+) -> EnergySummary:
+    return service.dashboard_energy_summary()
+
+
+@router.post("/api/scan/run", response_model=EventIngestResponse, tags=["events"])
+def run_scan(
+    service: GovernanceService = Depends(get_governance_service),
+) -> EventIngestResponse:
+    return service.run_scan_from_database_sources()
+
+
+@router.get("/api/reviewer-roles", response_model=list[dict[str, str]], tags=["reviewers"])
+def reviewer_roles(
+    service: GovernanceService = Depends(get_governance_service),
+) -> list[dict[str, str]]:
+    return service.reviewer_roles()
 
 
 @router.get("/api/audit-logs", response_model=AuditLogListResponse, tags=["audit"])

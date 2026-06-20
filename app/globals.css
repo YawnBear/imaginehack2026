@@ -1,48 +1,10 @@
 @import "tailwindcss";
+@import "./red-broadcast-tokens.css";
 
 /* ---------------------------------------------------------------------------
-   GreenGuard Cloud — "Red Broadcast" design tokens (Tailwind v4 @theme).
+   Safe Cloud — "Red Broadcast" design tokens (Tailwind v4 @theme).
    Clean, grid-driven, red-accented, low-elevation. Red used sparingly.
 --------------------------------------------------------------------------- */
-
-@theme {
-  /* Brand / accent */
-  --color-brand: #ff0000; /* Broadcast Red — critical / live / primary accent */
-  --color-brand-hover: #cc0000;
-  --color-link: #065fd4; /* Link Blue */
-
-  /* Neutrals */
-  --color-ink: #0f0f0f; /* text primary / near-black */
-  --color-muted: #606060; /* secondary text, metadata, icons */
-  --color-border: #e5e5e5; /* dividers, card outlines */
-  --color-surface: #f2f2f2; /* chip bar, hover, inputs */
-  --color-canvas: #ffffff;
-
-  /* Semantic */
-  --color-success: #2ba640;
-  --color-warning: #fb8c00;
-  --color-danger: #ff0000;
-
-  /* Severity */
-  --color-sev-critical: #ff0000;
-  --color-sev-high: #fb8c00;
-  --color-sev-medium: #065fd4;
-  --color-sev-low: #606060;
-
-  /* Fonts (wired from next/font in layout.tsx) */
-  --font-sans: var(--font-roboto), system-ui, sans-serif;
-  --font-mono: var(--font-roboto-mono), ui-monospace, monospace;
-
-  /* Elevation */
-  --shadow-e1: 0 1px 2px rgba(0, 0, 0, 0.1);
-  --shadow-e2: 0 4px 32px rgba(0, 0, 0, 0.1);
-  --shadow-e3: 0 8px 40px rgba(0, 0, 0, 0.2);
-}
-
-:root {
-  --background: #ffffff;
-  --foreground: #0f0f0f;
-}
 
 html,
 body {
@@ -50,12 +12,34 @@ body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-canvas);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
+button, a, input, textarea, select { outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--color-link); }
+::selection { background: var(--color-brand); color: var(--color-on-accent); }
+
+.gg-icon-button {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--color-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.gg-icon-button:hover { background: var(--color-surface); color: var(--color-ink); }
+.theme-icon-light { display: none; }
+.gg-agent-panel { background: linear-gradient(180deg, color-mix(in srgb, var(--color-agent-surface) 98%, transparent), color-mix(in srgb, var(--color-agent-ice) 94%, transparent)); }
+:root[data-theme="dark"] .theme-icon-dark { display: none; }
+:root[data-theme="dark"] .theme-icon-light { display: block; }
+
+/* All components consume semantic utilities from red-broadcast-tokens.css. */
 /* Utility: 2-line clamp for list titles */
 .clamp-2 {
   display: -webkit-box;
@@ -75,7 +59,7 @@ body {
   letter-spacing: 0.02em;
 }
 
-/* Live pulse for the carbon counter / scan indicator */
+/* Live pulse for scan indicators */
 @keyframes gg-pulse {
   0%,
   100% {
@@ -113,12 +97,228 @@ body {
   }
 }
 .gg-skeleton {
-  background: linear-gradient(90deg, #f2f2f2 25%, #e9e9e9 37%, #f2f2f2 63%);
+  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-hover) 37%, var(--color-surface) 63%);
   background-size: 800px 100%;
   animation: gg-shimmer 1.4s ease-in-out infinite;
 }
 
 /* Modal scrim */
 .gg-scrim {
-  background: rgba(15, 15, 15, 0.5);
+  background: var(--color-overlay);
+}
+
+@keyframes gg-pie-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.35) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes gg-line-draw {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes gg-chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gg-pie-slice {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: gg-pie-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.gg-pie-slice:hover {
+  filter: brightness(1.12);
+  transform: scale(1.035);
+}
+
+.gg-chart-line {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  animation: gg-line-draw 1.1s ease-out forwards;
+}
+
+.gg-chart-area,
+.gg-chart-point {
+  opacity: 0;
+  animation: gg-chart-fade 0.45s ease-out forwards;
+}
+
+.gg-chart-area {
+  animation-delay: 0.45s;
+}
+
+@keyframes gg-agent-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes gg-agent-blink {
+  0%,
+  44%,
+  100% {
+    transform: scaleY(1);
+  }
+  47%,
+  50% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes gg-agent-radar {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gg-agent-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes gg-agent-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  40% {
+    transform: translateX(3px) rotate(1deg);
+  }
+  60% {
+    transform: translateX(-2px) rotate(-0.8deg);
+  }
+  80% {
+    transform: translateX(2px) rotate(0.8deg);
+  }
+}
+
+@keyframes gg-agent-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-10px) scale(1.02);
+  }
+  60% {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@keyframes gg-agent-ping-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes gg-agent-eye-scan {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-6px);
+  }
+}
+
+.gg-agent-shell {
+  filter: drop-shadow(var(--shadow-agent));
+}
+
+.gg-agent-float {
+  animation: gg-agent-float 4.5s ease-in-out infinite;
+}
+
+.gg-agent-blink {
+  transform-origin: center;
+  animation: gg-agent-blink 5.5s ease-in-out infinite;
+}
+
+.gg-agent-radar {
+  transform-origin: 140px 140px;
+  animation: gg-agent-radar 6s linear infinite;
+}
+
+.gg-agent-glow {
+  animation: gg-agent-glow 1.8s ease-in-out infinite;
+}
+
+.gg-agent-shake {
+  animation: gg-agent-shake 0.48s ease-in-out infinite;
+}
+
+.gg-agent-bounce {
+  animation: gg-agent-bounce 1.8s ease-in-out infinite;
+}
+
+.gg-agent-ping-soft {
+  transform-origin: center;
+  animation: gg-agent-ping-soft 2.8s ease-in-out infinite;
+}
+
+.gg-agent-eye-scan {
+  animation: gg-agent-eye-scan 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-agent-float,
+  .gg-agent-blink,
+  .gg-agent-radar,
+  .gg-agent-glow,
+  .gg-agent-shake,
+  .gg-agent-bounce,
+  .gg-agent-ping-soft,
+  .gg-agent-eye-scan,
+  .gg-pie-slice,
+  .gg-chart-line,
+  .gg-chart-area,
+  .gg-chart-point,
+  .gg-fade-up,
+  .gg-pulse,
+  .gg-skeleton {
+    animation: none !important;
+    transition: none !important;
+  }
 }

@@ -51,7 +51,7 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
     const header = COLUMNS.join(",");
     const rows = logs.map((log) => COLUMNS.map((c) => csvCell(log[c])).join(","));
     download(
-      `greenguard-audit-${todayStamp()}.csv`,
+      `safe-cloud-audit-${todayStamp()}.csv`,
       [header, ...rows].join("\n"),
       "text/csv;charset=utf-8",
     );
@@ -60,7 +60,7 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
 
   function exportJson() {
     download(
-      `greenguard-audit-${todayStamp()}.json`,
+      `safe-cloud-audit-${todayStamp()}.json`,
       JSON.stringify(logs, null, 2),
       "application/json",
     );
@@ -72,7 +72,7 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={logs.length === 0}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-[#E5E5E5] px-4 text-[13px] font-medium text-[#0F0F0F] hover:bg-[#F2F2F2] disabled:opacity-50"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-border px-4 text-[13px] font-medium text-ink hover:bg-surface disabled:opacity-50"
       >
         <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 3v12M7 10l5 5 5-5M5 21h14" />
@@ -82,16 +82,16 @@ export default function AuditExport({ logs }: { logs: AuditLog[] }) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-[42px] z-50 w-[160px] overflow-hidden rounded-lg border border-[#E5E5E5] bg-white py-1 shadow-[var(--shadow-e2)]">
+          <div className="absolute right-0 top-[42px] z-50 w-[160px] overflow-hidden rounded-lg border border-border bg-canvas py-1 shadow-[var(--shadow-e2)]">
             <button
               onClick={exportCsv}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#0F0F0F] hover:bg-[#F2F2F2]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink hover:bg-surface"
             >
               Download CSV
             </button>
             <button
               onClick={exportJson}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#0F0F0F] hover:bg-[#F2F2F2]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink hover:bg-surface"
             >
               Download JSON
             </button>

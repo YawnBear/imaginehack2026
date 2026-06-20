@@ -1,4 +1,4 @@
-import { getFindings, getFinding } from "@/app/lib/api";
+import { getEnergySummary } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { Card, SectionTitle, MockBanner, EstimateNote } from "@/app/components/ui";
 import { AreaLineChart, BarChart, type Slice } from "@/app/components/charts";
@@ -12,49 +12,37 @@ import ESGReportExport, {
 export const dynamic = "force-dynamic";
 
 export default async function EnergyPage() {
-  const [costRes, energyRes] = await Promise.all([
-    getFindings({ category: "cost", page_size: 50 }),
-    getFindings({ category: "energy", page_size: 50 }),
-  ]);
-  const findings = [...costRes.data.items, ...energyRes.data.items];
-  const mock = costRes.mock || energyRes.mock;
-
-  const details = await Promise.all(
-    findings.map((f) => getFinding(f.finding_id).catch(() => null)),
-  );
-
-  // Aggregate estimated carbon reduction by resource type.
-  const byType: Record<string, number> = {};
-  const byOptimization: Record<string, number> = {};
-  let totalReduction = 0;
-  for (let i = 0; i < findings.length; i++) {
-    const red = details[i]?.data.recommendation?.estimated_carbon_reduction_kg ?? 0;
-    totalReduction += red;
-    byType[findings[i].resource_type] = (byType[findings[i].resource_type] ?? 0) + red;
-    const label = optimizationLabel(findings[i].issue_type, findings[i].resource_type);
-    byOptimization[label] = (byOptimization[label] ?? 0) + red;
-  }
+  const res = await getEnergySummary();
+  const summary = res.data;
 
   const typeColors: Record<string, string> = {
-    vm: "#FB8C00",
-    storage: "#065FD4",
-    database: "#606060",
-    bucket: "#FF0000",
+    vm: "var(--color-warning)",
+    storage: "var(--color-link)",
+    database: "var(--color-muted)",
+    bucket: "var(--color-danger)",
   };
-  const energyBars: Slice[] = Object.entries(byType)
+  const energyBars: Slice[] = Object.entries(summary.by_resource_type)
     .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({ label: k, value: Math.round(v), color: typeColors[k] ?? "#606060" }));
+    .map(([k, v]) => ({ label: k, value: Math.round(v), color: typeColors[k] ?? "var(--color-muted)" }));
 
-  // Synthetic 8-month footprint trend (estimated). Last point dips after approvals.
-  const trend = [612, 598, 631, 645, 620, 604, 588, 588 - Math.round(totalReduction)];
-  const trendLabels = ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-
-  const beforeFootprint = 588;
-  const afterFootprint = Math.max(beforeFootprint - Math.round(totalReduction), 0);
+  const trend = summary.history.map((point) => Math.round(point.value_kg));
+  const trendLabels = summary.history.map((point) => point.label);
+  const beforeFootprint = Math.round(summary.current_footprint_kg);
+  const afterFootprint = Math.round(summary.projected_footprint_kg);
+  const totalReduction = Math.round(summary.estimated_reduction_kg);
+  const reductionPct =
+    beforeFootprint > 0 ? Math.round((totalReduction / beforeFootprint) * 100) : 0;
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-  const reportTrend = buildReportTrend(trend, trendLabels);
-  const reductionCategories = buildReductionCategories(byOptimization);
+  const reportTrend =
+    summary.history.length > 0
+      ? buildReportTrend(
+          trend,
+          trendLabels,
+          summary.history.map((point) => point.timestamp),
+        )
+      : buildReportTrend([afterFootprint], ["Current"], [now.toISOString()]);
+  const reductionCategories = buildReductionCategories(summary.by_resource_type, totalReduction);
   const esgScore =
     beforeFootprint > 0
       ? Math.min(100, Math.round(72 + (totalReduction / beforeFootprint) * 100))
@@ -65,7 +53,7 @@ export default async function EnergyPage() {
     periodStart: periodStart.toISOString(),
     periodEnd: now.toISOString(),
     overallFootprintKg: afterFootprint,
-    totalReducedKg: Math.round(totalReduction),
+    totalReducedKg: totalReduction,
     esgScore,
     trend: reportTrend,
     reductions: reductionCategories,
@@ -78,25 +66,35 @@ export default async function EnergyPage() {
         subtitle="Estimated carbon footprint of the cloud estate, and the reduction unlocked once recommended actions are approved."
         right={
           <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-1.5 rounded-full bg-[#2BA6400D] px-3 py-1.5 text-[12px] font-medium text-[#1d7a2e] sm:flex">
+            <span className="hidden items-center gap-1.5 rounded-full bg-[var(--color-success-tint)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-success-strong)] sm:flex">
               <IconLeaf width={14} height={14} /> all values are estimates
             </span>
             <ESGReportExport data={reportData} />
           </div>
         }
       />
-      {mock && <MockBanner reason={costRes.error} />}
+      {res.mock && <MockBanner reason={res.error} />}
 
       <Card>
         <div className="flex items-center justify-between">
           <SectionTitle>Estimated monthly carbon footprint</SectionTitle>
-          <span className="text-[12px] text-[#606060]">kg CO₂e / month · estimate</span>
+          <span className="text-[12px] text-muted">kg CO2e / month - estimate</span>
         </div>
         <div className="mt-4">
-          <AreaLineChart values={trend} labels={trendLabels} height={220} unit="kg CO₂e" />
+          {trend.length > 0 ? (
+            <AreaLineChart values={trend} labels={trendLabels} height={220} unit="kg CO2e" />
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-surface-subtle text-center">
+              <p className="text-[14px] font-medium text-ink">No energy history yet</p>
+              <p className="mt-1 max-w-sm text-[12px] text-muted">
+                The database has no time-series energy rows, so the chart will appear after
+                energy measurements are recorded.
+              </p>
+            </div>
+          )}
         </div>
-        <p className="mt-2 text-[12px] text-[#606060]">
-          The final point reflects the projected footprint <strong>after</strong> approving the
+        <p className="mt-2 text-[12px] text-muted">
+          History comes from recorded energy data. Projected reduction is calculated from
           current pending recommendations.
         </p>
       </Card>
@@ -105,24 +103,22 @@ export default async function EnergyPage() {
         <Card>
           <SectionTitle>Before / after approved actions</SectionTitle>
           <div className="mt-5 space-y-4">
-            <BeforeAfterBar label="Before" value={beforeFootprint} max={beforeFootprint} color="#606060" />
-            <BeforeAfterBar label="After (projected)" value={afterFootprint} max={beforeFootprint} color="#2BA640" />
+            <BeforeAfterBar label="Before" value={beforeFootprint} max={beforeFootprint} color="var(--color-muted)" />
+            <BeforeAfterBar label="After (projected)" value={afterFootprint} max={beforeFootprint} color="var(--color-success)" />
           </div>
-          <div className="mt-5 flex items-center gap-2 rounded-lg bg-[#2BA6400D] p-3">
-            <IconLeaf width={20} height={20} className="text-[#2BA640]" />
-            <p className="text-[13px] text-[#0F0F0F]">
-              <strong>{kg(Math.round(totalReduction))} CO₂e / month</strong> avoided once approved
-              — about{" "}
-              <strong>{Math.round((totalReduction / beforeFootprint) * 100)}%</strong> of the
-              current estimated footprint.
+          <div className="mt-5 flex items-center gap-2 rounded-lg bg-[var(--color-success-tint)] p-3">
+            <IconLeaf width={20} height={20} className="text-[var(--color-success)]" />
+            <p className="text-[13px] text-ink">
+              <strong>{kg(totalReduction)} CO2e / month</strong> avoided once approved,
+              {" "}about <strong>{reductionPct}%</strong> of the current estimated footprint.
             </p>
           </div>
         </Card>
 
         <Card>
           <SectionTitle>Energy impact by resource type</SectionTitle>
-          <p className="mb-4 mt-1 text-[12px] text-[#606060]">
-            Estimated CO₂e reduction available per resource class (kg / month).
+          <p className="mb-4 mt-1 text-[12px] text-muted">
+            Current estimated CO2e footprint by resource class (kg / month).
           </p>
           <BarChart data={energyBars} unit=" kg" height={170} />
         </Card>
@@ -130,13 +126,12 @@ export default async function EnergyPage() {
 
       <Card>
         <SectionTitle>How we estimate carbon</SectionTitle>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#606060]">
+        <p className="mt-2 text-[13px] leading-relaxed text-muted">
           Carbon estimates use{" "}
-          <span className="font-mono text-[#0F0F0F]">kWh × grid carbon-intensity</span> with{" "}
+          <span className="font-mono text-ink">kWh x grid carbon-intensity</span> with{" "}
           <strong>Cloud Carbon Footprint</strong> coefficients. Instance energy is derived from
-          machine-type power draw and utilisation; the grid factor for{" "}
-          <span className="font-mono text-[#0F0F0F]">asia-southeast1</span> is ≈ 0.40 kg CO₂e/kWh.
-          All figures are directional estimates to guide prioritisation, not billed measurements.
+          machine-type power draw and utilisation. All figures are directional estimates to guide
+          prioritisation, not billed measurements.
         </p>
       </Card>
 
@@ -145,47 +140,54 @@ export default async function EnergyPage() {
   );
 }
 
-function optimizationLabel(issueType: string, resourceType: string): string {
-  const normalized = issueType.toLowerCase().replace(/\s+/g, "_");
-  if (normalized.includes("idle_vm") || normalized.includes("idle_compute")) {
-    return "Idle VM Shutdown";
+function buildReductionCategories(
+  byResourceType: Record<string, number>,
+  totalReduction: number,
+): ESGReductionCategory[] {
+  const entries = Object.entries(byResourceType)
+    .filter(([, value]) => value > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  if (entries.length === 0) {
+    return [{ category: "Pending Recommendations", savedKg: Math.max(totalReduction, 0) }];
   }
-  if (normalized.includes("unused_storage") || normalized.includes("orphaned_storage")) {
-    return "Unused Storage Removal";
-  }
-  if (normalized.includes("storage") || resourceType === "storage") {
-    return "Storage Tier Optimization";
-  }
-  if (normalized.includes("right") || normalized.includes("over_provisioned") || resourceType === "vm") {
-    return "VM Right-Sizing";
-  }
-  if (resourceType === "database") {
-    return "Database Optimization";
-  }
-  return "Other Optimizations";
+
+  const totalFootprint = entries.reduce((sum, [, value]) => sum + value, 0);
+  let allocated = 0;
+
+  return entries.map(([resourceType, value], index) => {
+    const savedKg =
+      index === entries.length - 1
+        ? Math.max(totalReduction - allocated, 0)
+        : Math.round((value / totalFootprint) * totalReduction);
+    allocated += savedKg;
+
+    return {
+      category: `${formatResourceType(resourceType)} Optimization`,
+      savedKg,
+    };
+  });
 }
 
-function buildReductionCategories(source: Record<string, number>): ESGReductionCategory[] {
-  const ordered = [
-    "Idle VM Shutdown",
-    "Unused Storage Removal",
-    "Storage Tier Optimization",
-    "VM Right-Sizing",
-    "Database Optimization",
-    "Other Optimizations",
-  ];
-  return ordered.map((category) => ({
-    category,
-    savedKg: Math.round(source[category] ?? 0),
-  }));
-}
-
-function buildReportTrend(values: number[], labels: string[]): ESGTrendPoint[] {
+function buildReportTrend(
+  values: number[],
+  labels: string[],
+  dates: Array<string | null | undefined>,
+): ESGTrendPoint[] {
   return values.map((value, index) => ({
-    date: labels[index] ?? String(index + 1),
+    date: dates[index] ?? new Date().toISOString(),
     label: labels[index] ?? String(index + 1),
     footprintKg: Math.max(0, Math.round(value)),
   }));
+}
+
+function formatResourceType(value: string): string {
+  if (value === "vm") return "VM";
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function BeforeAfterBar({
@@ -199,14 +201,14 @@ function BeforeAfterBar({
   max: number;
   color: string;
 }) {
-  const pct = Math.round((value / max) * 100);
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[13px]">
-        <span className="text-[#606060]">{label}</span>
-        <span className="font-medium text-[#0F0F0F]">{value} kg CO₂e</span>
+        <span className="text-muted">{label}</span>
+        <span className="font-medium text-ink">{value} kg CO2e</span>
       </div>
-      <div className="h-4 w-full overflow-hidden rounded-full bg-[#F2F2F2]">
+      <div className="h-4 w-full overflow-hidden rounded-full bg-surface">
         <div
           className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, background: color }}

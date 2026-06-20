@@ -2,11 +2,15 @@
 // as a complete, clickable demo with ZERO backend.
 
 import type {
+  Agent,
   AuditLog,
   DashboardSummary,
   Finding,
   FindingDetail,
   Recommendation,
+  Rule,
+  RuleTemplate,
+  ThreatReport,
 } from "./types";
 
 const now = new Date("2026-06-20T08:42:00+08:00");
@@ -476,3 +480,163 @@ export function mockFindingDetail(id: string): FindingDetail | null {
   );
   return { finding, recommendation, approvals: [], audit_logs };
 }
+
+export const MOCK_RULES: Rule[] = [
+  {
+    rule_id: "RULE_PUBLIC_BUCKET",
+    name: "Public Bucket",
+    enabled: true,
+    source_type: "asset_scan",
+    template_key: "public_exposure",
+    resource_type: "bucket",
+    conditions: [{ field: "config.public_access", operator: "==", value: true }],
+    severity_base: "high",
+    escalate_in_prod: true,
+    rule_confidence: 0.98,
+    category: "security",
+    issue_type: "public_bucket",
+    required_reviewers: ["security", "devops"],
+    evidence_fields: ["environment", "project_id", "owner_team"],
+    remediation_action_key: "restrict_public_access",
+    remediation_destructive: false,
+    agent_keys: [],
+    created_at: "2026-06-20T00:00:00Z",
+  },
+  {
+    rule_id: "RULE_IDLE_VM",
+    name: "Idle VM",
+    enabled: true,
+    source_type: "asset_scan",
+    template_key: "idle_resource",
+    resource_type: "vm",
+    conditions: [{ field: "metrics.avg_cpu_percent_7d", operator: "<=", value: 10 }],
+    severity_base: "medium",
+    escalate_in_prod: true,
+    rule_confidence: 0.9,
+    category: "cost",
+    issue_type: "idle_vm",
+    required_reviewers: ["devops", "application_owner"],
+    evidence_fields: ["cost.monthly_usd"],
+    remediation_action_key: "stop_vm",
+    remediation_destructive: true,
+    agent_keys: [],
+    created_at: "2026-06-20T00:00:00Z",
+  },
+  {
+    rule_id: "RULE_UNUSED_STORAGE",
+    name: "Unused Storage",
+    enabled: true,
+    source_type: "asset_scan",
+    template_key: "unused_resource",
+    resource_type: "storage",
+    conditions: [{ field: "config.attached", operator: "==", value: false }],
+    severity_base: "medium",
+    escalate_in_prod: false,
+    rule_confidence: 0.88,
+    category: "cost",
+    issue_type: "unused_storage",
+    required_reviewers: ["devops", "project_owner", "compliance"],
+    evidence_fields: ["cost.monthly_usd"],
+    remediation_action_key: "delete_storage",
+    remediation_destructive: true,
+    agent_keys: [],
+    created_at: "2026-06-20T00:00:00Z",
+  },
+  {
+    rule_id: "RULE_UNENCRYPTED_DATABASE",
+    name: "Unencrypted Database",
+    enabled: true,
+    source_type: "asset_scan",
+    template_key: "unencrypted_data",
+    resource_type: "database",
+    conditions: [{ field: "config.encrypted", operator: "==", value: false }],
+    severity_base: "high",
+    escalate_in_prod: true,
+    rule_confidence: 0.97,
+    category: "security",
+    issue_type: "unencrypted_database",
+    required_reviewers: ["security", "devops", "application_owner", "dba"],
+    evidence_fields: ["environment"],
+    remediation_action_key: "plan_encryption",
+    remediation_destructive: false,
+    agent_keys: [],
+    created_at: "2026-06-20T00:00:00Z",
+  },
+];
+
+export const MOCK_RULE_TEMPLATES: RuleTemplate[] = [
+  {
+    template_key: "threshold_breach",
+    name: "Threshold Breach",
+    description: "Flag when a numeric metric crosses a threshold you set.",
+    resource_type: "vm",
+    conditions: [{ field: "metrics.avg_cpu_percent_7d", operator: ">=", value: 90 }],
+    severity_base: "medium",
+    escalate_in_prod: true,
+    rule_confidence: 0.75,
+    category: "cost",
+    issue_type: "threshold_breach",
+    required_reviewers: ["devops"],
+    evidence_fields: ["cost.monthly_usd"],
+    remediation_action_key: "tag_resource",
+    remediation_destructive: false,
+  },
+  {
+    template_key: "custom",
+    name: "Custom Rule",
+    description: "Start from scratch with your own conditions.",
+    resource_type: "vm",
+    conditions: [],
+    severity_base: "medium",
+    escalate_in_prod: false,
+    rule_confidence: 0.8,
+    category: "security",
+    issue_type: "custom_finding",
+    required_reviewers: ["devops"],
+    evidence_fields: [],
+    remediation_action_key: "tag_resource",
+    remediation_destructive: false,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Agents (SafeCloud Phase 2)
+// ---------------------------------------------------------------------------
+
+export const MOCK_AGENTS: Agent[] = [
+  { agent_id: "agent-security", name: "Security Analyst", system_prompt: "You are a cloud security analyst for a construction-tech company. Explain the exposure and data-protection risk of this finding in one or two plain sentences. Reference the evidence; never invent numbers.", output_key: "security", enabled: true, created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-cost", name: "Cost Optimizer", system_prompt: "You are a cloud cost analyst. Explain the wasted monthly spend and the saving opportunity in one or two sentences. Do not invent figures; reference the provided estimate only.", output_key: "cost", enabled: true, created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-energy", name: "Carbon Analyst", system_prompt: "You are a sustainability analyst. Explain the estimated carbon impact of this wasted resource in one or two sentences.", output_key: "energy", enabled: true, created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-workflow", name: "Workflow Impact", system_prompt: "You are a construction-tech workflow analyst. Explain the application or project impact and downtime risk of changing this resource in one or two sentences.", output_key: "workflow", enabled: true, created_at: "2026-06-20T00:00:00Z" },
+  { agent_id: "agent-audit", name: "Compliance Auditor", system_prompt: "You are a compliance auditor. Explain the audit-trail and approval requirements for this finding in one or two sentences.", output_key: "audit", enabled: true, created_at: "2026-06-20T00:00:00Z" },
+];
+
+// ---------------------------------------------------------------------------
+// Threats + Policy (SafeCloud Phase 3)
+// ---------------------------------------------------------------------------
+
+export const MOCK_THREATS: ThreatReport[] = [
+  {
+    report_id: "threat-mock-1", finding_id: "FND-1042", criticality_score: 95,
+    criticality_factors: { severity: 40, internet_exposure: 25, data_sensitivity: 15, production: 15 },
+    summary: "Public Bucket detected on bucket-project-drawings (critical). Criticality 95/100 — driven by severity (+40), internet exposure (+25), data sensitivity (+15), production (+15).",
+    timeline: [
+      { actor: "Document Platform", action: "resource_entered_risky_state", target_resource_id: "bucket-project-drawings", timestamp: "2026-06-20T09:00:00Z", note: "Public Bucket condition present." },
+      { actor: "system-seed", action: "finding_created", target_resource_id: "bucket-project-drawings", timestamp: "2026-06-20T09:05:00Z", note: "" },
+    ],
+    recommended_solution: "Restrict public access after Security and DevOps validate intended exposure.",
+    agent_sections: { security: "Public bucket access is a direct exposure risk." },
+    approval_status: "pending_review", ai_generated: false, generated_at: "2026-06-20T09:05:00Z",
+  },
+  {
+    report_id: "threat-mock-2", finding_id: "FND-1045", criticality_score: 75,
+    criticality_factors: { severity: 40, data_sensitivity: 15, production: 15, blast_radius: 5 },
+    summary: "Unencrypted Database detected on db-project-claims-prod (critical). Criticality 75/100.",
+    timeline: [
+      { actor: "Claims Platform", action: "resource_entered_risky_state", target_resource_id: "db-project-claims-prod", timestamp: "2026-06-20T08:00:00Z", note: "Unencrypted Database condition present." },
+    ],
+    recommended_solution: "Plan encryption or migration during an approved maintenance window.",
+    agent_sections: { security: "Unencrypted databases create data-protection and compliance risk." },
+    approval_status: "pending_review", ai_generated: false, generated_at: "2026-06-20T08:05:00Z",
+  },
+];

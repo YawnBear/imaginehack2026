@@ -1,8 +1,14 @@
 // Shared domain types for GreenGuard Cloud frontend.
 
-export type ResourceType = "bucket" | "vm" | "storage" | "database";
+export type ResourceType =
+  | "bucket"
+  | "vm"
+  | "storage"
+  | "database"
+  | (string & {});
 export type Category = "security" | "cost" | "energy" | "workflow" | "audit";
 export type Severity = "critical" | "high" | "medium" | "low";
+export type SourceType = "asset_scan" | "cloud_event";
 // Exact backend status enum (app/schemas + governance service).
 export type FindingStatus =
   | "pending_review"
@@ -66,6 +72,9 @@ export interface Recommendation {
   // True when the agent analysis text was rewritten by the external LLM
   // (hybrid AI layer). False/undefined = deterministic template text.
   ai_generated?: boolean;
+  // One merged paragraph synthesizing every selected agent's analysis.
+  // Empty string when the AI layer is off (or no agents ran).
+  agent_summary?: string;
 }
 
 export interface AuditLog {
@@ -90,6 +99,20 @@ export interface DashboardSummary {
   latest_scan_at: string | null;
   findings_by_category: Record<string, number>;
   findings_by_severity: Record<string, number>;
+}
+
+export interface EnergyHistoryPoint {
+  label: string;
+  value_kg: number;
+  timestamp?: string | null;
+}
+
+export interface EnergySummary {
+  current_footprint_kg: number;
+  projected_footprint_kg: number;
+  estimated_reduction_kg: number;
+  by_resource_type: Record<string, number>;
+  history: EnergyHistoryPoint[];
 }
 
 // Matches backend FindingDetail exactly: a nested envelope, NOT a flat finding.
@@ -140,6 +163,7 @@ export interface FindingsQuery {
   status?: FindingStatus;
   resource_type?: ResourceType;
   owner_team?: string;
+  q?: string;
   page?: number;
   page_size?: number;
 }
@@ -149,4 +173,217 @@ export interface ReviewBody {
   reviewer_id: string;
   reviewer_role: string;
   reason: string;
+}
+
+// ---- Custom Rules (SafeCloud Phase 1) ----
+export type ConditionOperator =
+  | "=="
+  | "!="
+  | "<"
+  | "<="
+  | ">"
+  | ">="
+  | "in"
+  | "not_in"
+  | "exists"
+  | "contains";
+
+export interface RuleCondition {
+  field: string;
+  operator: ConditionOperator;
+  value?: unknown;
+}
+
+export interface Rule {
+  rule_id: string;
+  name: string;
+  enabled: boolean;
+  source_type: SourceType;
+  template_key: string;
+  resource_type: ResourceType | null;
+  conditions: RuleCondition[];
+  severity_base: Severity;
+  escalate_in_prod: boolean;
+  rule_confidence: number;
+  category: Category;
+  issue_type: string;
+  required_reviewers: string[];
+  evidence_fields: string[];
+  remediation_action_key: string;
+  remediation_destructive: boolean;
+  agent_keys: string[];
+  created_at: string;
+}
+
+export interface RuleListResponse {
+  items: Rule[];
+  total: number;
+}
+
+export interface RuleTemplate {
+  template_key: string;
+  name: string;
+  description: string;
+  source_type?: SourceType;
+  resource_type: ResourceType;
+  conditions: RuleCondition[];
+  severity_base: Severity;
+  escalate_in_prod: boolean;
+  rule_confidence: number;
+  category: Category;
+  issue_type: string;
+  required_reviewers: string[];
+  evidence_fields: string[];
+  remediation_action_key: string;
+  remediation_destructive: boolean;
+}
+
+export interface ClashWarning {
+  rule_id_a: string;
+  rule_id_b: string;
+  resource_type: string;
+  field: string;
+  message: string;
+}
+
+export interface RuleCreateBody {
+  name: string;
+  source_type?: SourceType;
+  resource_type?: ResourceType;
+  issue_type: string;
+  category: Category;
+  conditions: RuleCondition[];
+  enabled?: boolean;
+  template_key?: string;
+  severity_base?: Severity;
+  escalate_in_prod?: boolean;
+  rule_confidence?: number;
+  required_reviewers?: string[];
+  evidence_fields?: string[];
+  remediation_action_key?: string;
+  remediation_destructive?: boolean;
+  agent_keys?: string[];
+}
+
+export interface RulePreviewResponse {
+  match_count: number;
+  matched_resource_ids: string[];
+}
+
+// ---- Custom Agents (SafeCloud Phase 2) ----
+export interface Agent {
+  agent_id: string;
+  name: string;
+  system_prompt: string;
+  output_key: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface AgentListResponse {
+  items: Agent[];
+  total: number;
+}
+
+export interface AgentCreateBody {
+  name: string;
+  system_prompt: string;
+  enabled?: boolean;
+}
+
+// ---- AI agent builder (describe in NLP -> generated system prompt) ----
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AgentGenerateBody {
+  messages: AgentChatMessage[];
+  current_name?: string;
+  current_system_prompt?: string;
+}
+
+export interface AgentGenerateResponse {
+  /** Conversational explanation / clarifying question for the chat. */
+  reply: string;
+  /** Suggested agent name (may be "" when only asking a question). */
+  name: string;
+  /** Generated SafeCloud-native system prompt (may be ""). */
+  system_prompt: string;
+  /** false when no AI key is configured on the backend. */
+  ai_enabled: boolean;
+}
+
+// ---- Threats (SafeCloud Phase 3) ----
+export interface TimelineEntry {
+  actor: string;
+  action: string;
+  target_resource_id: string;
+  timestamp: string;
+  note: string;
+}
+
+export interface ThreatReport {
+  report_id: string;
+  finding_id: string;
+  criticality_score: number;
+  criticality_factors: Record<string, number>;
+  summary: string;
+  timeline: TimelineEntry[];
+  recommended_solution: string;
+  agent_sections: Record<string, string>;
+  approval_status: string;
+  ai_generated: boolean;
+  generated_at: string;
+}
+
+export interface ThreatListResponse {
+  items: ThreatReport[];
+  total: number;
+}
+
+// ---- Agent online status (SafeCloud Phase 4) ----
+export interface AgentStatus {
+  online: boolean;
+  last_seen: string | null;
+  agent_id: string | null;
+}
+
+export interface ReviewerRoleOption {
+  role: string;
+  label: string;
+}
+
+// ---- Workflows (SafeCloud Phase 7b) ----
+export interface WorkflowRun {
+  ran_at: string | null;
+  finding_count: number;
+  summary: string;
+  agent_outputs: Record<string, string>;
+  ai_generated: boolean;
+}
+
+export interface Workflow {
+  workflow_id: string;
+  name: string;
+  rule_id: string;
+  agent_keys: string[];
+  created_at: string;
+  last_run: WorkflowRun | null;
+}
+
+export interface WorkflowCreateBody {
+  name: string;
+  rule_id: string;
+  agent_keys: string[];
+}
+
+export interface WorkflowListResponse {
+  items: Workflow[];
+  total: number;
+}
+
+export interface WorkflowRunAllResponse {
+  scanned_findings: number;
+  workflows: Workflow[];
 }
