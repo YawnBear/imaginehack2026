@@ -210,6 +210,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
         "Contractors currently use raw URLs. Migrate them to time-boxed signed URLs via the existing drawings portal — minimal disruption.",
       audit:
         "Records a SEC-PUBLIC-BUCKET violation on the LRT3 package. Recommend evidencing the fix for the client's ISO 27001 pack.",
+      remediation:
+        "1. Record current public IAM bindings (gsutil iam get) for rollback.\n2. Confirm no contractor workflow depends on the raw public URL.\n3. Issue scoped, time-boxed signed URLs via the drawings portal.\n4. Revoke only the public grant: gsutil iam ch -d allUsers:objectViewer gs://<bucket>.\n5. Verify anonymous access now 403s and an authorised user still succeeds.\n6. Rollback = re-add the recorded binding. No objects are deleted.",
     },
   },
   "FND-1043": {
@@ -233,6 +235,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
         "Encryption enablement needs a brief maintenance window; coordinate with the site-progress reporting batch (runs 02:00).",
       audit:
         "Closes a PDPA gap. Recommend attaching the KMS key id to the data-protection register.",
+      remediation:
+        "1. Confirm a current, verified backup of site-progress-db-prod exists.\n2. Provision a KMS/CMEK key with rotation in the same region.\n3. Schedule a maintenance window avoiding the 02:00 reporting batch.\n4. Enable CMEK at rest using the new key (no schema change).\n5. Verify the DB is healthy, the app connects, and encryption reads enabled.\n6. Record the KMS key id; rollback = restore the pre-change backup.",
     },
   },
   "FND-1044": {
@@ -257,6 +261,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
         "Notify the BIM coordinator; the node can be restarted from snapshot within ~8 min for the next clash sprint.",
       audit:
         "Logs an idle-VM remediation against the Penang Coastal Highway BIM project for the FinOps review.",
+      remediation:
+        "1. Confirm with the BIM coordinator that no clash run depends on bim-render-node-07.\n2. Take a full disk snapshot first (gcloud compute disks snapshot) for recoverability.\n3. Verify the snapshot completed before stopping anything.\n4. Stop/deallocate the VM (gcloud compute instances stop) — do not delete it.\n5. Note the snapshot id in the audit trail; restart from snapshot in ~8 min when next needed.\n6. Rollback = start the instance again; state and data are intact.",
     },
   },
   "FND-1045": {
@@ -281,6 +287,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
         "Add a lifecycle rule so future drone footage auto-tiers after 90 days of no access.",
       audit:
         "Records the tiering against the closed Johor Industrial Park package; retrieval SLA changes to hours — confirm with claims team.",
+      remediation:
+        "1. Confirm with the project owner the dataset is from a closed package with no retention hold.\n2. Verify the 2.4 TB drone survey data is intact before tiering.\n3. Add a lifecycle rule transitioning STANDARD -> ARCHIVE (retrievable in hours, ~95% cheaper).\n4. Confirm the archived objects are readable.\n5. Add a forward rule so future drone footage auto-tiers after 90 days idle.\n6. Rollback = restore the objects from the archive tier; nothing is deleted.",
     },
   },
   "FND-1046": {
@@ -303,6 +311,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
       workflow:
         "Apply during the nightly low-ingest window; the gateway buffers via the message queue during the brief restart.",
       audit: "Approved on 2026-06-20 — see audit trail for reviewer sign-offs.",
+      remediation:
+        "1. Confirm 30-day peak CPU (6%) and 120 msg/s ingest with the IoT owner.\n2. Snapshot the boot disk before resizing for a clean rollback.\n3. Apply the c3-standard-64 -> c3-standard-8 resize during the nightly low-ingest window.\n4. The gateway buffers via the message queue during the brief restart — verify no telemetry loss after.\n5. Monitor CPU/headroom for one cycle to confirm the smaller instance copes.\n6. Rollback = resize back up to the prior machine type.",
     },
   },
   "FND-1047": {
@@ -326,6 +336,8 @@ export const MOCK_RECOMMENDATIONS: Record<string, Recommendation> = {
         "Deferred pending the commercial team's confirmation of which accounts need upload during the live tender window.",
       audit:
         "Deferral recorded; re-review scheduled after the tender close date.",
+      remediation:
+        "1. Record the current allAuthenticatedUsers:objectAdmin binding for rollback.\n2. Confirm with the commercial team which accounts genuinely need upload during the live tender.\n3. Grant write only to the commercial@ group (scoped IAM binding).\n4. Revoke allAuthenticatedUsers:objectAdmin from the tender archive.\n5. Verify the commercial team can still upload and external accounts cannot.\n6. Rollback = re-add the recorded binding. No tender responses are deleted.",
     },
   },
 };

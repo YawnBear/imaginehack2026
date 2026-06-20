@@ -25,8 +25,16 @@ const DECISIONS: { key: ReviewDecision; label: string; kind: "primary" | "danger
 ];
 
 // Preferred display order; any other agent keys present are appended.
-// Backend keys are lowercase (security/cost/energy/workflow/audit).
-const AGENT_ORDER = ["security", "cost", "energy", "workflow", "audit"];
+// Backend keys are lowercase (security/cost/energy/workflow/audit). The
+// free-form "remediation" key (concrete numbered fix steps) is rendered LAST,
+// after the audit agent, as the concluding "how to fix it" block.
+const AGENT_ORDER = ["security", "cost", "energy", "workflow", "audit", "remediation"];
+
+// Human label for an agent_outputs key. "remediation" is not an agent — it's
+// the concluding numbered fix plan, so it gets a descriptive label.
+function agentLabel(key: string): string {
+  return key.toLowerCase() === "remediation" ? "Remediation steps" : key;
+}
 
 function orderedAgents(outputs: Record<string, string>): string[] {
   const keys = Object.keys(outputs);
@@ -43,7 +51,7 @@ export default function FindingModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { role, reviewerId } = useSession();
+  const { role, reviewerId, autoApprove } = useSession();
   const { toast } = useToast();
   const [detail, setDetail] = useState<FindingDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,6 +59,9 @@ export default function FindingModal({
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [decided, setDecided] = useState<ReviewDecision | null>(null);
+  // True when the last decision was the agent auto-approve (all reviewers in
+  // one action), so the result panel can label it "Auto-approved by agent".
+  const [autoApproved, setAutoApproved] = useState(false);
   // Result of the last review: new status + who still has to approve.
   const [decisionResult, setDecisionResult] = useState<{
     status: FindingStatus;
@@ -95,6 +106,7 @@ export default function FindingModal({
       reason,
     });
     setDecided(decision);
+    setAutoApproved(false);
     setDecisionResult({
       status: res.data.status,
       remaining: res.data.required_reviewers_remaining ?? [],
@@ -117,6 +129,34 @@ export default function FindingModal({
     }
 
     // Refresh the dashboard server components so counts/statuses update live.
+    router.refresh();
+  }
+
+  // Auto-approve: record an `approved` decision for EVERY required reviewer in
+  // one action (autonomy toggle ON). This still only RECORDS approval — the
+  // backend clears the finding once all roles have approved; NOTHING is
+  // executed. We loop the existing PATCH /review once per required role.
+  async function autoApproveAll() {
+    if (!finding) return;
+    setSubmitting(true);
+    let last: { status: FindingStatus; remaining: string[] } | null = null;
+    for (const required of finding.required_reviewers) {
+      const res = await reviewFinding(finding.finding_id, {
+        decision: "approved",
+        reviewer_id: `agent-${required}`,
+        reviewer_role: required,
+        reason: "Auto-approved by agent",
+      });
+      last = {
+        status: res.data.status,
+        remaining: res.data.required_reviewers_remaining ?? [],
+      };
+    }
+    setDecided("approved");
+    setAutoApproved(true);
+    setDecisionResult(last);
+    setSubmitting(false);
+    toast("Auto-approved by agent — all required reviewers signed off; nothing executed", "success");
     router.refresh();
   }
 
@@ -286,18 +326,28 @@ export default function FindingModal({
                   </div>
                   <div className="space-y-2">
                     {orderedAgents(rec.agent_outputs).map((agent) => {
-                      const color =
-                        CATEGORY_COLOR[agent.toLowerCase() as keyof typeof CATEGORY_COLOR] ??
-                        "#606060";
+                      const isRemediation = agent.toLowerCase() === "remediation";
+                      const color = isRemediation
+                        ? "#065FD4"
+                        : CATEGORY_COLOR[agent.toLowerCase() as keyof typeof CATEGORY_COLOR] ??
+                          "#606060";
                       return (
                         <div key={agent} className="flex gap-3 rounded-lg bg-[#F8F8F8] p-3">
                           <span
-                            className="mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-[11px] font-medium capitalize"
+                            className={`mt-0.5 h-fit shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${
+                              isRemediation ? "" : "capitalize"
+                            }`}
                             style={{ background: `${color}1a`, color }}
                           >
-                            {agent}
+                            {agentLabel(agent)}
                           </span>
-                          <p className="text-[13px] leading-relaxed text-[#0F0F0F]">
+                          {/* Remediation is numbered steps — preserve the line
+                              breaks so it reads as an ordered fix plan. */}
+                          <p
+                            className={`text-[13px] leading-relaxed text-[#0F0F0F] ${
+                              isRemediation ? "whitespace-pre-line" : ""
+                            }`}
+                          >
                             {rec.agent_outputs[agent]}
                           </p>
                         </div>
@@ -342,8 +392,17 @@ export default function FindingModal({
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                   <span>
-                    Decision recorded as <strong>{ROLE_LABEL[role]}</strong>:{" "}
-                    <strong className="capitalize">{decided.replace(/_/g, " ")}</strong>.
+                    {autoApproved ? (
+                      <>
+                        <strong>Auto-approved by agent</strong> — recorded an
+                        approval for every required reviewer.
+                      </>
+                    ) : (
+                      <>
+                        Decision recorded as <strong>{ROLE_LABEL[role]}</strong>:{" "}
+                        <strong className="capitalize">{decided.replace(/_/g, " ")}</strong>.
+                      </>
+                    )}
                     {" "}New status:{" "}
                     <span className="capitalize">
                       {(decisionResult?.status ?? decided).replace(/_/g, " ")}
@@ -375,6 +434,7 @@ export default function FindingModal({
                 <button
                   onClick={() => {
                     setDecided(null);
+                    setAutoApproved(false);
                     setDecisionResult(null);
                   }}
                   className="ml-7 mt-1 text-[12px] font-medium text-[#065FD4] hover:underline"
@@ -382,6 +442,37 @@ export default function FindingModal({
                   Record another decision
                 </button>
               </div>
+            ) : autoApprove ? (
+              // Autonomy toggle ON: one action records approval for every
+              // required reviewer. It still only RECORDS approval — nothing is
+              // executed (no apply step exists by design).
+              <>
+                <div className="mb-3 flex items-center gap-2">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{ background: "#2BA64014", color: "#2BA640" }}
+                  >
+                    Auto-approve ON
+                  </span>
+                  <span className="text-[12px] text-[#606060]">
+                    Agent autonomy is enabled in your profile menu.
+                  </span>
+                </div>
+                <button
+                  disabled={submitting || !finding}
+                  onClick={autoApproveAll}
+                  className="h-9 rounded-full bg-[#2BA640] px-4 text-[14px] font-medium text-white hover:bg-[#249238] disabled:opacity-50"
+                >
+                  {submitting
+                    ? "Recording approvals…"
+                    : `Auto-approve (all ${finding?.required_reviewers.length ?? 0} reviewers)`}
+                </button>
+                <p className="mt-2 text-[11px] text-[#606060]">
+                  Records an approval for each required reviewer so the finding clears
+                  immediately. This is an autonomy convenience — it only RECORDS approval;
+                  GreenGuard never executes the cloud action. The audit trail is the end state.
+                </p>
+              </>
             ) : (
               <>
                 <label className="mb-1 block text-[12px] font-medium tracking-label text-[#606060]">
