@@ -15,6 +15,7 @@ real database is never touched by the suite.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Type
 from uuid import uuid4
 
@@ -33,6 +34,7 @@ from sqlalchemy import (
     delete,
     func,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -51,6 +53,7 @@ from app.schemas import (
     ThreatReport,
     Workflow,
 )
+from app.services.scan_sources import build_scan_events_from_asset_rows
 
 _md = MetaData()
 
@@ -377,3 +380,73 @@ class PostgresStore:
             ):
                 return finding
         return None
+
+    def scan_source_events(self) -> list[CloudEvent]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "select * from public.scanned_asset_data "
+                    "order by last_scanned_at desc nulls last"
+                )
+            ).mappings().all()
+        return build_scan_events_from_asset_rows(rows)
+
+    def energy_source_summary(self) -> dict:
+        by_resource_type: dict[str, float] = {}
+        history: list[dict] = []
+        with self._engine.connect() as conn:
+            asset_rows = conn.execute(
+                text(
+                    "select asset_type, estimated_carbon_impact "
+                    "from public.scanned_asset_data"
+                )
+            ).mappings().all()
+            energy_rows = conn.execute(
+                text(
+                    "select time, operation, emission from public.energy "
+                    "order by time"
+                )
+            ).mappings().all()
+
+        for row in asset_rows:
+            kind = _resource_kind(row["asset_type"])
+            if kind is None:
+                continue
+            by_resource_type[kind] = by_resource_type.get(kind, 0) + _float(
+                row["estimated_carbon_impact"]
+            )
+
+        for row in energy_rows:
+            timestamp = row["time"]
+            label = timestamp.strftime("%b %d") if isinstance(timestamp, datetime) else str(row["operation"])
+            history.append(
+                {
+                    "label": label,
+                    "timestamp": timestamp,
+                    "value_kg": _float(row["emission"]),
+                }
+            )
+
+        return {"by_resource_type": by_resource_type, "history": history}
+
+
+def _float(value) -> float:
+    if isinstance(value, Decimal):
+        return float(value)
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _resource_kind(value) -> str | None:
+    text_value = str(value or "").lower()
+    if "bucket" in text_value:
+        return "bucket"
+    if "database" in text_value or text_value in {"db", "rds"}:
+        return "database"
+    if "storage" in text_value or "volume" in text_value or text_value.startswith("disk"):
+        return "storage"
+    if "vm" in text_value or "instance" in text_value or "compute" in text_value:
+        return "vm"
+    return None

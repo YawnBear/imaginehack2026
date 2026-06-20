@@ -6,7 +6,7 @@ import { getFinding, reviewFinding, getThreatReport } from "@/app/lib/api";
 import type { FindingDetail, FindingStatus, ReviewDecision } from "@/app/lib/types";
 import type { ThreatReport } from "@/app/lib/types";
 import { usd, kg, CATEGORY_COLOR, issueLabel } from "@/app/lib/format";
-import { useSession, ROLE_LABEL, type ReviewerRole } from "@/app/lib/session";
+import { useSession, roleLabel, type ReviewerRole } from "@/app/lib/session";
 import { useToast } from "@/app/lib/toast";
 import {
   SeverityBadge,
@@ -76,7 +76,9 @@ export default function FindingModal({
 
   useEffect(() => {
     let active = true;
-    getThreatReport(findingId).then((r) => active && setReport(r.data));
+    getThreatReport(findingId)
+      .then((r) => active && setReport(r.data))
+      .catch(() => active && setReport(null));
     return () => { active = false; };
   }, [findingId]);
 
@@ -114,14 +116,14 @@ export default function FindingModal({
     if (decision === "approved") {
       toast(
         remaining.length > 0
-          ? `Approved as ${ROLE_LABEL[role]} · still needs: ${remaining
-              .map((r) => ROLE_LABEL[r as ReviewerRole] ?? r)
+          ? `Approved as ${roleLabel(role)} · still needs: ${remaining
+              .map((r) => roleLabel(r as ReviewerRole))
               .join(", ")}`
-          : `Approved as ${ROLE_LABEL[role]} · all required reviewers signed off`,
+          : `Approved as ${roleLabel(role)} · all required reviewers signed off`,
         "success",
       );
     } else {
-      toast(`Recorded "${decision.replace(/_/g, " ")}" as ${ROLE_LABEL[role]}`, "info");
+      toast(`Recorded "${decision.replace(/_/g, " ")}" as ${roleLabel(role)}`, "info");
     }
 
     // Refresh the dashboard server components so counts/statuses update live.
@@ -404,7 +406,7 @@ export default function FindingModal({
                     <path d="M5 13l4 4L19 7" />
                   </svg>
                   <span>
-                    Decision recorded as <strong>{ROLE_LABEL[role]}</strong>:{" "}
+                    Decision recorded as <strong>{roleLabel(role)}</strong>:{" "}
                     <strong className="capitalize">{decided.replace(/_/g, " ")}</strong>.
                     {" "}New status:{" "}
                     <span className="capitalize">
@@ -419,7 +421,7 @@ export default function FindingModal({
                       Still needs:{" "}
                       <strong>
                         {decisionResult.remaining
-                          .map((r) => ROLE_LABEL[r as ReviewerRole] ?? r)
+                          .map((r) => roleLabel(r as ReviewerRole))
                           .join(", ")}
                       </strong>
                       . Switch role in the profile menu and approve as each to clear it —

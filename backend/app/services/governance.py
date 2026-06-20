@@ -13,6 +13,8 @@ from app.schemas import (
     AuditLogListResponse,
     CloudEvent,
     DashboardSummary,
+    EnergyHistoryPoint,
+    EnergySummary,
     EventIngestResponse,
     Finding,
     FindingDetail,
@@ -120,6 +122,11 @@ class GovernanceService:
     def ingest_events_from_seed(self) -> EventIngestResponse:
         return self.ingest_events(demo_events(), actor_id="system-seed")
 
+    def run_scan_from_database_sources(self) -> EventIngestResponse:
+        loader = getattr(self.store, "scan_source_events", None)
+        events = loader() if callable(loader) else demo_events()
+        return self.ingest_events(events, actor_id="scan-run")
+
     def list_findings(
         self,
         severity: str | None,
@@ -127,6 +134,7 @@ class GovernanceService:
         status: str | None,
         resource_type: str | None,
         owner_team: str | None,
+        q: str | None,
         page: int,
         page_size: int,
     ) -> FindingListResponse:
@@ -141,6 +149,8 @@ class GovernanceService:
             findings = [item for item in findings if item.resource_type == resource_type]
         if owner_team:
             findings = [item for item in findings if item.owner_team == owner_team]
+        if q:
+            findings = [item for item in findings if _finding_matches(item, q)]
 
         findings.sort(key=lambda item: item.created_at, reverse=True)
         total = len(findings)
@@ -153,6 +163,39 @@ class GovernanceService:
             page_size=page_size,
             total=total,
         )
+
+    def dashboard_energy_summary(self) -> EnergySummary:
+        source_reader = getattr(self.store, "energy_source_summary", None)
+        source = source_reader() if callable(source_reader) else self._in_memory_energy_source()
+        by_resource_type = {
+            key: round(float(value), 2)
+            for key, value in (source.get("by_resource_type") or {}).items()
+        }
+        current_footprint = round(sum(by_resource_type.values()), 2)
+        estimated_reduction = round(
+            sum(
+                item.estimated_carbon_reduction_kg
+                for item in self.store.recommendations.values()
+            ),
+            2,
+        )
+        history = [EnergyHistoryPoint(**item) for item in source.get("history", [])]
+
+        return EnergySummary(
+            current_footprint_kg=current_footprint,
+            projected_footprint_kg=round(max(current_footprint - estimated_reduction, 0), 2),
+            estimated_reduction_kg=estimated_reduction,
+            by_resource_type=by_resource_type,
+            history=history,
+        )
+
+    def reviewer_roles(self) -> list[dict[str, str]]:
+        roles: set[str] = set()
+        for rule in self.store.rules.values():
+            roles.update(rule.required_reviewers)
+        if not roles:
+            roles.update({"security", "devops", "application_owner", "project_owner", "compliance", "dba"})
+        return [{"role": role, "label": _role_label(role)} for role in sorted(roles)]
 
     def get_finding_detail(self, finding_id: str) -> FindingDetail | None:
         finding = self.store.findings.get(finding_id)
@@ -276,6 +319,17 @@ class GovernanceService:
             total=total,
         )
 
+    def _in_memory_energy_source(self) -> dict:
+        by_resource_type: dict[str, float] = {}
+        for event in self.store.events.values():
+            value = event.metrics.get("estimated_carbon_impact")
+            if value is None:
+                value = event.cost.get("estimated_carbon_impact")
+            if value is None:
+                continue
+            by_resource_type[event.resource_type] = by_resource_type.get(event.resource_type, 0) + float(value)
+        return {"by_resource_type": by_resource_type, "history": []}
+
     def _maybe_enrich_recommendation(
         self,
         finding: Finding,
@@ -362,3 +416,39 @@ def _count_by(findings: list[Finding], field_name: str) -> dict[str, int]:
         value = str(getattr(finding, field_name))
         counts[value] = counts.get(value, 0) + 1
     return counts
+
+
+def _finding_matches(finding: Finding, query: str) -> bool:
+    q = query.strip().lower()
+    if not q:
+        return True
+    project_id = finding.evidence.get("project_id", "")
+    haystack = " ".join(
+        str(value)
+        for value in [
+            finding.finding_id,
+            finding.resource_id,
+            finding.resource_name,
+            finding.resource_type,
+            finding.issue_type,
+            finding.category,
+            finding.severity,
+            finding.status,
+            finding.owner_team,
+            project_id,
+        ]
+        if value is not None
+    ).lower()
+    return q in haystack
+
+
+def _role_label(role: str) -> str:
+    labels = {
+        "security": "Security",
+        "devops": "DevOps",
+        "application_owner": "Application Owner",
+        "project_owner": "Project Owner",
+        "compliance": "Compliance",
+        "dba": "Database Admin",
+    }
+    return labels.get(role, role.replace("_", " ").title())

@@ -9,7 +9,10 @@ export default function AgentStatusChip() {
 
   useEffect(() => {
     let active = true;
-    const poll = () => getAgentStatus().then((r) => active && setStatus(r.data));
+    const poll = () =>
+      getAgentStatus()
+        .then((r) => active && setStatus(r.data))
+        .catch(() => active && setStatus({ online: false, last_seen: null, agent_id: null }));
     poll();
     const id = setInterval(poll, 8000);
     return () => {

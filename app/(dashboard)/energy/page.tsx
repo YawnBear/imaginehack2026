@@ -1,4 +1,4 @@
-import { getFindings, getFinding } from "@/app/lib/api";
+import { getEnergySummary } from "@/app/lib/api";
 import { PageHeader } from "@/app/components/layout-bits";
 import { Card, SectionTitle, MockBanner, EstimateNote } from "@/app/components/ui";
 import { AreaLineChart, BarChart, type Slice } from "@/app/components/charts";
@@ -8,25 +8,8 @@ import { IconLeaf } from "@/app/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function EnergyPage() {
-  const [costRes, energyRes] = await Promise.all([
-    getFindings({ category: "cost", page_size: 50 }),
-    getFindings({ category: "energy", page_size: 50 }),
-  ]);
-  const findings = [...costRes.data.items, ...energyRes.data.items];
-  const mock = costRes.mock || energyRes.mock;
-
-  const details = await Promise.all(
-    findings.map((f) => getFinding(f.finding_id).catch(() => null)),
-  );
-
-  // Aggregate estimated carbon reduction by resource type.
-  const byType: Record<string, number> = {};
-  let totalReduction = 0;
-  for (let i = 0; i < findings.length; i++) {
-    const red = details[i]?.data.recommendation?.estimated_carbon_reduction_kg ?? 0;
-    totalReduction += red;
-    byType[findings[i].resource_type] = (byType[findings[i].resource_type] ?? 0) + red;
-  }
+  const res = await getEnergySummary();
+  const summary = res.data;
 
   const typeColors: Record<string, string> = {
     vm: "#FB8C00",
@@ -34,16 +17,17 @@ export default async function EnergyPage() {
     database: "#606060",
     bucket: "#FF0000",
   };
-  const energyBars: Slice[] = Object.entries(byType)
+  const energyBars: Slice[] = Object.entries(summary.by_resource_type)
     .filter(([, v]) => v > 0)
     .map(([k, v]) => ({ label: k, value: Math.round(v), color: typeColors[k] ?? "#606060" }));
 
-  // Synthetic 8-month footprint trend (estimated). Last point dips after approvals.
-  const trend = [612, 598, 631, 645, 620, 604, 588, 588 - Math.round(totalReduction)];
-  const trendLabels = ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-
-  const beforeFootprint = 588;
-  const afterFootprint = Math.max(beforeFootprint - Math.round(totalReduction), 0);
+  const trend = summary.history.map((point) => Math.round(point.value_kg));
+  const trendLabels = summary.history.map((point) => point.label);
+  const beforeFootprint = Math.round(summary.current_footprint_kg);
+  const afterFootprint = Math.round(summary.projected_footprint_kg);
+  const totalReduction = Math.round(summary.estimated_reduction_kg);
+  const reductionPct =
+    beforeFootprint > 0 ? Math.round((totalReduction / beforeFootprint) * 100) : 0;
 
   return (
     <div className="space-y-5">
@@ -56,18 +40,28 @@ export default async function EnergyPage() {
           </span>
         }
       />
-      {mock && <MockBanner reason={costRes.error} />}
+      {res.mock && <MockBanner reason={res.error} />}
 
       <Card>
         <div className="flex items-center justify-between">
           <SectionTitle>Estimated monthly carbon footprint</SectionTitle>
-          <span className="text-[12px] text-[#606060]">kg CO₂e / month · estimate</span>
+          <span className="text-[12px] text-[#606060]">kg CO2e / month - estimate</span>
         </div>
         <div className="mt-4">
-          <AreaLineChart values={trend} labels={trendLabels} height={220} unit="kg CO₂e" />
+          {trend.length > 0 ? (
+            <AreaLineChart values={trend} labels={trendLabels} height={220} unit="kg CO2e" />
+          ) : (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-lg border border-dashed border-[#E5E5E5] bg-[#F8F8F8] text-center">
+              <p className="text-[14px] font-medium text-[#0F0F0F]">No energy history yet</p>
+              <p className="mt-1 max-w-sm text-[12px] text-[#606060]">
+                The database has no time-series energy rows, so the chart will appear after
+                energy measurements are recorded.
+              </p>
+            </div>
+          )}
         </div>
         <p className="mt-2 text-[12px] text-[#606060]">
-          The final point reflects the projected footprint <strong>after</strong> approving the
+          History comes from recorded energy data. Projected reduction is calculated from
           current pending recommendations.
         </p>
       </Card>
@@ -82,10 +76,8 @@ export default async function EnergyPage() {
           <div className="mt-5 flex items-center gap-2 rounded-lg bg-[#2BA6400D] p-3">
             <IconLeaf width={20} height={20} className="text-[#2BA640]" />
             <p className="text-[13px] text-[#0F0F0F]">
-              <strong>{kg(Math.round(totalReduction))} CO₂e / month</strong> avoided once approved
-              — about{" "}
-              <strong>{Math.round((totalReduction / beforeFootprint) * 100)}%</strong> of the
-              current estimated footprint.
+              <strong>{kg(totalReduction)} CO2e / month</strong> avoided once approved,
+              {" "}about <strong>{reductionPct}%</strong> of the current estimated footprint.
             </p>
           </div>
         </Card>
@@ -93,7 +85,7 @@ export default async function EnergyPage() {
         <Card>
           <SectionTitle>Energy impact by resource type</SectionTitle>
           <p className="mb-4 mt-1 text-[12px] text-[#606060]">
-            Estimated CO₂e reduction available per resource class (kg / month).
+            Current estimated CO2e footprint by resource class (kg / month).
           </p>
           <BarChart data={energyBars} unit=" kg" height={170} />
         </Card>
@@ -103,11 +95,10 @@ export default async function EnergyPage() {
         <SectionTitle>How we estimate carbon</SectionTitle>
         <p className="mt-2 text-[13px] leading-relaxed text-[#606060]">
           Carbon estimates use{" "}
-          <span className="font-mono text-[#0F0F0F]">kWh × grid carbon-intensity</span> with{" "}
+          <span className="font-mono text-[#0F0F0F]">kWh x grid carbon-intensity</span> with{" "}
           <strong>Cloud Carbon Footprint</strong> coefficients. Instance energy is derived from
-          machine-type power draw and utilisation; the grid factor for{" "}
-          <span className="font-mono text-[#0F0F0F]">asia-southeast1</span> is ≈ 0.40 kg CO₂e/kWh.
-          All figures are directional estimates to guide prioritisation, not billed measurements.
+          machine-type power draw and utilisation. All figures are directional estimates to guide
+          prioritisation, not billed measurements.
         </p>
       </Card>
 
@@ -127,12 +118,12 @@ function BeforeAfterBar({
   max: number;
   color: string;
 }) {
-  const pct = Math.round((value / max) * 100);
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[13px]">
         <span className="text-[#606060]">{label}</span>
-        <span className="font-medium text-[#0F0F0F]">{value} kg CO₂e</span>
+        <span className="font-medium text-[#0F0F0F]">{value} kg CO2e</span>
       </div>
       <div className="h-4 w-full overflow-hidden rounded-full bg-[#F2F2F2]">
         <div
