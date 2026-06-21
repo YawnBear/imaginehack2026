@@ -95,3 +95,37 @@ def test_preview_counts_matches():
     )
     assert result.match_count == 1
     assert "bucket-1" in result.matched_resource_ids
+
+
+def test_preview_does_not_filter_by_source_type():
+    svc = _service()
+    asset = CloudEvent(
+        event_id="asset-1",
+        source_type="asset_scan",
+        account_id="acct-1",
+        resource_id="bucket-1",
+        resource_type="bucket",
+        timestamp=datetime.now(UTC),
+        config={"status": "Failed"},
+    )
+    cloud = CloudEvent(
+        event_id="cloud-1",
+        source_type="cloud_event",
+        account_id="acct-1",
+        resource_id="arn:aws:iam::acct-1:user/alex",
+        resource_type="identity",
+        timestamp=datetime.now(UTC),
+        config={"status": "Failed"},
+    )
+    svc.store.events = {asset.event_id: asset, cloud.event_id: cloud}
+
+    result = svc.preview(
+        resource_type=None,
+        conditions=[RuleCondition(field="config.status", operator="!=", value="Success")],
+    )
+
+    assert result.match_count == 2
+    assert result.matched_resource_ids == [
+        "bucket-1",
+        "arn:aws:iam::acct-1:user/alex",
+    ]

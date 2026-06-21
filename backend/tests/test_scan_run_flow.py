@@ -170,6 +170,49 @@ def test_run_scan_without_matching_workflows_does_not_run_agents(monkeypatch):
     assert result.agent_runs == 0
 
 
+def test_run_scan_runs_legacy_failed_login_workflow(monkeypatch):
+    store = InMemoryStore()
+    now = datetime(2026, 6, 20, tzinfo=UTC)
+    store.rules["RULE_FAILED_LOGIN_LEGACY"] = Rule(
+        rule_id="RULE_FAILED_LOGIN_LEGACY",
+        name="Failed Login Attempt",
+        resource_type="identity",
+        issue_type="failed_login",
+        category="security",
+        conditions=[
+            RuleCondition(field="config.action", operator="==", value="ConsoleLogin"),
+            RuleCondition(field="config.status", operator="!=", value="Success"),
+        ],
+        created_at=now,
+    )
+    store.agents["audit"] = Agent(
+        agent_id="agent-audit",
+        name="Audit",
+        system_prompt="Analyze audit impact.",
+        output_key="audit",
+        created_at=now,
+    )
+    _add_workflow(store, "wf-login", "RULE_FAILED_LOGIN_LEGACY", ["audit"])
+
+    service = GovernanceService(store)
+    store.scan_source_rows = lambda: []
+    store.cloud_event_source_rows = lambda: [_cloud_row()]
+
+    monkeypatch.setattr(
+        "app.services.governance.generate_agent_analysis",
+        lambda finding, recommendation, agents, context=None: {
+            agent.output_key: "analysis" for agent in agents
+        },
+    )
+
+    result = service.run_scan_from_database_sources()
+
+    assert result.created_findings == 1
+    assert result.agent_runs == 1
+    assert store.workflows["wf-login"].last_run is not None
+    assert store.workflows["wf-login"].last_run.finding_count == 1
+
+
 def test_energy_summary_uses_operation_history_and_table_totals():
     store = InMemoryStore()
     service = GovernanceService(store)

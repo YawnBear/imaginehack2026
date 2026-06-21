@@ -60,6 +60,32 @@ def test_wrong_resource_type_is_skipped():
     assert evaluate_event(bucket, [_rule()]) == []
 
 
+def test_rule_source_type_does_not_skip_matching_event():
+    event = CloudEvent(
+        event_id="cloud-1",
+        source_type="cloud_event",
+        account_id="a",
+        resource_id="arn:aws:iam::a:user/alex",
+        resource_type="identity",
+        timestamp=_now(),
+        config={"action": "ConsoleLogin", "status": "Failed"},
+    )
+    rule = _rule(
+        resource_type="identity",
+        issue_type="failed_login",
+        category="security",
+        conditions=[
+            RuleCondition(field="config.action", operator="==", value="ConsoleLogin"),
+            RuleCondition(field="config.status", operator="!=", value="Success"),
+        ],
+    )
+
+    matches = evaluate_event(event, [rule])
+
+    assert len(matches) == 1
+    assert matches[0].issue_type == "failed_login"
+
+
 def test_prod_escalation():
     assert build_match(_vm(env="production"), _rule()).severity == "high"
     assert build_match(_vm(env="staging"), _rule()).severity == "medium"

@@ -67,7 +67,9 @@ class RuleService:
         return True
 
     def preview(
-        self, resource_type: str, conditions: list[RuleCondition]
+        self,
+        resource_type: str | None,
+        conditions: list[RuleCondition],
     ) -> RulePreviewResponse:
         matched: list[str] = []
         for event in self.store.events.values():

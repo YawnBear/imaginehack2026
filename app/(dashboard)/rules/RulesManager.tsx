@@ -171,6 +171,7 @@ function RuleWizard({
 
   function setCond(i: number, patch: Partial<RuleCondition>) {
     setConditions((cs) => cs.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+    setPreview(null);
   }
 
   async function runPreview() {
